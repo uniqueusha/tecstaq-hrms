@@ -51,4 +51,62 @@ async function updateHelper(table, idColumn, idValue, data) {
     }
 }
 
-module.exports = { updateHelper };
+/**
+ * Update header + details
+ */
+async function updateWithDetails(
+    headerTable,
+    headerId,
+    headerData,
+    detailTable,
+    detailsData,
+    foreignKeyName,
+    headerPrimaryKey = "id",  // header table PK
+    detailPrimaryKey = "id"   // detail table PK
+) {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        // Update header
+        if (headerData && Object.keys(headerData).length > 0) {
+            const headerColumns = Object.keys(headerData)
+                .map(col => `${col} = ?`)
+                .join(", ");
+            const headerValues = Object.values(headerData);
+
+            await conn.query(
+                `UPDATE ${headerTable} SET ${headerColumns} WHERE ${headerPrimaryKey} = ?`,
+                [...headerValues, headerId]
+            );
+        }
+
+        // Delete old details
+        await conn.query(
+            `DELETE FROM ${detailTable} WHERE ${foreignKeyName} = ?`,
+            [headerId]
+        );
+
+        // Insert new details
+        if (Array.isArray(detailsData) && detailsData.length > 0) {
+            for (const detail of detailsData) {
+                detail[foreignKeyName] = headerId;
+            }
+            await conn.query(
+                `INSERT INTO ${detailTable} (${Object.keys(detailsData[0]).join(", ")}) VALUES ?`,
+                [detailsData.map(obj => Object.values(obj))]
+            );
+        }
+
+        await conn.commit();
+        return { success: true };
+    } catch (error) {
+        await conn.rollback();
+        throw error;
+    } finally {
+        conn.release();
+    }
+}
+
+
+module.exports = {updateHelper, updateWithDetails };

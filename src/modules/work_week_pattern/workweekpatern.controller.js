@@ -4,7 +4,7 @@
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
  
-async function createCompany(req, res) {
+async function create_work_week_pattern(req, res) {
     try {
           const userId = req.user?.user_id;
 
@@ -15,30 +15,29 @@ async function createCompany(req, res) {
             return res.status(401).json({ success: false, message: 'User not authenticated' });
         }
         else{
-        const { name, address, email, phone, status } = req.body;
+        const { company_id, pattern_name, working_days, weekly_hours, remarks,status } = req.body;
 
-       const result = await insertHelper(
-            'company',
-            { name, email,phone },           // columns to check
+        const result = await insertHelper(
+            'work_week_pattern',
+            { pattern_name},           // columns to check
             {
-                name,
-                address,
-                email,
-                phone,
+                company_id,
+                pattern_name,
+                working_days,
+                weekly_hours,
                 status,
+                remarks,
                 user_id: userId
             },
             {
-                name: 'Company Name',
-                email: 'Email Address',
-                phone:'Phone'
+                name: 'pattern_name'
             } 
         );
 
         res.json({
             success: true,
             company_id: result.insertId,
-            message: 'Company created successfully'
+            message: 'work_week_pattern created successfully'
         });    
         }
         
@@ -47,18 +46,18 @@ async function createCompany(req, res) {
     }
 }
 
-async function listCompanies(req, res) {
+async function listwork_week_pattern(req, res) {
    try {
         const { page, limit, search, status } = req.query;
 
         const result = await listHelper(
-            'company',
+            'work_week_pattern',
             status ? { status } : {}, // Exact match filters
             null, // No ID → list mode
             {
                 page: parseInt(page) || 1,
                 limit: parseInt(limit) || 10,
-                searchColumns: ['name', 'email', 'phone'] // ✅ No 'status' here
+                searchColumns: ['pattern_name'] // ✅ No 'status' here
             },
             search || null // Search keyword
          );
@@ -70,14 +69,14 @@ async function listCompanies(req, res) {
     }
 }
 
-async function getCompanyById(req, res) {
+async function getwork_week_patternById(req, res) {
      try {
         const { id } = req.params;
 
-        const result = await listHelper('company', {}, Number(id));
+        const result = await listHelper('work_week_pattern', {}, Number(id));
 
         if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'Company not found' });
+            return res.status(404).json({ success: false, message: 'work_week_pattern not found' });
         }
 
         res.json({ success: true, data: result.data[0] });
@@ -87,21 +86,21 @@ async function getCompanyById(req, res) {
 }
 
 
-async function updateCompany(req, res) {
+async function updatework_week_pattern(req, res) {
     try {
         const { id } = req.params;
-        const { name, address, email, phone, status } = req.body;
+        const { company_id, pattern_name, working_days, weekly_hours, remarks,status } = req.body;
 
         const updatedCompany = await updateHelper(
-            'company',       // table
-            'company_id',    // primary key column
+            'work_week_pattern',       // table
+            'work_week_pattern_id',    // primary key column
             id,              // primary key value
-            { name, address, email, phone, status } // fields to update
+            { company_id, pattern_name, working_days, weekly_hours, remarks,status } // fields to update
         );
 
         res.json({
             success: true,
-            message: 'Company updated successfully',
+            message: 'Work Week Pattern Updated successfully',
             data: updatedCompany
         });
     } catch (err) {
@@ -109,24 +108,24 @@ async function updateCompany(req, res) {
     }
 }
 
-async function deleteCompany(req, res) {
+async function deletework_week_pattern(req, res) {
     try {
-        const result = await deleteHelper('company', 'company_id', req.params.id);
+        const result = await deleteHelper('work_week_pattern', 'work_week_pattern_id', req.params.id);
         res.json(result);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
 
-async function companyDropdown(req, res) {
+async function work_week_patternDropdown(req, res) {
 
-    console.log('HIT: companyDropdown'); // in companyDropdown
+    console.log('HIT: work_week_patternDropdown'); // in companyDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(
-            'company',      // table name
-            'company_id',   // primary key column
-            'name',         // display column
+            'work_week_pattern',      // table name
+            'work_week_pattern_id',   // primary key column
+            'pattern_name',         // display column
             { status:  1},  // filters
             search || null, // search term
             10              // limit
@@ -139,4 +138,7 @@ async function companyDropdown(req, res) {
 }
 
 
-module.exports = { createCompany, listCompanies, getCompanyById, updateCompany,deleteCompany,companyDropdown };
+
+
+
+module.exports = { create_work_week_pattern, listwork_week_pattern, getwork_week_patternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown };

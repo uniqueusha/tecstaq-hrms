@@ -1,53 +1,57 @@
-const pool = require('./db');
+const pool = require('./db'); // adjust path if needed
+
 /**
- * Generic list helper for any table
+ * Generic List Helper
  * @param {string} table - Table name
- * @param {object} filters - Exact match filters { colName: value }
- * @param {number|null} id - Fetch single record by table_id if provided
- * @param {object} options - { page, limit, searchColumns[] }
+ * @param {object} filters - Exact match filters (e.g., {status: 1})
+ * @param {number|null} id - If provided, fetch single record
+ * @param {object} options - Pagination, searchColumns, etc.
  * @param {string|null} searchTerm - Search keyword
  */
 async function listHelper(table, filters = {}, id = null, options = {}, searchTerm = null) {
     try {
         let query = `SELECT * FROM ${table}`;
         const params = [];
+        let whereClauses = [];
 
-        //  If ID provided → fetch single record
+        // 1️⃣ If ID provided → fetch single record
         if (id) {
-            query += ` WHERE ${table}_id = ?`;
+            const primaryKey = `${table}_id`; // Primary key naming convention
+            query += ` WHERE ${primaryKey} = ?`;
             params.push(id);
             const [rows] = await pool.query(query, params);
             return { data: rows };
         }
 
-        let whereClauses = [];
-
-        // 🔹 Add exact match filters
+        // 2️⃣ Exact match filters
         for (const [col, value] of Object.entries(filters)) {
             whereClauses.push(`${col} = ?`);
             params.push(value);
         }
 
-        //  Add dynamic search conditions
+        // 3️⃣ Text search only in allowed columns (exclude exact-match ones like 'status')
         if (searchTerm && options.searchColumns && options.searchColumns.length > 0) {
-            const searchConditions = options.searchColumns.map(col => `${col} LIKE ?`).join(' OR ');
-            whereClauses.push(`(${searchConditions})`);
-            options.searchColumns.forEach(() => {
-                params.push(`%${searchTerm}%`);
-            });
+            const textSearchColumns = options.searchColumns.filter(col => !Object.keys(filters).includes(col));
+            if (textSearchColumns.length > 0) {
+                const searchConditions = textSearchColumns.map(col => `${col} LIKE ?`).join(' OR ');
+                whereClauses.push(`(${searchConditions})`);
+                textSearchColumns.forEach(() => {
+                    params.push(`%${searchTerm}%`);
+                });
+            }
         }
 
-        //  Apply WHERE clause if needed
+        // 4️⃣ Apply WHERE clause
         if (whereClauses.length > 0) {
             query += ` WHERE ` + whereClauses.join(' AND ');
         }
 
-        //  Pagination - By Default 10
+        // 5️⃣ Pagination
         const page = options.page || 1;
         const limit = options.limit || 10;
         const offset = (page - 1) * limit;
 
-        // Count total
+        // Count query
         const countQuery = `SELECT COUNT(*) AS total FROM ${table}` +
             (whereClauses.length > 0 ? ` WHERE ` + whereClauses.join(' AND ') : '');
         const [countRows] = await pool.query(countQuery, params);
@@ -66,10 +70,54 @@ async function listHelper(table, filters = {}, id = null, options = {}, searchTe
             totalPages,
             currentPage: page
         };
-
     } catch (err) {
         throw err;
     }
 }
 
-module.exports = { listHelper };
+async function getHeaderWithDetailsById(
+  headerTable,            // e.g. "holiday_calendar"
+  detailTable,            // e.g. "holiday_calendar_details"
+  headerPk,               // e.g. "holiday_calendar_id"
+  detailFk,               // e.g. "holiday_calendar_id"
+  id
+) {
+  const query = `
+    SELECT h.*, d.* 
+    FROM ${headerTable} h
+    LEFT JOIN ${detailTable} d
+      ON h.${headerPk} = d.${detailFk}
+    WHERE h.${headerPk} = ?
+  `;
+
+  const [rows] = await pool.query(query, [id]);
+  if (!rows.length) return null;
+
+  // build header object from first row
+  const header = {};
+  Object.keys(rows[0]).forEach(col => {
+    if (!col.startsWith(detailTable)) header[col] = rows[0][col];
+  });
+  header.details = [];
+
+  // details
+  rows.forEach(row => {
+    const detail = {};
+    Object.keys(row).forEach(col => {
+      if (col in row && row[col] !== null && col in row) {
+        // pick only detail table columns
+        if (Object.keys(row).includes(col)) {
+          detail[col] = row[col];
+        }
+      }
+    });
+    if (Object.values(detail).some(v => v !== null)) {
+      header.details.push(detail);
+    }
+  });
+
+  return header;
+}
+
+
+module.exports = { listHelper,getHeaderWithDetailsById };

@@ -6,7 +6,7 @@ const { listCompanies  } = require('./company.controller');
 const { getCompanyById  } = require('./company.controller');
 const { updateCompany } = require('./company.controller');
 const { deleteCompany } = require('./company.controller');
-
+const { companyDropdown } = require('./company.controller');
 
 
 // Creare New Company
@@ -15,6 +15,8 @@ router.post('/',verifyToken, createCompany);
 // Get company list
 router.get('/list', verifyToken, listCompanies);
 
+// Dropdown company and get by id at dropdown
+router.get('/dropdown', verifyToken, companyDropdown);
 
 // Get company by id
 router.get('/:id', verifyToken, getCompanyById); 
@@ -24,5 +26,7 @@ router.put('/:id', verifyToken, updateCompany);
 
 // Delete company update by id
 router.delete('/:id', verifyToken, deleteCompany);
+
+
 
 module.exports = router;

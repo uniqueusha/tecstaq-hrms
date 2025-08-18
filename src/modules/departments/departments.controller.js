@@ -4,7 +4,7 @@
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
  
-async function createCompany(req, res) {
+async function createDepartments(req, res) {
     try {
           const userId = req.user?.user_id;
 
@@ -15,30 +15,27 @@ async function createCompany(req, res) {
             return res.status(401).json({ success: false, message: 'User not authenticated' });
         }
         else{
-        const { name, address, email, phone, status } = req.body;
+        const { company_id, department_name, description, status } = req.body;
 
-       const result = await insertHelper(
-            'company',
-            { name, email,phone },           // columns to check
+        const result = await insertHelper(
+            'departments',
+            { department_name},           // columns to check
             {
-                name,
-                address,
-                email,
-                phone,
+                company_id,
+                department_name,
+                description,
                 status,
                 user_id: userId
             },
             {
-                name: 'Company Name',
-                email: 'Email Address',
-                phone:'Phone'
+                name: 'Department Name'
             } 
         );
 
         res.json({
             success: true,
             company_id: result.insertId,
-            message: 'Company created successfully'
+            message: 'Department created successfully'
         });    
         }
         
@@ -47,18 +44,18 @@ async function createCompany(req, res) {
     }
 }
 
-async function listCompanies(req, res) {
+async function listDepartments(req, res) {
    try {
         const { page, limit, search, status } = req.query;
 
         const result = await listHelper(
-            'company',
+            'departments',
             status ? { status } : {}, // Exact match filters
             null, // No ID → list mode
             {
                 page: parseInt(page) || 1,
                 limit: parseInt(limit) || 10,
-                searchColumns: ['name', 'email', 'phone'] // ✅ No 'status' here
+                searchColumns: ['department_name'] // ✅ No 'status' here
             },
             search || null // Search keyword
          );
@@ -70,14 +67,14 @@ async function listCompanies(req, res) {
     }
 }
 
-async function getCompanyById(req, res) {
+async function getDepartmentById(req, res) {
      try {
         const { id } = req.params;
 
-        const result = await listHelper('company', {}, Number(id));
+        const result = await listHelper('departments', {}, Number(id));
 
         if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'Company not found' });
+            return res.status(404).json({ success: false, message: 'Department not found' });
         }
 
         res.json({ success: true, data: result.data[0] });
@@ -87,21 +84,21 @@ async function getCompanyById(req, res) {
 }
 
 
-async function updateCompany(req, res) {
+async function updateDepartments(req, res) {
     try {
         const { id } = req.params;
-        const { name, address, email, phone, status } = req.body;
+        const { company_id, department_name, description, status } = req.body;
 
         const updatedCompany = await updateHelper(
-            'company',       // table
-            'company_id',    // primary key column
+            'departments',       // table
+            'departments_id',    // primary key column
             id,              // primary key value
-            { name, address, email, phone, status } // fields to update
+            { company_id, department_name, description, status } // fields to update
         );
 
         res.json({
             success: true,
-            message: 'Company updated successfully',
+            message: 'Department updated successfully',
             data: updatedCompany
         });
     } catch (err) {
@@ -109,24 +106,24 @@ async function updateCompany(req, res) {
     }
 }
 
-async function deleteCompany(req, res) {
+async function deleteDepartments(req, res) {
     try {
-        const result = await deleteHelper('company', 'company_id', req.params.id);
+        const result = await deleteHelper('departments', 'departments_id', req.params.id);
         res.json(result);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
 
-async function companyDropdown(req, res) {
+async function departmentsDropdown(req, res) {
 
-    console.log('HIT: companyDropdown'); // in companyDropdown
+    console.log('HIT: departmentsDropdown'); // in companyDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(
-            'company',      // table name
-            'company_id',   // primary key column
-            'name',         // display column
+            'departments',      // table name
+            'departments_id',   // primary key column
+            'department_name',         // display column
             { status:  1},  // filters
             search || null, // search term
             10              // limit
@@ -139,4 +136,4 @@ async function companyDropdown(req, res) {
 }
 
 
-module.exports = { createCompany, listCompanies, getCompanyById, updateCompany,deleteCompany,companyDropdown };
+module.exports = { createDepartments, listDepartments, getDepartmentById, updateDepartments,deleteDepartments,departmentsDropdown };

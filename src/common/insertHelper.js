@@ -7,6 +7,17 @@
  * @param {object} data - Data to insert
  * @param {object} [columnLabels] - Optional mapping from DB column names to user-friendly names
  */
+
+/**
+ * Insert into any header/detail tables with PK/FK relationship
+ * @param {string} headerTable - name of header table
+ * @param {Object} headerData - key/value pairs for header insert
+ * @param {string} detailTable - name of detail table
+ * @param {Array} detailsData - array of objects (rows for detail insert)
+ * @param {string} foreignKeyName - FK column in detailTable pointing to header PK
+ * @returns {Promise<Object>} inserted IDs
+ */
+
 async function insertHelper(table, uniqueChecks, data, columnLabels = {}) {
     try {
         let duplicateColumns = [];
@@ -43,4 +54,49 @@ async function insertHelper(table, uniqueChecks, data, columnLabels = {}) {
     }
 }
 
-module.exports = { insertHelper };
+
+async function insertWithDetails(headerTable, headerData, detailTable, detailsData, foreignKeyName) {
+    const conn = await db.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        // Insert into header
+        const headerColumns = Object.keys(headerData).join(', ');
+        const headerValues = Object.values(headerData);
+        const headerPlaceholders = Object.keys(headerData).map(() => '?').join(', ');
+
+        const [headerResult] = await conn.query(
+            `INSERT INTO ${headerTable} (${headerColumns}) VALUES (${headerPlaceholders})`,
+            headerValues
+        );
+
+        const headerId = headerResult.insertId;
+
+        // Insert into details
+        if (detailsData && detailsData.length > 0) {
+            for (const row of detailsData) {
+                row[foreignKeyName] = headerId; // attach FK
+
+                const detailColumns = Object.keys(row).join(', ');
+                const detailValues = Object.values(row);
+                const detailPlaceholders = Object.keys(row).map(() => '?').join(', ');
+
+                await conn.query(
+                    `INSERT INTO ${detailTable} (${detailColumns}) VALUES (${detailPlaceholders})`,
+                    detailValues
+                );
+            }
+        }
+
+        await conn.commit();
+        return { success: true, header_id: headerId };
+
+    } catch (error) {
+        await conn.rollback();
+        throw error;
+    } finally {
+        conn.release();
+    }
+}
+
+module.exports = { insertHelper, insertWithDetails};

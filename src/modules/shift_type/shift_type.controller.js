@@ -4,7 +4,7 @@
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
  
-async function createCompany(req, res) {
+async function createshift_type(req, res) {
     try {
           const userId = req.user?.user_id;
 
@@ -15,30 +15,30 @@ async function createCompany(req, res) {
             return res.status(401).json({ success: false, message: 'User not authenticated' });
         }
         else{
-        const { name, address, email, phone, status } = req.body;
+        const { company_id,	shift_type_name,start_time,end_time,break_minutes,description, status } = req.body;
 
        const result = await insertHelper(
-            'company',
-            { name, email,phone },           // columns to check
+            'shift_type_header',
+            { shift_type_name },           // columns to check
             {
-                name,
-                address,
-                email,
-                phone,
+                company_id,
+                shift_type_name,
+                start_time,
+                end_time,
+                break_minutes,
+                description,
                 status,
                 user_id: userId
             },
             {
-                name: 'Company Name',
-                email: 'Email Address',
-                phone:'Phone'
+                shift_type_name: 'Shift Type'            
             } 
         );
 
         res.json({
             success: true,
-            company_id: result.insertId,
-            message: 'Company created successfully'
+            shift_type_id: result.insertId,
+            message: 'Shift Type created successfully'
         });    
         }
         
@@ -47,18 +47,18 @@ async function createCompany(req, res) {
     }
 }
 
-async function listCompanies(req, res) {
+async function listshift_type(req, res) {
    try {
         const { page, limit, search, status } = req.query;
 
         const result = await listHelper(
-            'company',
+            'shift_type_header',
             status ? { status } : {}, // Exact match filters
             null, // No ID → list mode
             {
                 page: parseInt(page) || 1,
                 limit: parseInt(limit) || 10,
-                searchColumns: ['name', 'email', 'phone'] // ✅ No 'status' here
+                searchColumns: ['shift_type_name'] // ✅ No 'status' here
             },
             search || null // Search keyword
          );
@@ -70,14 +70,14 @@ async function listCompanies(req, res) {
     }
 }
 
-async function getCompanyById(req, res) {
+async function getshift_typeById(req, res) {
      try {
         const { id } = req.params;
 
-        const result = await listHelper('company', {}, Number(id));
+        const result = await listHelper('shift_type_header', {}, Number(id));
 
         if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'Company not found' });
+            return res.status(404).json({ success: false, message: 'shift_type not found' });
         }
 
         res.json({ success: true, data: result.data[0] });
@@ -87,46 +87,54 @@ async function getCompanyById(req, res) {
 }
 
 
-async function updateCompany(req, res) {
+async function updateshift_type(req, res) {
     try {
+        const userId = req.user?.user_id;
         const { id } = req.params;
-        const { name, address, email, phone, status } = req.body;
+       const { company_id,	shift_type_name,start_time,end_time,break_minutes,description, status } = req.body;
 
-        const updatedCompany = await updateHelper(
-            'company',       // table
-            'company_id',    // primary key column
+        const updatedshift_type = await updateHelper(
+            'shift_type_header',       // table
+            'shift_type_header_id',    // primary key column
             id,              // primary key value
-            { name, address, email, phone, status } // fields to update
+            { company_id,
+                shift_type_name,
+                start_time,
+                end_time,
+                break_minutes,
+                description,
+                status,
+                user_id: userId } // fields to update
         );
 
         res.json({
             success: true,
-            message: 'Company updated successfully',
-            data: updatedCompany
+            message: 'Shift Type updated successfully',
+            data: updatedshift_type
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
 
-async function deleteCompany(req, res) {
+async function deleteshift_type(req, res) {
     try {
-        const result = await deleteHelper('company', 'company_id', req.params.id);
+        const result = await deleteHelper('shift_type_header', 'shift_type_header_id', req.params.id);
         res.json(result);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
 
-async function companyDropdown(req, res) {
+async function shift_typeDropdown(req, res) {
 
-    console.log('HIT: companyDropdown'); // in companyDropdown
+    console.log('HIT: shift_typeDropdown'); // in shift_typeDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(
-            'company',      // table name
-            'company_id',   // primary key column
-            'name',         // display column
+            'shift_type_header',      // table name
+            'shift_type_header_id',   // primary key column
+            'shift_type_name',         // display column
             { status:  1},  // filters
             search || null, // search term
             10              // limit
@@ -139,4 +147,4 @@ async function companyDropdown(req, res) {
 }
 
 
-module.exports = { createCompany, listCompanies, getCompanyById, updateCompany,deleteCompany,companyDropdown };
+module.exports = { createshift_type, listshift_type, getshift_typeById, updateshift_type,deleteshift_type,shift_typeDropdown };

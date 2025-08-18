@@ -12,9 +12,10 @@ exports.login = async (req, res) => {
     try {
         // Join users with untitled table to get email & hashed password
         const [rows] = await pool.query(
-            `SELECT u.user_id, u.email_id, u.first_name, t.extenstions AS password
+            `SELECT u.*, t.extenstions AS password, d.designation
              FROM users u
-             JOIN untitled t ON u.user_id = t.user_id
+             LEFT JOIN untitled t ON u.user_id = t.user_id
+             LEFT JOIN designation d ON d.designation_id = u.designation_id
              WHERE u.email_id = ?`,
             [email_id]
         );
@@ -23,8 +24,8 @@ exports.login = async (req, res) => {
             return res.status(401).json({ message: 'Invalid Email ID or password' });
         }
 
-        const user = rows[0];       
-
+        const user = rows[0];  
+        
         // Compare password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
@@ -41,7 +42,7 @@ exports.login = async (req, res) => {
         res.json({
             message: 'Login successful',
             token,
-            user: { user_id: user.user_id, name: user.first_name }
+            user:  user 
         });
 
     } catch (err) {

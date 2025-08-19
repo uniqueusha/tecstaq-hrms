@@ -86,7 +86,6 @@ async function getshift_typeById(req, res) {
     }
 }
 
-
 async function updateshift_type(req, res) {
     try {
         const userId = req.user?.user_id;

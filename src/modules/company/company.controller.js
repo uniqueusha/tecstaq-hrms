@@ -35,7 +35,7 @@ async function createCompany(req, res) {
             } 
         );
 
-        res.json({
+        res.status(200).json({
             success: true,
             company_id: result.insertId,
             message: 'Company created successfully'
@@ -63,7 +63,7 @@ async function listCompanies(req, res) {
             search || null // Search keyword
          );
 
-        res.json({ success: true, ...result });
+        res.status(200).json({ success: true, ...result });
 
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -80,7 +80,7 @@ async function getCompanyById(req, res) {
             return res.status(404).json({ success: false, message: 'Company not found' });
         }
 
-        res.json({ success: true, data: result.data[0] });
+        res.status(200).json({ success: true, data: result.data[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -99,7 +99,7 @@ async function updateCompany(req, res) {
             { name, address, email, phone, status } // fields to update
         );
 
-        res.json({
+        res.status(200).json({
             success: true,
             message: 'Company updated successfully',
             data: updatedCompany
@@ -112,7 +112,7 @@ async function updateCompany(req, res) {
 async function deleteCompany(req, res) {
     try {
         const result = await deleteHelper('company', 'company_id', req.params.id);
-        res.json(result);
+        res.status(200).json(result);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -132,7 +132,7 @@ async function companyDropdown(req, res) {
             10              // limit
         );
 
-        res.json({ success: true, data: rows });
+        res.status(200).json({ success: true, data: rows });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

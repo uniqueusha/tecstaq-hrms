@@ -32,7 +32,7 @@ async function createDesignation(req, res) {
             } 
         );
 
-        res.json({
+        res.status(200).json({
             success: true,
             company_id: result.insertId,
             message: 'Designation created successfully'
@@ -60,7 +60,7 @@ async function listDesignation(req, res) {
             search || null // Search keyword
          );
 
-        res.json({ success: true, ...result });
+        res.status(200).json({ success: true, ...result });
 
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -77,7 +77,7 @@ async function getDesignationById(req, res) {
             return res.status(404).json({ success: false, message: 'Designation not found' });
         }
 
-        res.json({ success: true, data: result.data[0] });
+        res.status(200).json({ success: true, data: result.data[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -96,7 +96,7 @@ async function updateDesignation(req, res) {
             { company_id, designation, description, status } // fields to update
         );
 
-        res.json({
+        res.status(200).json({
             success: true,
             message: 'Designation updated successfully',
             data: updatedCompany
@@ -109,7 +109,7 @@ async function updateDesignation(req, res) {
 async function deleteDesignation(req, res) {
     try {
         const result = await deleteHelper('designation', 'designation_id', req.params.id);
-        res.json(result);
+        res.status(200).json(result);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -129,7 +129,7 @@ async function designationDropdown(req, res) {
             10              // limit
         );
 
-        res.json({ success: true, data: rows });
+        res.status(200).json({ success: true, data: rows });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -148,7 +148,7 @@ async function document_typeDropdown(req, res) {
             10              // limit
         );
 
-        res.json({ success: true, data: rows });
+        res.status(200).json({ success: true, data: rows });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

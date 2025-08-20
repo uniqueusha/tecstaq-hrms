@@ -35,7 +35,7 @@ async function createshift_type(req, res) {
             } 
         );
 
-        res.json({
+        res.status(200).json({
             success: true,
             shift_type_id: result.insertId,
             message: 'Shift Type created successfully'
@@ -63,7 +63,7 @@ async function listshift_type(req, res) {
             search || null // Search keyword
          );
 
-        res.json({ success: true, ...result });
+        res.status(200).json({ success: true, ...result });
 
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -80,7 +80,7 @@ async function getshift_typeById(req, res) {
             return res.status(404).json({ success: false, message: 'shift_type not found' });
         }
 
-        res.json({ success: true, data: result.data[0] });
+        res.status(200).json({ success: true, data: result.data[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -106,7 +106,7 @@ async function updateshift_type(req, res) {
                 user_id: userId } // fields to update
         );
 
-        res.json({
+        res.status(200).json({
             success: true,
             message: 'Shift Type updated successfully',
             data: updatedshift_type
@@ -119,7 +119,7 @@ async function updateshift_type(req, res) {
 async function deleteshift_type(req, res) {
     try {
         const result = await deleteHelper('shift_type_header', 'shift_type_header_id', req.params.id);
-        res.json(result);
+        res.status(200).json(result);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -139,7 +139,7 @@ async function shift_typeDropdown(req, res) {
             10              // limit
         );
 
-        res.json({ success: true, data: rows });
+        res.status(200).json({ success: true, data: rows });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

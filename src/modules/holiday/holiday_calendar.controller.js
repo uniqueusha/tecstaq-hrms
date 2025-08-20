@@ -34,7 +34,7 @@ async function createholiday_calendar(req, res) {
     );
         
 
-        res.json({
+        res.status(200).json({
             success: true,
             company_id: result.insertId,
             message: 'Calendar created successfully'
@@ -62,7 +62,7 @@ async function listholiday_calendar(req, res) {
             search || null // Search keyword
          );
 
-        res.json({ success: true, ...result });
+        res.status(200).json({ success: true, ...result });
 
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -81,7 +81,7 @@ async function list_with_details_holiday_calendar(req, res) {
       id                           // ✅ pass only ID
     );
     
-        res.json({ success: true, ...result });
+        res.status(200).json({ success: true, ...result });
 
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -99,7 +99,7 @@ async function getholiday_calendarById(req, res) {
             return res.status(404).json({ success: false, message: 'Calendar not found' });
         }
 
-        res.json({ success: true, data: result.data[0] });
+        res.status(200).json({ success: true, data: result.data[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -134,7 +134,7 @@ async function updateHolidayCalendar(req, res) {
             "id"  // PK of detail table
         );
 
-        res.json({
+        res.status(200).json({
             success: true,
             message: 'Calendar updated successfully',
             result
@@ -148,7 +148,7 @@ async function updateHolidayCalendar(req, res) {
 async function deleteholiday_calendar(req, res) {
     try {
         const result = await deleteHelper('holiday_calendar', 'holiday_calendar_id', req.params.id);
-        res.json(result);
+        res.status(200).json(result);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -168,7 +168,7 @@ async function holiday_calendarDropdown(req, res) {
             10              // limit
         );
 
-        res.json({ success: true, data: rows });
+        res.status(200).json({ success: true, data: rows });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

@@ -34,7 +34,7 @@ async function create_work_week_pattern(req, res) {
             } 
         );
 
-        res.json({
+        res.status(200).json({
             success: true,
             company_id: result.insertId,
             message: 'work_week_pattern created successfully'
@@ -62,7 +62,7 @@ async function listwork_week_pattern(req, res) {
             search || null // Search keyword
          );
 
-        res.json({ success: true, ...result });
+        res.status(200).json({ success: true, ...result });
 
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -79,7 +79,7 @@ async function getwork_week_patternById(req, res) {
             return res.status(404).json({ success: false, message: 'work_week_pattern not found' });
         }
 
-        res.json({ success: true, data: result.data[0] });
+        res.status(200).json({ success: true, data: result.data[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -98,7 +98,7 @@ async function updatework_week_pattern(req, res) {
             { company_id, pattern_name, working_days, weekly_hours, remarks,status } // fields to update
         );
 
-        res.json({
+        res.status(200).json({
             success: true,
             message: 'Work Week Pattern Updated successfully',
             data: updatedCompany
@@ -111,7 +111,7 @@ async function updatework_week_pattern(req, res) {
 async function deletework_week_pattern(req, res) {
     try {
         const result = await deleteHelper('work_week_pattern', 'work_week_pattern_id', req.params.id);
-        res.json(result);
+        res.status(200).json(result);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -131,7 +131,7 @@ async function work_week_patternDropdown(req, res) {
             10              // limit
         );
 
-        res.json({ success: true, data: rows });
+        res.status(200).json({ success: true, data: rows });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

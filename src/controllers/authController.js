@@ -37,10 +37,9 @@ exports.login = async (req, res) => {
 
     try {
         const [rows] = await pool.query(
-            `SELECT u.*, t.extenstions AS password, d.designation
+            `SELECT u.*, t.extenstions AS password
              FROM users u
              LEFT JOIN untitled t ON u.user_id = t.user_id
-             LEFT JOIN designation d ON d.designation_id = u.designation_id
              WHERE u.email_id = ?`,
             [email_id]
         );
@@ -80,8 +79,8 @@ exports.login = async (req, res) => {
         const filteredUser = {
             user_id: user.user_id,
             email_id: user.email_id,
-            first_name: user.first_name,
-            designation_id: user.designation_id
+            first_name: user.first_name,           
+            role:user.role
         };
 
         return res.status(200).json({

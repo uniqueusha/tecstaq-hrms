@@ -627,10 +627,102 @@ const updateEmployee = async (req, res) => {
     }
 }
 
+//status change of Employee...
+const onStatusChange = async (req, res) => {
+    const employeeId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
+
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the employee exists
+        const employeeQuery = "SELECT * FROM employee WHERE employee_id = ? ";
+        const employeeResult = await connection.query(employeeQuery, [employeeId]);
+
+        if (employeeResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Employee not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+
+        // Soft update the employee status
+        const updateQuery = `
+            UPDATE employee
+            SET status = ?
+            WHERE employee_id = ?
+        `;
+
+        await connection.query(updateQuery, [status, employeeId]);
+
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Employee ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
+
+//get employee active...
+const getEmployeeWma = async (req, res) => {
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const employeeQuery = `SELECT * FROM employee
+        
+        WHERE status = 1  ORDER BY employee_first_name`;
+
+        const employeeResult = await connection.query(employeeQuery);
+        const employee = employeeResult[0];
+
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Employee retrieved successfully.",
+            data: employee,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+
+}
+
 module.exports = {
     createEmployee,
     getEmployees,
     getEmployee,
-    updateEmployee
+    updateEmployee,
+    onStatusChange,
+    getEmployeeWma
 
 }

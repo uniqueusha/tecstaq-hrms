@@ -39,7 +39,7 @@ const createPolicy = async (req, res)=>{
     const prepared_by = req.body.prepared_by ? req.body.prepared_by.trim():'';
     const approved_by = req.body.approved_by ? req.body.approved_by.trim():'';
     const process_head = req.body.process_head ? req.body.process_head.trim():'';
-    const version = req.body.version ? req.body.version.trim():'';
+    const version = req.body.version ? req.body.version:'';
     const policy_file_path = req.body.policy_file_path ? req.body.policy_file_path.trim():'';
     const userId = req.user?.user_id;
 
@@ -68,7 +68,7 @@ const createPolicy = async (req, res)=>{
             const fileTypeResult = await fileType.fileTypeFromBuffer(pdfBuffer);
 
             if (!fileTypeResult || !allowedMimeTypes.includes(fileTypeResult.mime)) {
-                throw new Error("Only JPG, JPEG, PNG files are allowed");
+                throw new Error("Only JPG, JPEG, PNG, PDF files are allowed");
             }
 
             if (pdfBuffer.length > 10 * 1024 * 1024) {
@@ -226,7 +226,7 @@ const updatePolicy = async (req, res) => {
     const prepared_by = req.body.prepared_by ? req.body.prepared_by.trim():'';
     const approved_by = req.body.approved_by ? req.body.approved_by.trim():'';
     const process_head = req.body.process_head ? req.body.process_head.trim():'';
-    const version = req.body.version ? req.body.version.trim():'';
+    const version = req.body.version ? req.body.version:'';
     const policy_file_path = req.body.policy_file_path ? req.body.policy_file_path.trim():'';
     
     // attempt to obtain a database connection

@@ -76,9 +76,9 @@ exports.login = async (req, res) => {
 
 
         // ✅ pick only required fields
-        const filteredUser = {
+        const User = {
             user_id: user.user_id,
-            email_id: user.email_id,
+            session_id:session_id,
             first_name: user.first_name,           
             role:user.role
         };
@@ -88,7 +88,7 @@ exports.login = async (req, res) => {
             message: 'Login successful',
             token,
             tokenExpiresIn: 3600,
-            filteredUser
+            user:User
             
         });
 

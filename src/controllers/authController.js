@@ -2,6 +2,32 @@ const pool = require('../common/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
+
+// Helper function to log activity
+async function logUserActivity({ user_id, session_id, ip_address, device_info, status }) {
+    try {
+        if (status === "login") {
+            await pool.query(
+                `INSERT INTO user_activity_log 
+                 (user_id, session_id, login_time, ip_address, device_info, status) 
+                 VALUES (?, ?, NOW(), ?, ?, 'login')`,
+                [user_id, session_id, ip_address, device_info]
+            );
+        } else if (status === "logout" || status === "timeout") {
+            await pool.query(
+                `UPDATE user_activity_log 
+                 SET logout_time = NOW(), status = ? 
+                 WHERE user_id = ? AND session_id = ? AND logout_time IS NULL`,
+                [status, user_id, session_id]
+            );
+        }
+    } catch (err) {
+        console.error("Error logging user activity:", err);
+    }
+}
+
+
+
 exports.login = async (req, res) => {
     const { email_id, password } = req.body;
 
@@ -10,7 +36,6 @@ exports.login = async (req, res) => {
     }
 
     try {
-        // Join users with untitled table to get email & hashed password
         const [rows] = await pool.query(
             `SELECT u.*, t.extenstions AS password, d.designation
              FROM users u
@@ -25,30 +50,67 @@ exports.login = async (req, res) => {
         }
 
         const user = rows[0];  
-        
-        // Compare password
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid Email ID or password' });
         }
 
-        // Generate token
+        const session_id = Date.now().toString() + "_" + user.user_id; // simple unique session
         const token = jwt.sign(
-            { user_id: user.user_id, email: user.email_id },
+            { user_id: user.user_id, email: user.email_id, session_id },
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
 
-    return res.status(200).json({
-        status: 200,
+        // Log login activity
+        const ip_address = req.ip;
+        const device_info = req.headers['user-agent'] || "Unknown device";
+
+        await logUserActivity({ 
+            user_id: user.user_id, 
+            session_id, 
+            ip_address, 
+            device_info, 
+            status: "login" 
+        });
+
+
+        // ✅ pick only required fields
+        const filteredUser = {
+            user_id: user.user_id,
+            email_id: user.email_id,
+            first_name: user.first_name,
+            designation_id: user.designation_id
+        };
+
+        return res.status(200).json({
+            status: 200,
             message: 'Login successful',
-            token: token,
-            tokenExpiresIn: 36000,
-            user: user 
+            token,
+            tokenExpiresIn: 3600,
+            filteredUser
+            
         });
 
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// Logout handler (optional)
+exports.logout = async (req, res) => {
+    try {
+        const { user_id, session_id } = req.body; // or decode from JWT
+        await logUserActivity({ user_id, session_id, status: "logout" });
+
+        return res.status(200).json({
+            status: 200,
+            message: "Logout successful"
+        });
+    } catch (err) {
+        console.error("Logout error:", err);
+        res.status(500).json({ message: "Internal server error" });
     }
 };

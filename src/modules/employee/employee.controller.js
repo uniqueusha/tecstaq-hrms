@@ -37,6 +37,7 @@ const createEmployee = async (req, res)=>{
     const designation_id = req.body.designation_id ? req.body.designation_id:'';
     const employment_type_id = req.body.employment_type_id ? req.body.employment_type_id:'';
     const employee_code = req.body.employee_code ? req.body.employee_code:'';
+    const title = req.body.title ? req.body.title:'';
     const employee_first_name = req.body.employee_first_name ? req.body.employee_first_name:'';
     const employee_last_name = req.body.employee_last_name ? req.body.employee_last_name:'';
     const employee_email = req.body.employee_email ? req.body.employee_email:'';
@@ -97,64 +98,99 @@ const createEmployee = async (req, res)=>{
     const employeeEducation = req.body.employeeEducation ? req.body.employeeEducation:[];
     const userId = req.user?.user_id;
 
+    if (!dob) {
+        return error422("Birth OF Date id is required.", res);
+    } else if (!gender) {
+        return error422("Gender is required.", res);
+    } else if (!father_name) {
+        return error422("Father Name is required.", res);
+    } else if (!mother_name) {
+        return error422("Mother Name is required.", res);
+    } else if (!blood_group) {
+        return error422("Blood group is required.", res);
+    }else if (!marital_status) {
+        return error422("Marital status is required.", res);
+    }else if (!personal_email) {
+        return error422("Personal email is required.", res);
+    }else if (!country_code) {
+        return error422("country code is required.", res);
+    } else if (!mobile_number) {
+        return error422("Mobile number is required.", res);
+    }else if (!profile_photo) {
+        return error422("Profile photo is required.", res);
+    }else if (!current_address) {
+        return error422("Current address is required.", res);
+    }else if (!permanent_address) {
+        return error422("Permanent address is required.", res);
+    }else if (!doj) {
+        return error422("Date Of Joining in is required.", res);
+    }else if (!office_location) {
+        return error422("Office location is required.", res);
+    }else if (!work_location) {
+        return error422("Work location is required.", res);
+    }else if (!employee_status) {
+        return error422("Employee status is required.", res);
+    }else if (!holiday_calendar_id) {
+        return error422("Holiday calendar id is required.", res);
+    }else if (!reporting_manager) {
+        return error422("Reporting manager is required.", res);
+    }else if (!pf_number) {
+        return error422("Pf number is required.", res);
+    }else if (!pan_card_number) {
+        return error422("Pan card number is required.", res);
+    }else if (!aadhar_number) {
+        return error422("Aadhar number is required.", res);
+    }else if (!title) {
+        return error422("Title is required.", res);
+    }
+
     let connection = await getConnection();
 
     try {
+        //start a transaction
+        await connection.beginTransaction();
 
-        // Check if reporting_manager exists
-        const reportingManagerQuery = "SELECT * FROM employee WHERE employee_id  = ?";
-        const reportingManagerResult = await connection.query(reportingManagerQuery, [reporting_manager]);
-        // if (reportingManagerResult[0].length == 0) {
-        //     return error422("Reporting Manager Not Found.", res);
-        // }
-        
-        // const allowedMimeTypes = [
-        //   'application/pdf',
-        //   'application/msword',
-        //   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        //   'application/vnd.ms-excel',
-        //   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        //   'image/jpeg',
-        //   'image/jpg',
-        //   'image/png'
-        // ];
+        const allowedMimeTypes = [
+          'image/jpeg',
+          'image/jpg',
+          'image/png'
+        ];
 
-        
-        // const fileType = await import("file-type");
-        // const uploadFile = async (base64Str, prefix) => {
-        //     if (!base64Str) return '';
+        const fileType = await import("file-type");
+        const uploadFile = async (base64Str, prefix) => {
+            if (!base64Str) return '';
 
-        //     const cleanedBase64 = base64Str.replace(/^data:.*;base64,/, "");
-        //     const pdfBuffer = Buffer.from(cleanedBase64, "base64");
-        //     const fileTypeResult = await fileType.fileTypeFromBuffer(pdfBuffer);
+            const cleanedBase64 = base64Str.replace(/^data:.*;base64,/, "");
+            const pdfBuffer = Buffer.from(cleanedBase64, "base64");
+            const fileTypeResult = await fileType.fileTypeFromBuffer(pdfBuffer);
 
-        //     if (!fileTypeResult || !allowedMimeTypes.includes(fileTypeResult.mime)) {
-        //         throw new Error("Only JPG, JPEG, PNG files are allowed");
-        //     }
+            if (!fileTypeResult || !allowedMimeTypes.includes(fileTypeResult.mime)) {
+                throw new Error("Only JPG, JPEG, PNG files are allowed");
+            }
 
-        //     if (pdfBuffer.length > 10 * 1024 * 1024) {
-        //         throw new Error("File size must be under 10MB");
-        //     }
+            if (pdfBuffer.length > 10 * 1024 * 1024) {
+                throw new Error("File size must be under 10MB");
+            }
 
-        //     const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
-        //     const uploadDir = path.join(__dirname, "..", "..", "uploads");
-        //     if (!fs.existsSync(uploadDir)) {
-        //         fs.mkdirSync(uploadDir, { recursive: true });
-        //     }
+            const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
+            const uploadDir = path.join(__dirname, "..", "..", "..","images");
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
 
-        //     const filePath = path.join(uploadDir, fileName);
+            const filePath = path.join(uploadDir, fileName);
             
-        //     fs.writeFileSync(filePath, pdfBuffer);
-        //     return `uploads/${fileName}`;
-        // };
+            fs.writeFileSync(filePath, pdfBuffer);
+            return `images/${fileName}`;
+        };
 
-        // // Upload GST and PAN files if provided
-        // const policyFilePath = await uploadFile(profile_photo, 'profile_photo');
+        // Upload GST and PAN files if provided
+        const profilePhotoPath = await uploadFile(profile_photo	, 'profile_photo');
         
         // start the transaction
         await connection.beginTransaction();
-        const insertQuery = "INSERT INTO employee (company_id, departments_id, designation_id, employment_type_id, employee_code, employee_first_name, employee_last_name, employee_email, dob, gender, father_name, mother_name, blood_group, marital_status, personal_email, country_code, mobile_number, profile_photo, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, user_id)VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const result = await connection.query(insertQuery,[company_id, departments_id, designation_id, employment_type_id, employee_code, employee_first_name, employee_last_name, employee_email, dob, gender, father_name, mother_name, blood_group, marital_status, personal_email, country_code, mobile_number, profile_photo, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, userId]);
+        const insertQuery = "INSERT INTO employee (company_id, departments_id, designation_id, employment_type_id, employee_code, title, employee_first_name, employee_last_name, employee_email, dob, gender, father_name, mother_name, blood_group, marital_status, personal_email, country_code, mobile_number, profile_photo, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, user_id)VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const result = await connection.query(insertQuery,[company_id, departments_id, designation_id, employment_type_id, employee_code, title, employee_first_name, employee_last_name, employee_email, dob, gender, father_name, mother_name, blood_group, marital_status, personal_email, country_code, mobile_number, profilePhotoPath, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, userId]);
         const employeeId = result[0].insertId;
 
         //insert employee_bank_deatils
@@ -193,6 +229,48 @@ const createEmployee = async (req, res)=>{
             //     return error422("assigned id is require", res);
             // }
 
+        const allowedMimeTypes = [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'image/jpeg',
+          'image/jpg',
+          'image/png'
+        ];
+
+        const fileType = await import("file-type");
+        const uploadFile = async (base64Str, prefix) => {
+            if (!base64Str) return '';
+
+            const cleanedBase64 = base64Str.replace(/^data:.*;base64,/, "");
+            const pdfBuffer = Buffer.from(cleanedBase64, "base64");
+            const fileTypeResult = await fileType.fileTypeFromBuffer(pdfBuffer);
+
+            if (!fileTypeResult || !allowedMimeTypes.includes(fileTypeResult.mime)) {
+          return error422("Only PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG files are allowed", res);
+            }
+
+            if (pdfBuffer.length > 10 * 1024 * 1024) {
+                return error422("File size must be under 10MB", res);
+            }
+
+            const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
+            const uploadDir = path.join(__dirname, "..", "..", "uploads");
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const filePath = path.join(uploadDir, fileName);
+            
+            fs.writeFileSync(filePath, pdfBuffer);
+            return `uploads/${fileName}`;
+        };
+
+        // Upload GST and PAN files if provided
+        const filePath = await uploadFile(file_path, 'file_path');
+        
             //check document_type is exists or not
             const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
             const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
@@ -201,7 +279,7 @@ const createEmployee = async (req, res)=>{
             }
 
             let insertEmployeeDocumentsQuery = 'INSERT INTO employee_documents (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
-            let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, file_path];
+            let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
             let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
         }
 
@@ -212,8 +290,9 @@ const createEmployee = async (req, res)=>{
             const education_name = element.education_name ? element.education_name.trim() : '';
             const passing_year = element.passing_year ? element.passing_year.trim() : '';
             const university = element.university ? element.university.trim() : '';
-        
 
+            
+        
             let insertEmployeeDocumentsQuery = 'INSERT INTO employee_education (employee_id, education_type, education_name, passing_year, university) VALUES (?, ?, ?, ?, ?)';
             let insertEmployeeDocumentsValues = [employeeId, education_type, education_name, passing_year, university];
             let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
@@ -433,6 +512,7 @@ const updateEmployee = async (req, res) => {
     const designation_id = req.body.designation_id ? req.body.designation_id:'';
     const employment_type_id = req.body.employment_type_id ? req.body.employment_type_id:'';
     const employee_code = req.body.employee_code ? req.body.employee_code:'';
+    const title = req.body.title ? req.body.title:'';
     const employee_first_name = req.body.employee_first_name ? req.body.employee_first_name:'';
     const employee_last_name = req.body.employee_last_name ? req.body.employee_last_name:'';
     const employee_email = req.body.employee_email ? req.body.employee_email:'';
@@ -491,6 +571,55 @@ const updateEmployee = async (req, res) => {
     const work_end_date = req.body.end_date ? req.body.end_date:'';
     const employeeDocuments = req.body.employeeDocuments ? req.body.employeeDocuments:[];
     const employeeEducation = req.body.employeeEducation ? req.body.employeeEducation:[];
+
+     if (!dob) {
+        return error422("Birth OF Date id is required.", res);
+    } else if (!gender) {
+        return error422("Gender is required.", res);
+    } else if (!father_name) {
+        return error422("Father Name is required.", res);
+    } else if (!mother_name) {
+        return error422("Mother Name is required.", res);
+    } else if (!blood_group) {
+        return error422("Blood group is required.", res);
+    }else if (!marital_status) {
+        return error422("Marital status is required.", res);
+    }else if (!personal_email) {
+        return error422("Personal email is required.", res);
+    }else if (!country_code) {
+        return error422("country code is required.", res);
+    } else if (!mobile_number) {
+        return error422("Mobile number is required.", res);
+    }else if (!profile_photo) {
+        return error422("Profile photo is required.", res);
+    }else if (!current_address) {
+        return error422("Current address is required.", res);
+    }else if (!permanent_address) {
+        return error422("Permanent address is required.", res);
+    }else if (!signed_in) {
+        return error422("Signed in is required.", res);
+    }else if (!title) {
+        return error422("Title is required.", res);
+    }else if (!doj) {
+        return error422("Date Of Joining in is required.", res);
+    }else if (!office_location) {
+        return error422("Office location is required.", res);
+    }else if (!work_location) {
+        return error422("Work location is required.", res);
+    }else if (!employee_status) {
+        return error422("Employee status is required.", res);
+    }else if (!holiday_calendar_id) {
+        return error422("Holiday calendar id is required.", res);
+    }else if (!reporting_manager) {
+        return error422("Reporting manager is required.", res);
+    }else if (!pf_number) {
+        return error422("Pf number is required.", res);
+    }else if (!pan_card_number) {
+        return error422("Pan card number is required.", res);
+    }else if (!aadhar_number) {
+        return error422("Aadhar number is required.", res);
+    }
+
     // attempt to obtain a database connection
     let connection = await getConnection();
 
@@ -505,14 +634,51 @@ const updateEmployee = async (req, res) => {
         if (employeeResult[0].length == 0) {
             return error422("Employee Not Found.", res);
         }
+
+        const allowedMimeTypes = [
+          'image/jpeg',
+          'image/jpg',
+          'image/png'
+        ];
+
+        const fileType = await import("file-type");
+        const uploadFile = async (base64Str, prefix) => {
+            if (!base64Str) return '';
+
+            const cleanedBase64 = base64Str.replace(/^data:.*;base64,/, "");
+            const pdfBuffer = Buffer.from(cleanedBase64, "base64");
+            const fileTypeResult = await fileType.fileTypeFromBuffer(pdfBuffer);
+
+            if (!fileTypeResult || !allowedMimeTypes.includes(fileTypeResult.mime)) {
+                throw new Error("Only JPG, JPEG, PNG files are allowed");
+            }
+
+            if (pdfBuffer.length > 10 * 1024 * 1024) {
+                throw new Error("File size must be under 10MB");
+            }
+
+            const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
+            const uploadDir = path.join(__dirname, "..", "..", "..","images");
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const filePath = path.join(uploadDir, fileName);
+            
+            fs.writeFileSync(filePath, pdfBuffer);
+            return `images/${fileName}`;
+        };
+
+        // Upload GST and PAN files if provided
+        const profilePhotoPath = await uploadFile(profile_photo	, 'profile_photo');
        
         // Update the employee record with new data
         const updateQuery = `
             UPDATE employee
-            SET company_id = ?, departments_id = ?, designation_id = ?, employment_type_id = ?, employee_code = ?, employee_first_name = ?, employee_last_name = ?, employee_email = ?, dob = ?, gender = ?, father_name = ?, mother_name = ?, blood_group = ?, marital_status = ?, personal_email = ?, country_code = ?, mobile_number = ?, profile_photo = ?, current_address = ?, permanent_address = ?, signed_in = ?, alternate_contact_number = ?, doj = ?, office_location = ?, work_location = ?, employee_status = ?, holiday_calendar_id = ?, reporting_manager = ?, uan_number = ?, esic_number = ?, pf_number = ?, pan_card_number = ?, aadhar_number = ?, passport_no = ?, passport_expiry = ?
+            SET company_id = ?, departments_id = ?, designation_id = ?, employment_type_id = ?, employee_code = ?, title = ?, employee_first_name = ?, employee_last_name = ?, employee_email = ?, dob = ?, gender = ?, father_name = ?, mother_name = ?, blood_group = ?, marital_status = ?, personal_email = ?, country_code = ?, mobile_number = ?, profile_photo = ?, current_address = ?, permanent_address = ?, signed_in = ?, alternate_contact_number = ?, doj = ?, office_location = ?, work_location = ?, employee_status = ?, holiday_calendar_id = ?, reporting_manager = ?, uan_number = ?, esic_number = ?, pf_number = ?, pan_card_number = ?, aadhar_number = ?, passport_no = ?, passport_expiry = ?
             WHERE employee_id = ?
         `;
-        await connection.query(updateQuery, [ company_id, departments_id, designation_id, employment_type_id, employee_code, employee_first_name, employee_last_name, employee_email, dob, gender, father_name, mother_name, blood_group, marital_status, personal_email, country_code, mobile_number, profile_photo, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, employeeId]);
+        await connection.query(updateQuery, [ company_id, departments_id, designation_id, employment_type_id, employee_code, title, employee_first_name, employee_last_name, employee_email, dob, gender, father_name, mother_name, blood_group, marital_status, personal_email, country_code, mobile_number, profilePhotoPath, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, employeeId]);
 
         //update employee_bank_deatils
         const updateBankQuery = `
@@ -575,6 +741,49 @@ const updateEmployee = async (req, res) => {
             //     return error422("assigned id is require", res);
             // }
 
+             const allowedMimeTypes = [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'image/jpeg',
+          'image/jpg',
+          'image/png'
+        ];
+
+        const fileType = await import("file-type");
+        const uploadFile = async (base64Str, prefix) => {
+            if (!base64Str) return '';
+
+            const cleanedBase64 = base64Str.replace(/^data:.*;base64,/, "");
+            const pdfBuffer = Buffer.from(cleanedBase64, "base64");
+            const fileTypeResult = await fileType.fileTypeFromBuffer(pdfBuffer);
+
+            if (!fileTypeResult || !allowedMimeTypes.includes(fileTypeResult.mime)) {
+          return error422("Only PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG files are allowed", res);
+            }
+
+            if (pdfBuffer.length > 10 * 1024 * 1024) {
+                return error422("File size must be under 10MB", res);
+            }
+
+            const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
+            const uploadDir = path.join(__dirname, "..", "..", "uploads");
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const filePath = path.join(uploadDir, fileName);
+            
+            fs.writeFileSync(filePath, pdfBuffer);
+            return `uploads/${fileName}`;
+        };
+
+        // Upload GST and PAN files if provided
+        const filePath = await uploadFile(file_path, 'file_path');
+        
+
             //check document_type is exists or not
             const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
             const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
@@ -584,11 +793,11 @@ const updateEmployee = async (req, res) => {
 
             if (employee_documents_id) {
             let updatePreviousCompanyQuery = `UPDATE employee_documents SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_documents_id = ?`;
-            let updatePreviousCompanyValue =  [ document_type_id, document_name, file_path, employeeId, employee_documents_id]
+            let updatePreviousCompanyValue =  [ document_type_id, document_name, filePath, employeeId, employee_documents_id]
             let updatePreviousCompanyResult = await connection.query(updatePreviousCompanyQuery,updatePreviousCompanyValue);
             } else {
             let insertEmployeeDocumentsQuery = 'INSERT INTO employee_documents (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
-            let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, file_path];
+            let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
             let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
             }
         }

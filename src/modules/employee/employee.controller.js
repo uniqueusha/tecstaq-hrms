@@ -58,13 +58,13 @@ const createEmployee = async (req, res)=>{
     const doj = req.body.doj ? req.body.doj.trim():'';
     const office_location = req.body.office_location ? req.body.office_location.trim():'';
     const work_location = req.body.work_location ? req.body.work_location.trim():'';
-    const employee_status = req.body.employee_status ? req.body.employee_status.trim():'';
+    const employee_status = req.body.employee_status ? req.body.employee_status:'';
     const holiday_calendar_id = req.body.holiday_calendar_id ? req.body.holiday_calendar_id:'';
     const reporting_manager = req.body.reporting_manager ? req.body.reporting_manager:'';
     const uan_number = req.body.uan_number ? req.body.uan_number:'';
     const esic_number = req.body.esic_number ? req.body.esic_number:'';
     const pf_number = req.body.pf_number ? req.body.pf_number:'';
-    const pan_card_number = req.body.pan_card_number ? req.body.uan_number:'';
+    const pan_card_number = req.body.pan_card_number ? req.body.pan_card_number:'';
     const aadhar_number = req.body.aadhar_number ? req.body.aadhar_number:'';
     const passport_no = req.body.passport_no ? req.body.passport_no:'';
     const passport_expiry = req.body.passport_expiry ? req.body.passport_expiry:'';
@@ -76,8 +76,8 @@ const createEmployee = async (req, res)=>{
     const family_member_name = req.body.family_member_name ? req.body.family_member_name.trim():'';
     const relationship = req.body.relationship ? req.body.relationship.trim():'';
     const family_dob = req.body.dob ? req.body.dob.trim():'';
-    const is_dependent = req.body.is_dependent ? req.body.is_dependent.trim():'';
-    const is_nominee = req.body.is_nominee ? req.body.is_nominee.trim():'';
+    const is_dependent = req.body.is_dependent ? req.body.is_dependent:'';
+    const is_nominee = req.body.is_nominee ? req.body.is_nominee:'';
     const family_mobile_number = req.body.company_name ? req.body.company_name:'';
     const company_name = req.body.company_name ? req.body.company_name:'';
     const start_date = req.body.start_date ? req.body.start_date:'';
@@ -134,10 +134,6 @@ const createEmployee = async (req, res)=>{
         return error422("Holiday calendar id is required.", res);
     }else if (!reporting_manager) {
         return error422("Reporting manager is required.", res);
-    }else if (!pf_number) {
-        return error422("Pf number is required.", res);
-    }else if (!pan_card_number) {
-        return error422("Pan card number is required.", res);
     }else if (!aadhar_number) {
         return error422("Aadhar number is required.", res);
     }else if (!title) {
@@ -288,7 +284,7 @@ const createEmployee = async (req, res)=>{
             const element = educationArray[i];
             const education_type = element.education_type ? element.education_type : '';
             const education_name = element.education_name ? element.education_name.trim() : '';
-            const passing_year = element.passing_year ? element.passing_year.trim() : '';
+            const passing_year = element.passing_year ? element.passing_year: '';
             const university = element.university ? element.university.trim() : '';
 
             
@@ -323,9 +319,11 @@ const getEmployees = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getEmployeesQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.dob,ef.is_dependent,ef.is_nominee,ef.mobile_number AS family_mobile_number,empc.company_name,empc.start_date,empc.end_date,empc.last_drawn_salary,empc.designation,empc.hr_email,empc.hr_mobile,
-        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.start_date AS shift_start_date,es.end_date AS shift_end_date,eww.work_week_pattern_id,eww.start_date AS work_start_date,eww.end_date AS work_end_date FROM employee e
+        let getEmployeesQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.dob,ef.is_dependent,ef.is_nominee,ef.mobile_number AS family_mobile_number,empc.start_date,empc.end_date,empc.last_drawn_salary,empc.designation,empc.hr_email,empc.hr_mobile,
+        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.start_date AS shift_start_date,es.end_date AS shift_end_date,eww.work_week_pattern_id,eww.start_date AS work_start_date,eww.end_date AS work_end_date, c.name AS company_name, d.designation FROM employee e
         LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
+        LEFT JOIN company c ON c.company_id = e.company_id
+        LEFT JOIN designation d ON d.designation_id = e.designation_id
         LEFT JOIN employee_family ef ON ef.employee_id = e.employee_id
         LEFT JOIN employee_previous_company empc ON empc.employee_id = e.employee_id
         LEFT JOIN employee_probation ep ON ep.employee_id = e.employee_id
@@ -462,8 +460,10 @@ const getEmployee = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const employeeQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.dob,ef.is_dependent,ef.is_nominee,ef.mobile_number AS family_mobile_number,empc.company_name,empc.start_date,empc.end_date,empc.last_drawn_salary,empc.designation,empc.hr_email,empc.hr_mobile,
-        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.start_date AS shift_start_date,es.end_date AS shift_end_date,eww.work_week_pattern_id,eww.start_date AS work_start_date,eww.end_date AS work_end_date FROM employee e
+        const employeeQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.dob,ef.is_dependent,ef.is_nominee,ef.mobile_number AS family_mobile_number,empc.start_date,empc.end_date,empc.last_drawn_salary,empc.designation,empc.hr_email,empc.hr_mobile,
+        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.start_date AS shift_start_date,es.end_date AS shift_end_date,eww.work_week_pattern_id,eww.start_date AS work_start_date,eww.end_date AS work_end_date , c.name AS company_name, d.designation FROM employee e
+        LEFT JOIN company c ON c.company_id = e.company_id
+        LEFT JOIN designation d ON d.designation_id = e.designation_id
         LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
         LEFT JOIN employee_family ef ON ef.employee_id = e.employee_id
         LEFT JOIN employee_previous_company empc ON empc.employee_id = e.employee_id

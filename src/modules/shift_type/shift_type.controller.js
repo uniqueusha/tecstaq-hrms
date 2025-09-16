@@ -8,7 +8,6 @@ async function createshift_type(req, res) {
     try {
           const userId = req.user?.user_id;
 
-          console.log("userId",userId);
 
         if (!userId)
         {
@@ -127,7 +126,6 @@ async function deleteshift_type(req, res) {
 
 async function shift_typeDropdown(req, res) {
 
-    console.log('HIT: shift_typeDropdown'); // in shift_typeDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(

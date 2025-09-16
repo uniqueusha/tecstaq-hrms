@@ -9,7 +9,6 @@ async function createholiday_calendar(req, res) {
     try {
           const userId = req.user?.user_id;
 
-          console.log("userId",userId);
 
         if (!userId)
         {
@@ -156,7 +155,6 @@ async function deleteholiday_calendar(req, res) {
 
 async function holiday_calendarDropdown(req, res) {
 
-    console.log('HIT: holiday_calendarDropdown'); // in companyDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(

@@ -8,7 +8,6 @@ async function createleave_type_master(req, res) {
     try {
           const userId = req.user?.user_id;
 
-          console.log("userId",userId);
 
         if (!userId)
         {
@@ -127,7 +126,6 @@ async function deleteleave_type_master(req, res) {
 
 async function leave_type_masterDropdown(req, res) {
 
-    console.log('HIT: leave_type_masterDropdown'); // in companyDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(

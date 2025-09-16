@@ -8,7 +8,6 @@ async function createemployment_type(req, res) {
     try {
           const userId = req.user?.user_id;
 
-          console.log("userId",userId);
 
         if (!userId)
         {
@@ -123,7 +122,6 @@ async function deleteemployment_type(req, res) {
 
 async function employment_typeDropdown(req, res) {
 
-    console.log('HIT: employment_typeDropdown'); // in employment_typeDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(

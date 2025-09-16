@@ -8,7 +8,6 @@ async function createCompany(req, res) {
     try {
           const userId = req.user?.user_id;
 
-          console.log("userId",userId);
 
         if (!userId)
         {
@@ -120,7 +119,6 @@ async function deleteCompany(req, res) {
 
 async function companyDropdown(req, res) {
 
-    console.log('HIT: companyDropdown'); // in companyDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(

@@ -8,7 +8,6 @@ async function createDesignation(req, res) {
     try {
           const userId = req.user?.user_id;
 
-          console.log("userId",userId);
 
         if (!userId)
         {
@@ -117,7 +116,6 @@ async function deleteDesignation(req, res) {
 
 async function designationDropdown(req, res) {
 
-    console.log('HIT: DesignationDropdown'); // in companyDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(

@@ -8,7 +8,6 @@ async function create_work_week_pattern(req, res) {
     try {
           const userId = req.user?.user_id;
 
-          console.log("userId",userId);
 
         if (!userId)
         {
@@ -119,7 +118,6 @@ async function deletework_week_pattern(req, res) {
 
 async function work_week_patternDropdown(req, res) {
 
-    console.log('HIT: work_week_patternDropdown'); // in companyDropdown
     try {
         const { search } = req.query;
         const rows = await dropdownHelper(

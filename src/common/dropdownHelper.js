@@ -1,4 +1,4 @@
- const pool = require('./db'); 
+const pool = require('./db');
 
 /**
  * Get dropdown data for any table
@@ -10,7 +10,10 @@
  * @param {number} limit - Max number of results (default 10)
  */
 async function dropdownHelper(table, idColumn, nameColumn, filters = {}, searchTerm = null, limit = 10) {
+
+    let connection;
     try {
+        connection = await pool.getConnection();
         let query = `SELECT ${idColumn} AS id, ${nameColumn} AS name FROM ${table}`;
         const params = [];
         const whereClauses = [];
@@ -36,10 +39,12 @@ async function dropdownHelper(table, idColumn, nameColumn, filters = {}, searchT
         query += ` ORDER BY ${nameColumn} ASC LIMIT ?`;
         params.push(limit);
 
-        const [rows] = await pool.query(query, params);
+        const [rows] = await connection.query(query, params);
         return rows;
     } catch (err) {
         throw err;
+    } finally {
+        if (connection) connection.release(); 
     }
 }
 

@@ -19,12 +19,14 @@
  */
 
 async function insertHelper(table, uniqueChecks, data, columnLabels = {}) {
+    let connection;
     try {
+        connection = await db.getConnection();
         let duplicateColumns = [];
 
         // Check each unique column separately
         for (const [col, value] of Object.entries(uniqueChecks)) {
-            const [rows] = await db.query(
+            const [rows] = await connection.query(
                 `SELECT 1 FROM ${table} WHERE ${col} = ? LIMIT 1`,
                 [value]
             );
@@ -46,26 +48,28 @@ async function insertHelper(table, uniqueChecks, data, columnLabels = {}) {
         const insertValues = Object.values(data);
 
         const insertQuery = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-        const [result] = await db.query(insertQuery, insertValues);
+        const [result] = await connection.query(insertQuery, insertValues);
 
         return result;
     } catch (err) {
         throw err;
+    } finally {
+        if (connection) connection.release(); 
     }
 }
 
 
 async function insertWithDetails(headerTable, headerData, detailTable, detailsData, foreignKeyName) {
-    const conn = await db.getConnection();
+    const connection = await db.getConnection();
     try {
-        await conn.beginTransaction();
+        await connection.beginTransaction();
 
         // Insert into header
         const headerColumns = Object.keys(headerData).join(', ');
         const headerValues = Object.values(headerData);
         const headerPlaceholders = Object.keys(headerData).map(() => '?').join(', ');
 
-        const [headerResult] = await conn.query(
+        const [headerResult] = await connection.query(
             `INSERT INTO ${headerTable} (${headerColumns}) VALUES (${headerPlaceholders})`,
             headerValues
         );
@@ -81,21 +85,21 @@ async function insertWithDetails(headerTable, headerData, detailTable, detailsDa
                 const detailValues = Object.values(row);
                 const detailPlaceholders = Object.keys(row).map(() => '?').join(', ');
 
-                await conn.query(
+                await connection.query(
                     `INSERT INTO ${detailTable} (${detailColumns}) VALUES (${detailPlaceholders})`,
                     detailValues
                 );
             }
         }
 
-        await conn.commit();
+        await connection.commit();
         return { success: true, header_id: headerId };
 
     } catch (error) {
-        await conn.rollback();
+        await connection.rollback();
         throw error;
     } finally {
-        conn.release();
+        connection.release(); 
     }
 }
 

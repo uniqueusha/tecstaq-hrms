@@ -14,7 +14,7 @@ const token = req.headers.authorization?.split(' ')[1];
         req.user = decoded; // ✅ set decoded payload here
         next();
     } catch (err) {
-        return res.status(401).json({ success: false, message: 'Invalid token' });
+        return res.status(401).json({ status :401, success: false, message: 'Invalid token' });
     }
 
 };

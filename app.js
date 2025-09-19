@@ -4,6 +4,10 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const app = express();
 const cors = require('cors');
+app.use(express.json({ limit: '100mb' }));  
+const path = require('path')
+app.use("/images", express.static(path.join(__dirname, "images")));
+app.use("/src/uploads/", express.static(path.join(__dirname, "src/uploads")));
 // your other imports and code...
 const authRoutes = require('./src/routes/authRoutes');
 const companyRoutes = require('./src/modules/company/company.routes');

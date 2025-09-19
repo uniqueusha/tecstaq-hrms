@@ -9,7 +9,9 @@ const pool = require('./db'); // adjust path if needed
  * @param {string|null} searchTerm - Search keyword
  */
 async function listHelper(table, filters = {}, id = null, options = {}, searchTerm = null) {
+    let connection;
     try {
+        connection = await pool.getConnection();
         let query = `SELECT * FROM ${table}`;
         const params = [];
         let whereClauses = [];
@@ -19,7 +21,7 @@ async function listHelper(table, filters = {}, id = null, options = {}, searchTe
             const primaryKey = `${table}_id`; // Primary key naming convention
             query += ` WHERE ${primaryKey} = ?`;
             params.push(id);
-            const [rows] = await pool.query(query, params);
+            const [rows] = await connection.query(query, params);
             return { data: rows };
         }
 
@@ -54,7 +56,7 @@ async function listHelper(table, filters = {}, id = null, options = {}, searchTe
         // Count query
         const countQuery = `SELECT COUNT(*) AS total FROM ${table}` +
             (whereClauses.length > 0 ? ` WHERE ` + whereClauses.join(' AND ') : '');
-        const [countRows] = await pool.query(countQuery, params);
+        const [countRows] = await connection.query(countQuery, params);
         const totalRows = countRows[0].total;
         const totalPages = Math.ceil(totalRows / limit);
 
@@ -62,7 +64,7 @@ async function listHelper(table, filters = {}, id = null, options = {}, searchTe
         query += ` LIMIT ? OFFSET ?`;
         params.push(limit, offset);
 
-        const [rows] = await pool.query(query, params);
+        const [rows] = await connection.query(query, params);
 
         return {
             data: rows,
@@ -71,7 +73,10 @@ async function listHelper(table, filters = {}, id = null, options = {}, searchTe
             currentPage: page
         };
     } catch (err) {
+        await connection.rollback();
         throw err;
+    } finally {
+        if (connection) connection.release();
     }
 }
 
@@ -82,6 +87,10 @@ async function getHeaderWithDetailsById(
   detailFk,               // e.g. "holiday_calendar_id"
   id
 ) {
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
   const query = `
     SELECT h.*, d.* 
     FROM ${headerTable} h
@@ -90,7 +99,7 @@ async function getHeaderWithDetailsById(
     WHERE h.${headerPk} = ?
   `;
 
-  const [rows] = await pool.query(query, [id]);
+  const [rows] = await connection.query(query, [id]);
   if (!rows.length) return null;
 
   // build header object from first row
@@ -117,6 +126,12 @@ async function getHeaderWithDetailsById(
   });
 
   return header;
+    } catch (err) {
+      await connection.rollback();
+        throw err;
+    } finally {
+        if (connection) connection.release();
+    }
 }
 
 

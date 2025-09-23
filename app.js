@@ -21,7 +21,7 @@ const employment_type = require('./src/modules/employment_type/employment_type.r
 const policyRoutes = require('./src/modules/policy/policy.routes');
 const employeeRoutes = require('./src/modules/employee/employee.routes');
 const leaveRequest = require('./src/routes/leave-request.route')
-
+const userRoutes = require('./src/routes/user.route')
 
 const leave_type_master = require('./src/modules/leave_type_master/leave_type_master.routes');
 
@@ -55,7 +55,8 @@ app.use('/employee', employeeRoutes);
 
   
 app.use('/leave_type_master', leave_type_master);
-app.use('/leave-request', leaveRequest)
+app.use('/leave-request', leaveRequest);
+app.use('/user', userRoutes);
 
 
 module.exports = app;

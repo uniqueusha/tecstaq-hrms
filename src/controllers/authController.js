@@ -80,6 +80,7 @@ exports.login = async (req, res) => {
             user_id: user.user_id,
             session_id:session_id,
             first_name: user.first_name,           
+            employee_id: user.employee_id,           
             role:user.role
         };
 

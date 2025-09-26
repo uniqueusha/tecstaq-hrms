@@ -94,7 +94,7 @@ const getLeaveRequests = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getQuery = `SELECT lq.*, e.employee_first_name, e.employee_last_name, em.employee_first_name AS approver_first_name , em.employee_last_name AS approver_last_name,
+        let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
         lt.leave_type_name 
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
@@ -110,8 +110,8 @@ const getLeaveRequests = async (req, res) => {
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-                getQuery += ` AND (LOWER(e.employee_first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.employee_first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(em.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
-                countQuery += ` AND (LOWER(e.employee_first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.employee_first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(em.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
+                getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
+                countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
         }
         // from date and to date
         if (fromDate && toDate) {

@@ -7,4 +7,5 @@ router.get('/',leaveRequestController.getLeaveRequests)
 router.get('/:id',leaveRequestController.getLeaveRequest)
 router.put('/:id',leaveRequestController.updateLeaveRequest)
 router.patch('/:id', leaveRequestController.approveLeaveRequest)
+router.delete('/leave-request-footer/:id', leaveRequestController.deleteLeaveRequestFooter)
 module.exports = router

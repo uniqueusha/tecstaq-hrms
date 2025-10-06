@@ -1,9 +1,8 @@
-const pool = require('../../common/db');
+const pool = require('../common/db');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require("xlsx");
-
-
+const bcrypt = require("bcrypt");
 //function to obtain a database connection 
 const getConnection = async () => {
     try {
@@ -38,29 +37,29 @@ const createEmployee = async (req, res) => {
     const employment_type_id = req.body.employment_type_id ? req.body.employment_type_id : '';
     const employee_code = req.body.employee_code ? req.body.employee_code : '';
     const title = req.body.title ? req.body.title : '';
-    const employee_first_name = req.body.employee_first_name ? req.body.employee_first_name : '';
-    const employee_last_name = req.body.employee_last_name ? req.body.employee_last_name : '';
-    const employee_email = req.body.employee_email ? req.body.employee_email : '';
+    const first_name = req.body.first_name ? req.body.first_name : '';
+    const last_name = req.body.last_name ? req.body.last_name : '';
+    const email = req.body.email ? req.body.email : '';
+    const personal_email = req.body.personal_email ? req.body.personal_email : '';
     const dob = req.body.dob ? req.body.dob.trim() : null;
     const gender = req.body.gender ? req.body.gender.trim() : '';
     const father_name = req.body.father_name ? req.body.father_name.trim() : '';
     const mother_name = req.body.mother_name ? req.body.mother_name.trim() : '';
     const blood_group = req.body.blood_group ? req.body.blood_group.trim() : '';
     const marital_status = req.body.marital_status ? req.body.marital_status.trim() : '';
-    const personal_email = req.body.personal_email ? req.body.personal_email.trim() : '';
     const country_code = req.body.country_code ? req.body.country_code : '';
     const mobile_number = req.body.mobile_number ? req.body.mobile_number : '';
     const profile_photo = req.body.profile_photo ? req.body.profile_photo.trim() : '';
     const current_address = req.body.current_address ? req.body.current_address.trim() : '';
     const permanent_address = req.body.permanent_address ? req.body.permanent_address.trim() : '';
-    const signed_in = req.body.signed_in ? req.body.signed_in : '';
+    const signed_in = req.body.signed_in ? req.body.signed_in : '0';
     const alternate_contact_number = req.body.alternate_contact_number ? req.body.alternate_contact_number : '';
     const doj = req.body.doj ? req.body.doj.trim() : null
     const office_location = req.body.office_location ? req.body.office_location.trim() : '';
     const work_location = req.body.work_location ? req.body.work_location.trim() : '';
-    const employee_status = req.body.employee_status ? req.body.employee_status : '';
+    const employee_status = req.body.employee_status ? 'Inactive' : 'Inactive';
     const holiday_calendar_id = req.body.holiday_calendar_id ? req.body.holiday_calendar_id : '';
-    const reporting_manager = req.body.reporting_manager ? req.body.reporting_manager : '';
+    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : '';
     const uan_number = req.body.uan_number ? req.body.uan_number : '';
     const esic_number = req.body.esic_number ? req.body.esic_number : '';
     const pf_number = req.body.pf_number ? req.body.pf_number : '';
@@ -79,11 +78,11 @@ const createEmployee = async (req, res) => {
     const is_dependent = req.body.is_dependent ? req.body.is_dependent : '';
     const is_nominee = req.body.is_nominee ? req.body.is_nominee : '';
     const family_mobile_number = req.body.family_mobile_number ? req.body.family_mobile_number : '';
-    const company_name = req.body.company_name ? req.body.company_name : '';
-    const start_date = req.body.start_date ? req.body.start_date : null
-    const end_date = req.body.end_date ? req.body.end_date : null
+    const previous_company_name = req.body.previous_company_name ? req.body.previous_company_name : '';
+    const previous_start_date = req.body.previous_start_date ? req.body.previous_start_date : null
+    const previous_end_date = req.body.previous_end_date ? req.body.previous_end_date : null
     const last_drawn_salary = req.body.last_drawn_salary ? req.body.last_drawn_salary : null
-    const designation = req.body.designation ? req.body.designation : '';
+    const previous_designation = req.body.previous_designation ? req.body.previous_designation : '';
     const hr_email = req.body.hr_email ? req.body.hr_email : '';
     const hr_mobile = req.body.hr_mobile ? req.body.hr_mobile : '';
     const probation_start_date = req.body.probation_start_date ? req.body.probation_start_date : null
@@ -92,13 +91,16 @@ const createEmployee = async (req, res) => {
     const shift_start_date = req.body.shift_start_date ? req.body.shift_start_date : null
     const shift_end_date = req.body.shift_end_date ? req.body.shift_end_date : null
     const work_week_pattern_id = req.body.work_week_pattern_id ? req.body.work_week_pattern_id : '';
-    const work_start_date = req.body.work_start_date ? req.body.work_start_date : null
-    const work_end_date = req.body.work_end_date ? req.body.work_end_date : null
+    const work_week_start_date = req.body.work_week_start_date ? req.body.work_week_start_date : null
+    const work_week_end_date = req.body.work_week_end_date ? req.body.work_week_end_date : null
     const employeeDocuments = req.body.employeeDocuments ? req.body.employeeDocuments : [];
     const employeeEducation = req.body.employeeEducation ? req.body.employeeEducation : [];
-    const userId = req.user?.user_id;
-
-    if (!dob) {
+    let userId = req.body.user_id ? req.body.user_id : ''; 
+    if (!first_name) {
+        return error422("First name is required.", res);
+    } else if (!last_name) {
+        return error422("Last name is required.", res);
+    } else if (!dob) {
         return error422("Birth Of Date id is required.", res);
     } else if (!gender) {
         return error422("Gender is required.", res);
@@ -110,8 +112,6 @@ const createEmployee = async (req, res) => {
         return error422("Blood group is required.", res);
     } else if (!marital_status) {
         return error422("Marital status is required.", res);
-    } else if (!personal_email) {
-        return error422("Personal email is required.", res);
     } else if (!country_code) {
         return error422("country code is required.", res);
     } else if (!mobile_number) {
@@ -132,17 +132,29 @@ const createEmployee = async (req, res) => {
         return error422("Employee status is required.", res);
     } else if (!holiday_calendar_id) {
         return error422("Holiday calendar id is required.", res);
-    } else if (!reporting_manager) {
+    } else if (!reporting_manager_id && reporting_manager_id != 0) {
         return error422("Reporting manager is required.", res);
     } else if (!aadhar_number) {
         return error422("Aadhar number is required.", res);
     } else if (!title) {
         return error422("Title is required.", res);
+    } else if (!userId) {
+        return error422("User id is required.", res);
+    } else if(!personal_email){
+        return error422("Personal Email is required.", res)
+    }
+
+    //check employee already exists or not
+    const isExistEmployeeQuery = `SELECT * FROM employee WHERE email = ? `;
+    const isExistEmployeeResult = await pool.query(isExistEmployeeQuery, [email]);
+    if (isExistEmployeeResult[0].length > 0) {
+        return error422("Employee is already exists.", res);
     }
 
     let connection = await getConnection();
 
     try {
+
         //start a transaction
         await connection.beginTransaction();
 
@@ -169,7 +181,7 @@ const createEmployee = async (req, res) => {
             }
 
             const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
-            const uploadDir = path.join(__dirname, "..", "..", "..", "images");
+            const uploadDir = path.join(__dirname, "..", "..", "images");
             if (!fs.existsSync(uploadDir)) {
                 fs.mkdirSync(uploadDir, { recursive: true });
             }
@@ -185,8 +197,8 @@ const createEmployee = async (req, res) => {
 
         // start the transaction
         await connection.beginTransaction();
-        const insertQuery = "INSERT INTO employee (company_id, departments_id, designation_id, employment_type_id, employee_code, title, employee_first_name, employee_last_name, employee_email, dob, gender, father_name, mother_name, blood_group, marital_status, personal_email, country_code, mobile_number, profile_photo, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, user_id)VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const result = await connection.query(insertQuery, [company_id, departments_id, designation_id, employment_type_id, employee_code, title, employee_first_name, employee_last_name, employee_email, dob, gender, father_name, mother_name, blood_group, marital_status, personal_email, country_code, mobile_number, profilePhotoPath, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, userId]);
+        const insertQuery = "INSERT INTO employee (company_id, departments_id, designation_id, employment_type_id, employee_code, title, first_name, last_name, email, personal_email, dob, gender, father_name, mother_name, blood_group, marital_status, country_code, mobile_number, profile_photo, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager_id, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, user_id)VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const result = await connection.query(insertQuery, [company_id, departments_id, designation_id, employment_type_id, employee_code, title, first_name, last_name, email, personal_email,dob, gender, father_name, mother_name, blood_group, marital_status, country_code, mobile_number, profilePhotoPath, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager_id, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, userId]);
         const employeeId = result[0].insertId;
 
         //insert employee_bank_deatils
@@ -194,7 +206,7 @@ const createEmployee = async (req, res) => {
         const insertBankResult = await connection.query(insertBankQuery, [employeeId, payment_mode, account_number, bank_name, ifsc_code, branch_name]);
 
         //insert employee_family
-        const insertFamilyQuery = "INSERT INTO employee_family (employee_id, family_member_name, relationship, dob, is_dependent, is_nominee, mobile_number)VALUES( ?, ?, ?, ?, ?, ?, ?)";
+        const insertFamilyQuery = "INSERT INTO employee_family (employee_id, family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number)VALUES( ?, ?, ?, ?, ?, ?, ?)";
         const insertFamilyResult = await connection.query(insertFamilyQuery, [employeeId, family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number]);
 
         //insert employee_probation
@@ -202,16 +214,16 @@ const createEmployee = async (req, res) => {
         const insertProbationResult = await connection.query(insertProbationQuery, [employeeId, probation_start_date, probation_end_date]);
 
         //insert employee_previous_company
-        const insertPreviousQuery = "INSERT INTO employee_previous_company (employee_id, company_name, start_date, end_date, last_drawn_salary, designation, hr_email, hr_mobile)VALUES( ?, ?, ?, ?, ?, ?, ?, ?)";
-        const insertPreviousResult = await connection.query(insertPreviousQuery, [employeeId, company_name, start_date, end_date, last_drawn_salary, designation, hr_email, hr_mobile]);
+        const insertPreviousQuery = "INSERT INTO employee_previous_company (employee_id, previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile)VALUES( ?, ?, ?, ?, ?, ?, ?, ?)";
+        const insertPreviousResult = await connection.query(insertPreviousQuery, [employeeId, previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile]);
 
         //insert employee_shift
-        const insertShiftQuery = "INSERT INTO employee_shift (employee_id, shift_type_header_id , start_date, end_date)VALUES( ?, ?, ?, ?)";
+        const insertShiftQuery = "INSERT INTO employee_shift (employee_id, shift_type_header_id , shift_start_date, shift_end_date)VALUES( ?, ?, ?, ?)";
         const insertShiftResult = await connection.query(insertShiftQuery, [employeeId, shift_type_header_id, shift_start_date, shift_end_date]);
 
         //insert employee_work_week
-        const insertWorkQuery = "INSERT INTO employee_work_week (employee_id, work_week_pattern_id, start_date, end_date)VALUES( ?, ?, ?, ?)";
-        const insertWorkResult = await connection.query(insertWorkQuery, [employeeId, work_week_pattern_id, work_start_date, work_end_date]);
+        const insertWorkQuery = "INSERT INTO employee_work_week (employee_id, work_week_pattern_id, work_week_start_date, work_week_end_date)VALUES( ?, ?, ?, ?)";
+        const insertWorkResult = await connection.query(insertWorkQuery, [employeeId, work_week_pattern_id, work_week_start_date, work_week_end_date]);
 
         let documentsArray = employeeDocuments
         for (let i = 0; i < documentsArray.length; i++) {
@@ -219,12 +231,6 @@ const createEmployee = async (req, res) => {
             const document_type_id = element.document_type_id ? element.document_type_id : '';
             const document_name = element.document_name ? element.document_name.trim() : '';
             const file_path = element.file_path ? element.file_path.trim() : '';
-
-            // if (!assigned_to) {
-            //     await query("ROLLBACK");
-            //     return error422("assigned id is require", res);
-            // }
-
             const allowedMimeTypes = [
                 'application/pdf',
                 'application/msword',
@@ -253,7 +259,7 @@ const createEmployee = async (req, res) => {
                 }
 
                 const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
-                const uploadDir = path.join(__dirname, "..", "..", "uploads");
+                const uploadDir = path.join(__dirname, "..", "uploads");
                 if (!fs.existsSync(uploadDir)) {
                     fs.mkdirSync(uploadDir, { recursive: true });
                 }
@@ -287,13 +293,24 @@ const createEmployee = async (req, res) => {
             const passing_year = element.passing_year ? element.passing_year : '';
             const university = element.university ? element.university.trim() : '';
 
-
-
             let insertEmployeeDocumentsQuery = 'INSERT INTO employee_education (employee_id, education_type, education_name, passing_year, university) VALUES (?, ?, ?, ?, ?)';
             let insertEmployeeDocumentsValues = [employeeId, education_type, education_name, passing_year, university];
             let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
         }
+        if (reporting_manager_id == 0) {
+            //insert into user
+            const insertUserQuery = `INSERT INTO users (first_name, last_name, email_id, mobile_number, role) VALUES (?, ?, ?, ?, ?)`;
+            const insertUserValues = [first_name, last_name, email, mobile_number, 'Management'];
+            const insertUserResult = await connection.query(insertUserQuery, insertUserValues);
+            const user_id = insertUserResult[0].insertId;
 
+            const hash = await bcrypt.hash('123456', 10); // Hash the password using bcrypt
+
+            //insert into Untitled
+            const insertUntitledQuery = "INSERT INTO untitled (user_id, extenstions) VALUES (?,?)";
+            const insertUntitledValues = [user_id, hash];
+            const untitledResult = await connection.query(insertUntitledQuery, insertUntitledValues)
+        }
         await connection.commit()
         return res.status(200).json({
             status: 200,
@@ -309,7 +326,7 @@ const createEmployee = async (req, res) => {
 
 // get employee list...
 const getEmployees = async (req, res) => {
-    const { page, perPage, key, user_id, status_id, fromDate, toDate, employee_id, department_id, company_id, project_id } = req.query;
+    const { page, perPage, key, fromDate, toDate, employee_id, department_id, company_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -319,8 +336,8 @@ const getEmployees = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getEmployeesQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.dob,ef.is_dependent,ef.is_nominee,ef.mobile_number AS family_mobile_number,empc.start_date,empc.end_date,empc.last_drawn_salary,empc.designation,empc.hr_email,empc.hr_mobile,
-        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.start_date AS shift_start_date,es.end_date AS shift_end_date,eww.work_week_pattern_id,eww.start_date AS work_start_date,eww.end_date AS work_end_date, c.name AS company_name, d.designation FROM employee e
+        let getEmployeesQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.family_dob,ef.is_dependent,ef.is_nominee,ef.family_mobile_number,empc.previous_start_date,empc.previous_end_date,empc.last_drawn_salary,empc.previous_designation,empc.hr_email,empc.hr_mobile,
+        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.shift_start_date,es.shift_end_date,eww.work_week_pattern_id,eww. work_week_start_date,eww.work_week_end_date, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name,ee.last_name AS reporting_manager_last_name FROM employee e
         LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
         LEFT JOIN company c ON c.company_id = e.company_id
         LEFT JOIN designation d ON d.designation_id = e.designation_id
@@ -329,8 +346,9 @@ const getEmployees = async (req, res) => {
         LEFT JOIN employee_probation ep ON ep.employee_id = e.employee_id
         LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
         LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
-        WHERE 1`;
-
+        LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        WHERE 1 AND e.reporting_manager_id !=0 `;
+        
         let countQuery = `SELECT COUNT(*) AS total FROM employee e
         LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
         LEFT JOIN employee_family ef ON ef.employee_id = e.employee_id
@@ -338,57 +356,43 @@ const getEmployees = async (req, res) => {
         LEFT JOIN employee_probation ep ON ep.employee_id = e.employee_id
         LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
         LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
-        WHERE 1`;
+        LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        WHERE 1 AND e.reporting_manager_id !=0 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
             if (lowercaseKey === "activated") {
-                getEmployeesQuery += ` AND e.status = 1`;
-                countQuery += ` AND e.status = 1`;
+                // getEmployeesQuery += ` AND e.status = 1`;
+                // countQuery += ` AND e.status = 1`;
             } else if (lowercaseKey === "deactivated") {
-                getEmployeesQuery += ` AND e.status = 0`;
-                countQuery += ` AND e.status = 0`;
+                // getEmployeesQuery += ` AND e.status = 0`;
+                // countQuery += ` AND e.status = 0`;
             } else {
-                getEmployeesQuery += ` AND (LOWER(e.employee_first_name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
-                countQuery += ` AND (LOWER(e.employee_first_name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
+                getEmployeesQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(e.email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(e.email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
             }
         }
 
         // from date and to date
-        // if (fromDate && toDate) {
-        //     getTaskHeaterQuery += ` AND DATE(th.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
-        //     countQuery += ` AND DATE(th.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
-        // }
+        if (fromDate && toDate) {
+            getEmployeesQuery += ` AND DATE(e.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(e.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
 
-        // if (department_id) {
-        //     getTaskHeaterQuery += ` AND th.department_id = ${department_id}`;
-        //     countQuery += `  AND th.department_id = ${department_id}`;
-        // }
+        if (department_id) {
+            getEmployeesQuery += ` AND e.department_id = ${department_id}`;
+            countQuery += `  AND e.department_id = ${department_id}`;
+        }
 
-        // if (company_id) {
-        //     getTaskHeaterQuery += ` AND th.company_id = ${company_id}`;
-        //     countQuery += `  AND th.company_id = ${company_id}`;
-        // }
+        if (company_id) {
+            getEmployeesQuery += ` AND e.company_id = ${company_id}`;
+            countQuery += `  AND e.company_id = ${company_id}`;
+        }
 
-        // if (project_id) {
-        //     getTaskHeaterQuery += ` AND th.project_id = ${project_id}`;
-        //     countQuery += `  AND th.project_id = ${project_id}`;
-        // }
-
-        // if (user_id) {
-        //     getTaskHeaterQuery += ` AND th.user_id = ${user_id}`;
-        //     countQuery += `  AND th.user_id = ${user_id}`;
-        // }
-
-        // if (employee_id) {
-        //     getTaskHeaterQuery += ` AND th.employee_id = ${employee_id}`;
-        //     countQuery += `  AND th.employee_id = ${employee_id}`;
-        // }
-
-        // if (status_id) {
-        //     getTaskHeaterQuery += ` AND tf.employee_status_id = ${status_id}`;
-        //     countQuery += `  AND tf.employee_status_id = ${status_id}`;
-        // }
+        if (employee_id) {
+            getEmployeesQuery += ` AND e.employee_id = ${employee_id}`;
+            countQuery += `  AND e.employee_id = ${employee_id}`;
+        }
 
         getEmployeesQuery += " ORDER BY e.cts DESC";
 
@@ -403,25 +407,6 @@ const getEmployees = async (req, res) => {
 
         const result = await connection.query(getEmployeesQuery);
         const employees = result[0];
-
-        //get employee_documents
-        for (let i = 0; i < employees.length; i++) {
-            const element = employees[i];
-            let employeeDocumentsQuery = `SELECT ed.*,dt.document_type FROM employee_documents ed
-            LEFT JOIN document_type dt ON dt.document_type_id = ed.document_type_id
-            WHERE ed.employee_id = ${element.employee_id}`;
-            employeeDocumentsResult = await connection.query(employeeDocumentsQuery);
-            employees[i]['employeeDocuments'] = employeeDocumentsResult[0];
-        }
-
-        //get employee_education
-        for (let i = 0; i < employees.length; i++) {
-            const element = employees[i];
-            let employeeEducationQuery = `SELECT ee.* FROM employee_education ee
-            WHERE ee.employee_id = ${element.employee_id}`;
-            employeeEducationResult = await connection.query(employeeEducationQuery);
-            employees[i]['employeeEducation'] = employeeEducationResult[0];
-        }
 
         // Commit the transaction
         await connection.commit();
@@ -459,10 +444,10 @@ const getEmployee = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const employeeQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.dob as family_dob ,ef.is_dependent,ef.is_nominee,ef.mobile_number AS family_mobile_number,empc.start_date,empc.end_date,empc.last_drawn_salary,empc.designation AS employee_previous_designation ,empc.hr_email,empc.hr_mobile,
-        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id, sth.shift_type_name, es.start_date AS shift_start_date,es.end_date AS shift_end_date,eww.work_week_pattern_id, wwp.pattern_name , eww.start_date AS work_start_date,eww.end_date AS work_end_date , empc.company_name AS employee_previous_company, d.designation, c.name AS company_name, dp.department_name, et.employment_type, ee.employee_first_name as reporting_manager_first_name, ee.employee_last_name as reporting_manager_last_name,
-        hc.calendar_name FROM employee e
-        LEFT JOIN company c ON c.company_id = e.company_id
+        const employeeQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.family_dob,ef.is_dependent,ef.is_nominee,ef.family_mobile_number,empc.previous_company_name, empc.previous_start_date,empc.previous_end_date,empc.last_drawn_salary,empc.previous_designation,empc.hr_email,empc.hr_mobile,
+        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id, sth.shift_type_name, es.shift_start_date,es.shift_end_date,eww.work_week_pattern_id,eww. work_week_start_date,eww.work_week_end_date, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name, ee.last_name AS reporting_manager_last_name,
+        dp.department_name, et.employment_type, hc.calendar_name, wwp.pattern_name, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name,ee.last_name AS reporting_manager_last_name   FROM employee e
+        LEFT JOIN company c ON c.company_id = e.company_id 
         LEFT JOIN designation d ON d.designation_id = e.designation_id
         LEFT JOIN departments dp ON dp.departments_id = e.departments_id
         LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
@@ -473,7 +458,7 @@ const getEmployee = async (req, res) => {
         LEFT JOIN shift_type_header sth ON sth.shift_type_header_id = es.shift_type_header_id
         LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
         LEFT JOIN employment_type et ON et.employment_type_id = e.employment_type_id
-        LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager
+        LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
         LEFT JOIN holiday_calendar hc ON hc.holiday_calendar_id = e.holiday_calendar_id
         LEFT JOIN work_week_pattern wwp ON wwp.work_week_pattern_id = eww.work_week_pattern_id
         WHERE e.employee_id = ?`;
@@ -485,32 +470,32 @@ const getEmployee = async (req, res) => {
         const employee = employeeResult[0][0];
 
         if (employee.profile_photo) {
-                // Read the image file from the filesystem
-                const imagePath = path.join(__dirname, "..", "..", "..", "images", employee.profile_photo);
-                
-                if (fs.existsSync(imagePath)) {
-                    const imageBuffer = fs.readFileSync(imagePath);
-                    if (imageBuffer) {
-                        // Convert the image buffer to base64
-                        const imageBase64 = imageBuffer.toString('base64');
-                        // Add the base64 image to the file upload object
-                        employee.profile_photo_base64 = imageBase64;
-                    }
-                }
+            // Read the image file from the filesystem
+            const imagePath = path.join(__dirname, "..", "..", "images", employee.profile_photo);
 
+            if (fs.existsSync(imagePath)) {
+                const imageBuffer = fs.readFileSync(imagePath);
+                if (imageBuffer) {
+                    // Convert the image buffer to base64
+                    const imageBase64 = imageBuffer.toString('base64');
+                    // Add the base64 image to the file upload object
+                    employee.profile_photo_base64 = imageBase64;
+                }
             }
+
+        }
 
         //get employee_documents
         let employeeDocumentsQuery = `SELECT ed.*,dt.document_type FROM employee_documents ed
             LEFT JOIN document_type dt ON dt.document_type_id = ed.document_type_id
             WHERE ed.employee_id = ?`;
         let employeeDocumentsResult = await connection.query(employeeDocumentsQuery, [employeeId]);
-          for (let index = 0; index < employeeDocumentsResult[0].length; index++) {
+        for (let index = 0; index < employeeDocumentsResult[0].length; index++) {
             const element = employeeDocumentsResult[0][index];
             if (element.file_path) {
                 // Read the image file from the filesystem
-                
-                const imagePath = path.join(__dirname, "..", "..", "uploads", element.file_path);
+
+                const imagePath = path.join(__dirname, "..", "uploads", element.file_path);
                 if (fs.existsSync(imagePath)) {
                     const imageBuffer = fs.readFileSync(imagePath);
                     if (imageBuffer) {
@@ -554,29 +539,29 @@ const updateEmployee = async (req, res) => {
     const employment_type_id = req.body.employment_type_id ? req.body.employment_type_id : '';
     const employee_code = req.body.employee_code ? req.body.employee_code : '';
     const title = req.body.title ? req.body.title : '';
-    const employee_first_name = req.body.employee_first_name ? req.body.employee_first_name : '';
-    const employee_last_name = req.body.employee_last_name ? req.body.employee_last_name : '';
-    const employee_email = req.body.employee_email ? req.body.employee_email : '';
-    const dob = req.body.dob ? req.body.dob.trim() : null
+    const first_name = req.body.first_name ? req.body.first_name : '';
+    const last_name = req.body.last_name ? req.body.last_name : '';
+    const email = req.body.email ? req.body.email : '';
+    const personal_email = req.body.personal_email ? req.body.personal_email : '';
+    const dob = req.body.dob ? req.body.dob.trim() : null;
     const gender = req.body.gender ? req.body.gender.trim() : '';
     const father_name = req.body.father_name ? req.body.father_name.trim() : '';
     const mother_name = req.body.mother_name ? req.body.mother_name.trim() : '';
     const blood_group = req.body.blood_group ? req.body.blood_group.trim() : '';
     const marital_status = req.body.marital_status ? req.body.marital_status.trim() : '';
-    const personal_email = req.body.personal_email ? req.body.personal_email.trim() : '';
     const country_code = req.body.country_code ? req.body.country_code : '';
     const mobile_number = req.body.mobile_number ? req.body.mobile_number : '';
     const profile_photo = req.body.profile_photo ? req.body.profile_photo.trim() : '';
     const current_address = req.body.current_address ? req.body.current_address.trim() : '';
     const permanent_address = req.body.permanent_address ? req.body.permanent_address.trim() : '';
-    const signed_in = req.body.signed_in ? req.body.signed_in : '';
+    const signed_in = req.body.signed_in ? req.body.signed_in : '0';
     const alternate_contact_number = req.body.alternate_contact_number ? req.body.alternate_contact_number : '';
     const doj = req.body.doj ? req.body.doj.trim() : null
     const office_location = req.body.office_location ? req.body.office_location.trim() : '';
     const work_location = req.body.work_location ? req.body.work_location.trim() : '';
     const employee_status = req.body.employee_status ? req.body.employee_status : '';
     const holiday_calendar_id = req.body.holiday_calendar_id ? req.body.holiday_calendar_id : '';
-    const reporting_manager = req.body.reporting_manager ? req.body.reporting_manager : '';
+    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : '';
     const uan_number = req.body.uan_number ? req.body.uan_number : '';
     const esic_number = req.body.esic_number ? req.body.esic_number : '';
     const pf_number = req.body.pf_number ? req.body.pf_number : '';
@@ -595,11 +580,11 @@ const updateEmployee = async (req, res) => {
     const is_dependent = req.body.is_dependent ? req.body.is_dependent : '';
     const is_nominee = req.body.is_nominee ? req.body.is_nominee : '';
     const family_mobile_number = req.body.family_mobile_number ? req.body.family_mobile_number : '';
-    const company_name = req.body.company_name ? req.body.company_name : '';
-    const start_date = req.body.start_date ? req.body.start_date : null
-    const end_date = req.body.end_date ? req.body.end_date : null
+    const previous_company_name = req.body.previous_company_name ? req.body.previous_company_name : '';
+    const previous_start_date = req.body.previous_start_date ? req.body.previous_start_date : null
+    const previous_end_date = req.body.previous_end_date ? req.body.previous_end_date : null
     const last_drawn_salary = req.body.last_drawn_salary ? req.body.last_drawn_salary : null
-    const designation = req.body.designation ? req.body.designation : '';
+    const previous_designation = req.body.previous_designation ? req.body.previous_designation : '';
     const hr_email = req.body.hr_email ? req.body.hr_email : '';
     const hr_mobile = req.body.hr_mobile ? req.body.hr_mobile : '';
     const probation_start_date = req.body.probation_start_date ? req.body.probation_start_date : null
@@ -608,12 +593,16 @@ const updateEmployee = async (req, res) => {
     const shift_start_date = req.body.shift_start_date ? req.body.shift_start_date : null
     const shift_end_date = req.body.shift_end_date ? req.body.shift_end_date : null
     const work_week_pattern_id = req.body.work_week_pattern_id ? req.body.work_week_pattern_id : '';
-    const work_start_date = req.body.work_start_date ? req.body.work_start_date : null
-    const work_end_date = req.body.work_end_date ? req.body.work_end_date : null;
-    const employeeDocument = req.body.employeeDocument ? req.body.employeeDocument : [];
+    const work_week_start_date = req.body.work_week_start_date ? req.body.work_week_start_date : null
+    const work_week_end_date = req.body.work_week_end_date ? req.body.work_week_end_date : null
+    const employeeDocuments = req.body.employeeDocuments ? req.body.employeeDocuments : [];
     const employeeEducation = req.body.employeeEducation ? req.body.employeeEducation : [];
 
-    if (!dob) {
+    if (!first_name) {
+        return error422("First name is required.", res);
+    } else if (!last_name) {
+        return error422("Last name is required.", res);
+    } else if (!dob) {
         return error422("Birth Of Date id is required.", res);
     } else if (!gender) {
         return error422("Gender is required.", res);
@@ -625,8 +614,6 @@ const updateEmployee = async (req, res) => {
         return error422("Blood group is required.", res);
     } else if (!marital_status) {
         return error422("Marital status is required.", res);
-    } else if (!personal_email) {
-        return error422("Personal email is required.", res);
     } else if (!country_code) {
         return error422("country code is required.", res);
     } else if (!mobile_number) {
@@ -647,12 +634,16 @@ const updateEmployee = async (req, res) => {
         return error422("Employee status is required.", res);
     } else if (!holiday_calendar_id) {
         return error422("Holiday calendar id is required.", res);
-    } else if (!reporting_manager) {
+    } else if (!reporting_manager_id && reporting_manager_id != 0) {
         return error422("Reporting manager is required.", res);
     } else if (!aadhar_number) {
         return error422("Aadhar number is required.", res);
     } else if (!title) {
         return error422("Title is required.", res);
+    } else if (!email) {
+        return error422("Email is required.", res);
+    } else if (!personal_email) {
+        return error422("Personal email is required.", res)
     }
 
     // attempt to obtain a database connection
@@ -668,6 +659,13 @@ const updateEmployee = async (req, res) => {
         const employeeResult = await connection.query(employeeQuery, [employeeId]);
         if (employeeResult[0].length == 0) {
             return error422("Employee Not Found.", res);
+        }
+        // Check if the provided employee exists
+        const existingEmployeeQuery = "SELECT * FROM employee WHERE email = ? AND employee_id !=? ";
+        const existingEmployeeResult = await connection.query(existingEmployeeQuery, [email, employeeId]);
+
+        if (existingEmployeeResult[0].length > 0) {
+            return error422("Email already exists.", res);
         }
 
         const allowedMimeTypes = [
@@ -693,7 +691,7 @@ const updateEmployee = async (req, res) => {
             }
 
             const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
-            const uploadDir = path.join(__dirname, "..", "..", "..", "images");
+            const uploadDir = path.join(__dirname, "..", "..", "images");
             if (!fs.existsSync(uploadDir)) {
                 fs.mkdirSync(uploadDir, { recursive: true });
             }
@@ -710,11 +708,16 @@ const updateEmployee = async (req, res) => {
         // Update the employee record with new data
         const updateQuery = `
             UPDATE employee
-            SET company_id = ?, departments_id = ?, designation_id = ?, employment_type_id = ?, employee_code = ?, title = ?, employee_first_name = ?, employee_last_name = ?, employee_email = ?, dob = ?, gender = ?, father_name = ?, mother_name = ?, blood_group = ?, marital_status = ?, personal_email = ?, country_code = ?, mobile_number = ?, profile_photo = ?, current_address = ?, permanent_address = ?, signed_in = ?, alternate_contact_number = ?, doj = ?, office_location = ?, work_location = ?, employee_status = ?, holiday_calendar_id = ?, reporting_manager = ?, uan_number = ?, esic_number = ?, pf_number = ?, pan_card_number = ?, aadhar_number = ?, passport_no = ?, passport_expiry = ?
+            SET company_id = ?, departments_id = ?, designation_id = ?, employment_type_id = ?, employee_code = ?, title = ?, first_name = ?, last_name = ?, email = ?, personal_email = ?, dob = ?, gender = ?, father_name = ?, mother_name = ?, blood_group = ?, marital_status = ?, country_code = ?, mobile_number = ?, profile_photo = ?, current_address = ?, permanent_address = ?, signed_in = ?, alternate_contact_number = ?, doj = ?, office_location = ?, work_location = ?, employee_status = ?, holiday_calendar_id = ?, reporting_manager_id = ?, uan_number = ?, esic_number = ?, pf_number = ?, pan_card_number = ?, aadhar_number = ?, passport_no = ?, passport_expiry = ?
             WHERE employee_id = ?
         `;
-        await connection.query(updateQuery, [company_id, departments_id, designation_id, employment_type_id, employee_code, title, employee_first_name, employee_last_name, employee_email, dob, gender, father_name, mother_name, blood_group, marital_status, personal_email, country_code, mobile_number, profilePhotoPath, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, employeeId]);
-
+        await connection.query(updateQuery, [company_id, departments_id, designation_id, employment_type_id, employee_code, title, first_name, last_name, email, personal_email, dob, gender, father_name, mother_name, blood_group, marital_status, country_code, mobile_number, profilePhotoPath, current_address, permanent_address, signed_in, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager_id, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, employeeId]);
+        if (employeeResult[0][0].profile_photo) {
+            let oldImageFilePath = path.join(__dirname, "..", "..", "images", employeeResult[0][0].profile_photo);
+            if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                fs.unlinkSync(oldImageFilePath);
+            }
+        }
         //update employee_bank_deatils
         const updateBankQuery = `
             UPDATE employee_bank_details
@@ -726,7 +729,7 @@ const updateEmployee = async (req, res) => {
         //update employee_family
         const updateFamilyQuery = `
             UPDATE employee_family
-            SET family_member_name = ?, relationship = ?, dob = ?, is_dependent = ?, is_nominee = ?, mobile_number = ?
+            SET family_member_name = ?, relationship = ?, family_dob = ?, is_dependent = ?, is_nominee = ?, family_mobile_number = ?
             WHERE employee_id = ?
         `;
         await connection.query(updateFamilyQuery, [family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number, employeeId]);
@@ -742,15 +745,15 @@ const updateEmployee = async (req, res) => {
         //update employee_previous_company
         const updatePreviousCompanyQuery = `
             UPDATE employee_previous_company
-            SET company_name = ?, start_date = ?, end_date = ?, last_drawn_salary = ?, designation = ?, hr_email = ?, hr_mobile = ?
+            SET previous_company_name = ?, previous_start_date = ?, previous_end_date = ?, last_drawn_salary = ?, previous_designation = ?, hr_email = ?, hr_mobile = ?
             WHERE employee_id = ?
         `;
-        await connection.query(updatePreviousCompanyQuery, [company_name, start_date, end_date, last_drawn_salary, designation, hr_email, hr_mobile, employeeId]);
+        await connection.query(updatePreviousCompanyQuery, [previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile, employeeId]);
 
         //update employee_shift
         const updateShiftQuery = `
             UPDATE employee_shift
-            SET shift_type_header_id = ?, start_date = ?, end_date = ?
+            SET shift_type_header_id = ?, shift_start_date = ?, shift_end_date = ?
             WHERE employee_id = ?
         `;
         await connection.query(updateShiftQuery, [shift_type_header_id, shift_start_date, shift_end_date, employeeId]);
@@ -758,23 +761,18 @@ const updateEmployee = async (req, res) => {
         //update employee_work_week
         const updateWorkQuery = `
             UPDATE employee_work_week
-            SET work_week_pattern_id = ?, start_date = ?, end_date = ?
+            SET work_week_pattern_id = ?, work_week_start_date = ?, work_week_end_date = ?
             WHERE employee_id = ?
         `;
-        await connection.query(updateWorkQuery, [work_week_pattern_id, work_start_date, work_end_date, employeeId]);
+        await connection.query(updateWorkQuery, [work_week_pattern_id, work_week_start_date, work_week_end_date, employeeId]);
 
-        let documentsArray = employeeDocument
+        let documentsArray = employeeDocuments
         for (let i = 0; i < documentsArray.length; i++) {
             const element = documentsArray[i];
             const employee_documents_id = element.employee_documents_id ? element.employee_documents_id : '';
             const document_type_id = element.document_type_id ? element.document_type_id : '';
             const document_name = element.document_name ? element.document_name.trim() : '';
             const file_path = element.file_path ? element.file_path.trim() : '';
-
-            // if (!assigned_to) {
-            //     await query("ROLLBACK");
-            //     return error422("assigned id is require", res);
-            // }
 
             const allowedMimeTypes = [
                 'application/pdf',
@@ -804,11 +802,11 @@ const updateEmployee = async (req, res) => {
                 }
 
                 const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
-                const uploadDir = path.join(__dirname, "..", "..", "uploads");
+                const uploadDir = path.join(__dirname, "..", "uploads");
                 if (!fs.existsSync(uploadDir)) {
                     fs.mkdirSync(uploadDir, { recursive: true });
                 }
-            
+
                 const filePath = path.join(uploadDir, fileName);
 
                 fs.writeFileSync(filePath, pdfBuffer);
@@ -827,9 +825,20 @@ const updateEmployee = async (req, res) => {
             }
 
             if (employee_documents_id) {
-                let updatePreviousCompanyQuery = `UPDATE employee_documents SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_documents_id = ?`;
-                let updatePreviousCompanyValue = [document_type_id, document_name, filePath, employeeId, employee_documents_id]
-                let updatePreviousCompanyResult = await connection.query(updatePreviousCompanyQuery, updatePreviousCompanyValue);
+                // get document upload
+                let getUploadQuery = `SELECT * FROM employee_documents WHERE employee_documents_id = ${employee_documents_id}`
+                let uploadResult = await connection.query(getUploadQuery)
+
+                if (uploadResult[0].length > 0) {
+                    let updateDocumentQuery = `UPDATE employee_documents SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_documents_id = ?`;
+                    let updateDocumentValue = [document_type_id, document_name, filePath, employeeId, employee_documents_id]
+                    let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
+                    let oldImageFilePath = path.join(__dirname, "..", "uploads", uploadResult[0][0].file_path);
+                    if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                        fs.unlinkSync(oldImageFilePath);
+                    }
+                }
+
             } else {
                 let insertEmployeeDocumentsQuery = 'INSERT INTO employee_documents (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
                 let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
@@ -855,6 +864,18 @@ const updateEmployee = async (req, res) => {
                 let insertEmployeeEducationValues = [employeeId, education_type, education_name, passing_year, university];
                 let insertEmployeeEducationResult = await connection.query(insertEmployeeEducationQuery, insertEmployeeEducationValues);
             }
+        }
+
+        let isUserQuery = `SELECT  * FROM users WHERE employee_id = ?`;
+        let [isUserResult] = await connection.query(isUserQuery, employeeId);
+        if (isUserResult[0]) {
+            //update employee_work_week
+            const updateWorkQuery = `
+            UPDATE users
+            SET first_name = ?, last_name = ?, email_id = ?,  mobile_number = ?
+            WHERE employee_id = ?
+        `;
+            await connection.query(updateWorkQuery, [first_name, last_name, email, mobile_number, employeeId]);
         }
 
         // Commit the transaction
@@ -903,15 +924,20 @@ const onStatusChange = async (req, res) => {
                 message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
             });
         }
-
-        // Soft update the employee status
-        const updateQuery = `
-            UPDATE employee
+        let employee_status = status == 1 ? 'Active' : 'Inactive'
+        let getUserQuery = `SELECT * FROM users WHERE employee_id = ?`;
+        let [getUserResult] = await connection.query(getUserQuery, [employeeId])
+        if (getUserResult[0]) {
+            // Soft update the user status
+            const updateQuery = `
+            UPDATE user
             SET status = ?
-            WHERE employee_id = ?
-        `;
+            WHERE employee_id = ?`;
+            await connection.query(updateQuery, [status, employeeId]);
+        }
 
-        await connection.query(updateQuery, [status, employeeId]);
+
+
 
         const statusMessage = status === 1 ? "activated" : "deactivated";
         // Commit the transaction
@@ -940,7 +966,7 @@ const getEmployeeWma = async (req, res) => {
 
         const employeeQuery = `SELECT * FROM employee
         
-        WHERE status = 1  ORDER BY employee_first_name`;
+        WHERE status = 1  ORDER BY first_name`;
 
         const employeeResult = await connection.query(employeeQuery);
         const employee = employeeResult[0];
@@ -960,13 +986,46 @@ const getEmployeeWma = async (req, res) => {
     }
 
 }
+//for admin dropdown
+const getEmployeeAdminWma = async (req, res) => {
 
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const employeeQuery = `SELECT * FROM employee
+        
+        WHERE 1 AND reporting_manager_id !=0 ORDER BY first_name`;
+
+        const employeeResult = await connection.query(employeeQuery);
+        const employee = employeeResult[0];
+
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Employee retrieved successfully.",
+            data: employee,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+
+}
 module.exports = {
     createEmployee,
     getEmployees,
     getEmployee,
     updateEmployee,
     onStatusChange,
-    getEmployeeWma
+    getEmployeeWma,
+    getEmployeeAdminWma
 
 }

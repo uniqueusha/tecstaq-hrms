@@ -7,7 +7,6 @@ const error422 = (message, res) => {
 }
 const error500 = (error, res) => {
     console.log(error);
-
     return res.status(500).json({
         status: 500,
         message: "Internal Server Error",
@@ -23,6 +22,7 @@ const createLeaveRequest = async (req, res) => {
     const total_days = req.body.total_days ? req.body.total_days : null;
     const reason = req.body.reason ? req.body.reason : null;
     const approver_id = req.body.approver_id ? req.body.approver_id : null;
+    const leave_details = req.body.leave_details ? req.body.leave_details : [];
 
     if (!employee_id) {
         return error422("Employee id is required.", res);
@@ -36,8 +36,10 @@ const createLeaveRequest = async (req, res) => {
         return error422("Total days is required.", res);
     } else if (!reason) {
         return error422("Reason is required.", res);
-    }else if (!approver_id) {
+    } else if (!approver_id) {
         return error422("approver_id is required.", res);
+    } else if (!leave_details) {
+        return error422("Leave Details is required.", res);
     }
 
     const connection = await pool.getConnection();
@@ -49,32 +51,42 @@ const createLeaveRequest = async (req, res) => {
         if (!leave_type) {
             return error422("Leave Type not found.", res)
         }
-        if (parseFloat(leave_type.number_of_days)<parseFloat(total_days)) {
+        if (parseFloat(leave_type.number_of_days) < parseFloat(total_days)) {
             return error422("Leave limit is over.", res);
         }
         //is leave balance
-        let isLeaveBalanceQuery="SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ?";
+        let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ?";
         let [isLeaveBalanceResult] = await connection.query(isLeaveBalanceQuery, [leave_type_id, employee_id]);
         let leaveBalance = isLeaveBalanceResult[0];
         if (leaveBalance) {
-            if (parseFloat(leaveBalance.remaining_days)<parseFloat(total_days)) {
-            return error422("Your leave limit is over.", res);
-            } 
+            if (parseFloat(leaveBalance.remaining_days) < parseFloat(total_days)) {
+                return error422("Your leave limit is over.", res);
+            }
         }
-         
+
         //insert into leave request
         let leaveRequestQuery = " INSERT INTO leave_request (employee_id, leave_type_id, start_date, end_date, total_days, reason, approver_id) VALUES (?,?,?,?,?,?,?)";
-        let leaveRequest = await connection.query(leaveRequestQuery,[employee_id, leave_type_id, start_date, end_date, total_days, reason, approver_id])
+        let leaveRequest = await connection.query(leaveRequestQuery, [employee_id, leave_type_id, start_date, end_date, total_days, reason, approver_id])
         const leave_request_id = leaveRequest[0].insertId;
+        if (leave_details) {
+            for (let index = 0; index < leave_details.length; index++) {
+                const element = leave_details[index];
+                let leave_date = element.leave_date;
+                let type = element.type;
+                let leaveFooterQuery = "INSERT INTO leave_request_footer (leave_request_id, leave_date, type) VALUES (?, ?, ?)";
+                await connection.query(leaveFooterQuery, [leave_request_id, leave_date, type])
+
+            }
+        }
         //insert into leave history
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
-        let leaveHistory = await connection.query(leaveHistoryQuery,[leave_request_id, approver_id, "Pending", reason])
+        let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, approver_id, "Pending", reason])
 
         await connection.commit();
 
         return res.status(200).json({
-            status:200,
-            message:"Leave Request created Successfully"
+            status: 200,
+            message: "Leave Request created Successfully"
         })
     } catch (error) {
         if (connection) await connection.rollback()
@@ -95,14 +107,14 @@ const getLeaveRequests = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getQuery = `SELECT lq.*, e.employee_first_name, e.employee_last_name, em.employee_first_name AS approver_first_name , em.employee_last_name AS approver_last_name,
+        let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
         lt.leave_type_name 
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
         LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE 1`;
-        
+
         let countQuery = `SELECT COUNT(*) AS total FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
@@ -111,8 +123,8 @@ const getLeaveRequests = async (req, res) => {
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-                getQuery += ` AND (LOWER(e.employee_first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.employee_first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(em.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
-                countQuery += ` AND (LOWER(e.employee_first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.employee_first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(em.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
+            getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
+            countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
         }
         // from date and to date
         if (fromDate && toDate) {
@@ -173,7 +185,7 @@ const getLeaveRequests = async (req, res) => {
 }
 //get leave request..
 const getLeaveRequest = async (req, res) => {
-    const leave_request_id =parseInt(req.params.id)
+    const leave_request_id = parseInt(req.params.id)
 
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
@@ -183,18 +195,21 @@ const getLeaveRequest = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getQuery = `SELECT lq.*, e.employee_first_name, e.employee_last_name, em.employee_first_name AS approver_first_name , em.employee_last_name AS approver_last_name,
+        let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
         lt.leave_type_name 
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
         LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE  lq.leave_request_id = ?`;
-        const [result] = await connection.query(getQuery,[leave_request_id]);
-        const leaveRequest = result[0];
+        const [result] = await connection.query(getQuery, [leave_request_id]);
+        let leaveRequest = result[0];
         if (!leaveRequest) {
             return error422('Leave Request Not Found', res)
         }
+        let leaveRequestFooterQuery = "SELECT * FROM leave_request_footer WHERE leave_request_id =?"
+        let [leaveRequestFooterResult] = await connection.query(leaveRequestFooterQuery, [leave_request_id]);
+        leaveRequest['leave_details'] = leaveRequestFooterResult
         // Commit the transaction
         await connection.commit();
         const data = {
@@ -209,8 +224,8 @@ const getLeaveRequest = async (req, res) => {
         if (connection) connection.release()
     }
 }
-const updateLeaveRequest = async (req, res) =>{
-    const leave_request_id =parseInt(req.params.id);
+const updateLeaveRequest = async (req, res) => {
+    const leave_request_id = parseInt(req.params.id);
     const employee_id = req.body.employee_id ? req.body.employee_id : null;
     const leave_type_id = req.body.leave_type_id ? req.body.leave_type_id : null;
     const start_date = req.body.start_date ? req.body.start_date : null;
@@ -218,7 +233,9 @@ const updateLeaveRequest = async (req, res) =>{
     const total_days = req.body.total_days ? req.body.total_days : null;
     const reason = req.body.reason ? req.body.reason : null;
     const approver_id = req.body.approver_id ? req.body.approver_id : null;
-     if (!employee_id) {
+    const leave_details = req.body.leave_details ? req.body.leave_details : [];
+
+    if (!employee_id) {
         return error422("Employee id is required.", res);
     } else if (!leave_type_id) {
         return error422("Leave type is required.", res);
@@ -230,8 +247,10 @@ const updateLeaveRequest = async (req, res) =>{
         return error422("Total days is required.", res);
     } else if (!reason) {
         return error422("Reason is required.", res);
-    }else if (!approver_id) {
+    } else if (!approver_id) {
         return error422("approver_id is required.", res);
+    } else if (!leave_details) {
+        return error422("Leave Details is required.", res);
     }
 
     let connection = await pool.getConnection();
@@ -243,12 +262,12 @@ const updateLeaveRequest = async (req, res) =>{
         let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name FROM leave_request lq 
        LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE  lq.leave_request_id = ?`;
-        const [result] = await connection.query(getQuery,[leave_request_id]);
+        const [result] = await connection.query(getQuery, [leave_request_id]);
         const leaveRequest = result[0];
         if (!leaveRequest) {
             return error422('Leave Request Not Found', res)
         }
-        if (leaveRequest.status !='Pending') {
+        if (leaveRequest.status != 'Pending') {
             return error422('Sorry! ,Leave request is not Pending.', res)
         }
         //is leave type
@@ -258,29 +277,47 @@ const updateLeaveRequest = async (req, res) =>{
         if (!leave_type) {
             return error422("Leave Type not found.", res)
         }
-        if (parseFloat(leave_type.number_of_days)<parseFloat(total_days)) {
+        if (parseFloat(leave_type.number_of_days) < parseFloat(total_days)) {
             return error422("Leave limit is over.", res);
         }
         //is leave balance
-        let isLeaveBalanceQuery="SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ?";
+        let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ?";
         let [isLeaveBalanceResult] = await connection.query(isLeaveBalanceQuery, [leave_type_id, employee_id]);
         let leaveBalance = isLeaveBalanceResult[0];
         if (leaveBalance) {
-            if (parseFloat(leaveBalance.remaining_days)<parseFloat(total_days)) {
-            return error422("Your leave limit is over.", res);
-            } 
+            if (parseFloat(leaveBalance.remaining_days) < parseFloat(total_days)) {
+                return error422("Your leave limit is over.", res);
+            }
         }
         //update leave request
         let updateLeaveRequestQuery = `UPDATE leave_request 
         SET employee_id = ?, leave_type_id = ?, start_date =?, 
         end_date = ?, total_days = ?, reason = ?, approver_id = ? 
         WHERE leave_request_id = ?`;
-        let leaveRequestResult = await connection.query(updateLeaveRequestQuery,[employee_id, leave_type_id, start_date, end_date, 
+        let leaveRequestResult = await connection.query(updateLeaveRequestQuery, [employee_id, leave_type_id, start_date, end_date,
             total_days, reason, approver_id, leave_request_id]);
+        if (leave_details) {
+            for (let index = 0; index < leave_details.length; index++) {
+                const element = leave_details[index];
+                let leave_request_footer_id = element.leave_request_footer_id;
+                let leave_date = element.leave_date;
+                let type = element.type;
+                if (leave_request_footer_id) {
+                    let updateLeaveFooterQuery = `UPDATE  leave_request_footer
+                    SET leave_request_id = ?, leave_date = ?, type = ?
+                    WHERE  leave_request_footer_id = ? `;
+                    await connection.query(updateLeaveFooterQuery, [leave_request_id, leave_date, type, leave_request_footer_id])
+                } else {
+                    let leaveFooterQuery = "INSERT INTO leave_request_footer (leave_request_id, leave_date, type) VALUES (?, ?, ?)";
+                    await connection.query(leaveFooterQuery, [leave_request_id, leave_date, type])
+                }
+
+            }
+        }
 
         //insert into leave history
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
-        let leaveHistory = await connection.query(leaveHistoryQuery,[leave_request_id, leaveRequest.approver_id,"Pending", reason])
+        let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, leaveRequest.approver_id, "Pending", reason])
 
         // Commit the transaction
         await connection.commit();
@@ -296,32 +333,56 @@ const updateLeaveRequest = async (req, res) =>{
         if (connection) connection.release()
     }
 }
+const deleteLeaveRequestFooter = async (req, res)=>{
+    let leave_request_footer_id = parseInt(req.params.id);
+    let isLeaveRequestFooterQuery = 'SELECT * FROM leave_request_footer WHERE leave_request_footer_id = ?';
+    let [isLeaveRequestFooterResult] = await pool.query(isLeaveRequestFooterQuery,[leave_request_footer_id])
+    if (!isLeaveRequestFooterResult.length>0) {
+        return error422("Leave request footer is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete leave request footer 
+        let deleteLeaveRequestFooterQuery = 'DELETE FROM leave_request_footer WHERE leave_request_footer_id = ?'
+        await connection.query(deleteLeaveRequestFooterQuery,[leave_request_footer_id]);
+        connection.commit();
+        return res.status(200).json({
+            status:200,
+            message:"Leave request footer delete successfully."
+        })
+     } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 //Approve Leave Request
-const approveLeaveRequest = async (req, res)=>{
-    const leave_request_id =parseInt(req.params.id);
-    const status = req.query.status ? req.query.status.trim():'';
-    const remarks = req.body.remarks ? req.body.remarks.trim():"";
+const approveLeaveRequest = async (req, res) => {
+    const leave_request_id = parseInt(req.params.id);
+    const status = req.query.status ? req.query.status.trim() : '';
+    const remarks = req.body.remarks ? req.body.remarks.trim() : "";
     // 'Pending','Approved','Rejected','Cancelled' 
-    if (status!='Pending'&&status!='Approved'&&status!='Rejected'&&status!='Cancelled') {
-      return error422("Status is invalid.", res) ;
+    if (status != 'Pending' && status != 'Approved' && status != 'Rejected' && status != 'Cancelled') {
+        return error422("Status is invalid.", res);
     }
 
     let connection = await pool.getConnection();
     try {
-       let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name FROM leave_request lq 
+        let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name FROM leave_request lq 
        LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE  lq.leave_request_id = ?`;
-        const [result] = await connection.query(getQuery,[leave_request_id]);
+        const [result] = await connection.query(getQuery, [leave_request_id]);
         const leaveRequest = result[0];
         if (!leaveRequest) {
             return error422('Leave Request Not Found', res)
         }
-            if (status==leaveRequest.status) {
-        return error422("This leave request is already "+status, res)
-    }
+        if (status == leaveRequest.status) {
+            return error422("This leave request is already " + status, res)
+        }
         let current_year = new Date().getFullYear();
         //is leave balance
-        let isLeaveBalanceQuery="SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ? AND year = ?";
+        let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ? AND year = ?";
         let [isLeaveBalanceResult] = await connection.query(isLeaveBalanceQuery, [leaveRequest.leave_type_id, leaveRequest.employee_id, current_year]);
         let leaveBalance = isLeaveBalanceResult[0];
         let used_days = 0
@@ -331,31 +392,31 @@ const approveLeaveRequest = async (req, res)=>{
         let allocated_days = leaveRequest.number_of_days
         used_days = parseFloat(used_days) + parseFloat(leaveRequest.total_days);
         let remaining_days = allocated_days - used_days
-        if (status =='Approved') {
+        if (status == 'Approved') {
             if (leaveBalance) {
-            let updateLeaveBalanceQuery = `UPDATE leave_balance 
+                let updateLeaveBalanceQuery = `UPDATE leave_balance 
             SET allocated_days = ?, used_days = ?, remaining_days = ? WHERE leave_balance_id = ?`
-            let [updateLeaveBalanceResult] = await connection.query(updateLeaveBalanceQuery, [ allocated_days, used_days, remaining_days, leaveBalance.leave_balance_id])
-        }else{
-            let insertLeaveBalanceQuery ="INSERT INTO leave_balance (employee_id, leave_type_id, allocated_days, used_days, remaining_days, year ) VALUES (?,?,?,?,?,?)";
-            await connection.query(insertLeaveBalanceQuery,[leaveRequest.employee_id, leaveRequest.leave_type_id, allocated_days, used_days, remaining_days, current_year]) 
-        }
+                let [updateLeaveBalanceResult] = await connection.query(updateLeaveBalanceQuery, [allocated_days, used_days, remaining_days, leaveBalance.leave_balance_id])
+            } else {
+                let insertLeaveBalanceQuery = "INSERT INTO leave_balance (employee_id, leave_type_id, allocated_days, used_days, remaining_days, year ) VALUES (?,?,?,?,?,?)";
+                await connection.query(insertLeaveBalanceQuery, [leaveRequest.employee_id, leaveRequest.leave_type_id, allocated_days, used_days, remaining_days, current_year])
+            }
 
         }
-        let updateLeaveRequestQuery =  `UPDATE leave_request
+        let updateLeaveRequestQuery = `UPDATE leave_request
         SET status = ?, approved_date = ? WHERE leave_request_id = ?`;
-        let [updateLeaveBalanceResult] = await connection.query( updateLeaveRequestQuery,[status, new Date(), leave_request_id]);
+        let [updateLeaveBalanceResult] = await connection.query(updateLeaveRequestQuery, [status, new Date(), leave_request_id]);
 
         //insert into leave history
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
-        let leaveHistory = await connection.query(leaveHistoryQuery,[leave_request_id, leaveRequest.approver_id, status, remarks])
+        let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, leaveRequest.approver_id, status, remarks])
 
         // Commit the transaction
         await connection.commit();
         return res.status(200).json({
             status: 200,
             message: `Leave Request '${status}' successfully`,
-        }); 
+        });
     } catch (error) {
         await connection.rollback()
         return error500(error, res);
@@ -369,5 +430,6 @@ module.exports = {
     getLeaveRequests,
     getLeaveRequest,
     updateLeaveRequest,
-    approveLeaveRequest
+    approveLeaveRequest,
+    deleteLeaveRequestFooter
 }

@@ -17,13 +17,13 @@ const work_week_pattern = require('./src/modules/work_week_pattern/workweekpater
 const holiday_calendar = require('./src/modules/holiday/holiday_calendar.routes');
 const shift_type = require('./src/modules/shift_type/shift_type.routes');
 const employment_type = require('./src/modules/employment_type/employment_type.routes');
-
-const policyRoutes = require('./src/modules/policy/policy.routes');
-const employeeRoutes = require('./src/modules/employee/employee.routes');
-const leaveRequest = require('./src/routes/leave-request.route')
-
-
 const leave_type_master = require('./src/modules/leave_type_master/leave_type_master.routes');
+const policyRoutes = require('./src/modules/policy/policy.routes');
+
+const employeeRoutes = require('./src/routes/employee.routes'); 
+const leaveRequestRoutes = require('./src/routes/leave-request.route');
+const userRoutes = require('./src/routes/user.route');
+
 
 // Middleware
 app.use(bodyParser.json());
@@ -49,13 +49,13 @@ app.use('/work_week_pattern', work_week_pattern);
 app.use('/holiday_calendar', holiday_calendar);
 app.use('/shift_type',shift_type);
 app.use('/employment_type', employment_type);
-
 app.use('/policy', policyRoutes);
-app.use('/employee', employeeRoutes);
-
-  
 app.use('/leave_type_master', leave_type_master);
-app.use('/leave-request', leaveRequest)
+
+
+app.use('/employee', employeeRoutes);
+app.use('/leave-request', leaveRequestRoutes);
+app.use('/user', userRoutes);
 
 
 module.exports = app;

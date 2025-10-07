@@ -3,7 +3,33 @@
  const { updateHelper } = require('../../common/updateHelper');
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
- 
+ const pool = require('../../common/db');
+
+//function to obtain a database connection 
+const getConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        return connection;
+    } catch (error) {
+        throw new Error("Failed to obtain database connection:" + error.message);
+    }
+}
+//error handle 422...
+error422 = (message, res) => {
+    return res.status(422).json({
+        status: 422,
+        message: message
+    });
+}
+//error handle 500...
+error500 = (error, res) => {
+    console.log(error);
+    return res.status(500).json({
+        status: 500,
+        message: "Internal Server Error",
+        error: error
+    });
+}
 async function createCompany(req, res) {
     try {
           const userId = req.user?.user_id;
@@ -137,4 +163,58 @@ async function companyDropdown(req, res) {
 }
 
 
-module.exports = { createCompany, listCompanies, getCompanyById, updateCompany,deleteCompany,companyDropdown };
+//status change of Company...
+const onStatusChange = async (req, res) => {
+    const companyId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the company exists
+        const companyQuery = "SELECT * FROM company WHERE company_id = ? ";
+        const companyResult = await connection.query(companyQuery, [companyId]);
+
+        if (companyResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Company not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+        
+            // Soft update the company status
+            const updateQuery = `
+            UPDATE company
+            SET status = ?
+            WHERE company_id = ?`;
+            await connection.query(updateQuery, [status, companyId]);
+        
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Company ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
+
+
+module.exports = { createCompany, listCompanies, getCompanyById, updateCompany,deleteCompany,companyDropdown,onStatusChange };

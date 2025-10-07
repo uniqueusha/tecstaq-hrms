@@ -7,6 +7,7 @@ const { getDepartmentById  } = require('./departments.controller');
 const { updateDepartments } = require('./departments.controller');
 const { deleteDepartments } = require('./departments.controller');
 const { departmentsDropdown } = require('./departments.controller');
+const { onStatusChange } = require('./departments.controller')
 
 
 // Creare New Deaprtments
@@ -23,6 +24,9 @@ router.get('/:id', verifyToken, getDepartmentById);
 
 // Put Deaprtments update by id
 router.put('/:id', verifyToken, updateDepartments);
+
+//patch status change
+router.patch('/:id', onStatusChange )
 
 // Delete Deaprtments update by id
 router.delete('/:id', verifyToken, deleteDepartments);

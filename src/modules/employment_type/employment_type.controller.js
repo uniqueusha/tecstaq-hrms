@@ -3,7 +3,17 @@
  const { updateHelper } = require('../../common/updateHelper');
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
- 
+ const pool = require('../../common/db');
+
+//function to obtain a database connection 
+const getConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        return connection;
+    } catch (error) {
+        throw new Error("Failed to obtain database connection:" + error.message);
+    }
+}
 async function createemployment_type(req, res) {
     try {
           const userId = req.user?.user_id;
@@ -139,5 +149,57 @@ async function employment_typeDropdown(req, res) {
     }
 }
 
+const onStatusChange = async (req, res) => {
+    const employmentTypeId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
 
-module.exports = { createemployment_type, listemployment_type, getemployment_typeById, updateemployment_type,deleteemployment_type,employment_typeDropdown };
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the employment_type exists
+        const employmentTypeQuery = "SELECT * FROM employment_type WHERE employment_type_id = ? ";
+        const employmentTypeResult = await connection.query(employmentTypeQuery, [employmentTypeId]);
+
+        if (employmentTypeResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Employment Type not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+        
+            // Soft update the employment Type Master status
+            const updateQuery = `
+            UPDATE employment_type
+            SET status = ?
+            WHERE employment_type_id = ?`;
+            await connection.query(updateQuery, [status, employmentTypeId]);
+        
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Leave Type ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
+
+
+module.exports = { createemployment_type, listemployment_type, getemployment_typeById, updateemployment_type,deleteemployment_type,employment_typeDropdown, onStatusChange };

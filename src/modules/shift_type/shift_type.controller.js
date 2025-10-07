@@ -3,7 +3,17 @@
  const { updateHelper } = require('../../common/updateHelper');
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
- 
+ const pool = require('../../common/db');
+
+//function to obtain a database connection 
+const getConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        return connection;
+    } catch (error) {
+        throw new Error("Failed to obtain database connection:" + error.message);
+    }
+}
 async function createshift_type(req, res) {
     try {
           const userId = req.user?.user_id;
@@ -143,5 +153,56 @@ async function shift_typeDropdown(req, res) {
     }
 }
 
+const onStatusChange = async (req, res) => {
+    const shiftTypeId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
 
-module.exports = { createshift_type, listshift_type, getshift_typeById, updateshift_type,deleteshift_type,shift_typeDropdown };
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the shiftType exists
+        const shiftTypeQuery = "SELECT * FROM shift_type_header WHERE shift_type_header_id = ? ";
+        const shiftTypeResult = await connection.query(shiftTypeQuery, [shiftTypeId]);
+
+        if (shiftTypeResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Shift Type not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+        
+            // Soft update the shift Type Master status
+            const updateQuery = `
+            UPDATE shift_type_header
+            SET status = ?
+            WHERE shift_type_header_id = ?`;
+            await connection.query(updateQuery, [status, shiftTypeId]);
+        
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Shift Type ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
+
+module.exports = { createshift_type, listshift_type, getshift_typeById, updateshift_type,deleteshift_type,shift_typeDropdown, onStatusChange };

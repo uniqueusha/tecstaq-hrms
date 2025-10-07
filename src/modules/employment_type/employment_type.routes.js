@@ -7,6 +7,7 @@ const { getemployment_typeById  } = require('./employment_type.controller');
 const { updateemployment_type} = require('./employment_type.controller');
 const { deleteemployment_type} = require('./employment_type.controller');
 const { employment_typeDropdown } = require('./employment_type.controller');
+const { onStatusChange } = require('./employment_type.controller');
 
 
 // Creare New employment_type
@@ -24,6 +25,8 @@ router.get('/:id', verifyToken, getemployment_typeById);
 // Put employment_typeupdate by id
 router.put('/:id', verifyToken, updateemployment_type);
 
+//patch status change 
+router.patch('/:id', onStatusChange);
 // Delete employment_typeupdate by id
 router.delete('/:id', verifyToken, deleteemployment_type);
 

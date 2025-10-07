@@ -7,6 +7,7 @@ const { getleave_type_masterById  } = require('./leave_type_master.controller');
 const { updateleave_type_master } = require('./leave_type_master.controller');
 const { deleteleave_type_master } = require('./leave_type_master.controller');
 const { leave_type_masterDropdown } = require('./leave_type_master.controller');
+const { onStatusChange } = require('./leave_type_master.controller')
 
 // Creare New leave_type_masterDropdown
 router.post('/',verifyToken, createleave_type_master);
@@ -23,6 +24,9 @@ router.get('/:id', verifyToken, getleave_type_masterById);
 
 // Put leave_type_masterDropdown update by id
 router.put('/:id', verifyToken, updateleave_type_master);
+
+//patch status change
+router.patch('/:id', onStatusChange);
 
 // Delete leave_type_masterDropdown update by id
 router.delete('/:id', verifyToken, deleteleave_type_master);

@@ -7,6 +7,7 @@ const { getshift_typeById  } = require('./shift_type.controller');
 const { updateshift_type } = require('./shift_type.controller');
 const { deleteshift_type } = require('./shift_type.controller');
 const { shift_typeDropdown } = require('./shift_type.controller');
+const { onStatusChange } = require('./shift_type.controller');
 
 
 // Creare New shift_type
@@ -23,6 +24,9 @@ router.get('/:id', verifyToken, getshift_typeById);
 
 // Put shift_type update by id
 router.put('/:id', verifyToken, updateshift_type);
+
+//patch status change
+router.patch('/:id', onStatusChange);
 
 // Delete shift_type update by id
 router.delete('/:id', verifyToken, deleteshift_type);

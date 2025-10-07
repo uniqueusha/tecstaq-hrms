@@ -8,6 +8,7 @@ const { updateDesignation } = require('./designation.controller');
 const { deleteDesignation } = require('./designation.controller');
 const { designationDropdown } = require('./designation.controller');
 const { document_typeDropdown } = require('./designation.controller');
+const { onStatusChange } = require('./designation.controller')
 
 // Creare New Deaprtments
 router.post('/',verifyToken, createDesignation);
@@ -27,6 +28,9 @@ router.get('/:id', verifyToken, getDesignationById);
 
 // Put Deaprtments update by id
 router.put('/:id', verifyToken, updateDesignation);
+
+//patch designation status change
+router.patch('/:id', onStatusChange)
 
 // Delete Deaprtments update by id
 router.delete('/:id', verifyToken, deleteDesignation);

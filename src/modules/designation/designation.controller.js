@@ -3,7 +3,17 @@
  const { updateHelper } = require('../../common/updateHelper');
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
- 
+ const pool = require('../../common/db');
+
+//function to obtain a database connection 
+const getConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        return connection;
+    } catch (error) {
+        throw new Error("Failed to obtain database connection:" + error.message);
+    }
+}
 async function createDesignation(req, res) {
     try {
           const userId = req.user?.user_id;
@@ -152,7 +162,59 @@ async function document_typeDropdown(req, res) {
     }
 }
 
+//status change of designation...
+const onStatusChange = async (req, res) => {
+    const designationId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the departments exists
+        const designationQuery = "SELECT * FROM designation WHERE designation_id = ? ";
+        const designationResult = await connection.query(designationQuery, [designationId]);
+
+        if (designationResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Designation not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+        
+            // Soft update the designation status
+            const updateQuery = `
+            UPDATE designation
+            SET status = ?
+            WHERE designation_id = ?`;
+            await connection.query(updateQuery, [status, designationId]);
+        
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Designation ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
 
 
 
-module.exports = { createDesignation, listDesignation, getDesignationById, updateDesignation,deleteDesignation,designationDropdown,document_typeDropdown };
+module.exports = { createDesignation, listDesignation, getDesignationById, updateDesignation,deleteDesignation,designationDropdown,document_typeDropdown, onStatusChange };

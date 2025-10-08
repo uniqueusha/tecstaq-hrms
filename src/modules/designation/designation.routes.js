@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { createDesignation } = require('./designation.controller');
-const { listDesignation  } = require('./designation.controller');
+const { getDesignations  } = require('./designation.controller');
 const { getDesignationById  } = require('./designation.controller');
 const { updateDesignation } = require('./designation.controller');
 const { deleteDesignation } = require('./designation.controller');
@@ -14,7 +14,7 @@ const { onStatusChange } = require('./designation.controller')
 router.post('/',verifyToken, createDesignation);
 
 // Get Deaprtments list
-router.get('/list', verifyToken, listDesignation);
+router.get('/list', verifyToken, getDesignations);
 
 // Dropdown Deaprtments and get by id at dropdown
 router.get('/dropdown', verifyToken, designationDropdown);

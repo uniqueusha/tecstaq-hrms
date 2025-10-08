@@ -56,26 +56,110 @@ async function create_work_week_pattern(req, res) {
     }
 }
 
-async function listwork_week_pattern(req, res) {
-   try {
-        const { page, limit, search, status } = req.query;
+// async function listwork_week_pattern(req, res) {
+//    try {
+//         const { page, limit, search, status } = req.query;
 
-        const result = await listHelper(
-            'work_week_pattern',
-            status ? { status } : {}, // Exact match filters
-            null, // No ID → list mode
-            {
-                page: parseInt(page) || 1,
-                limit: parseInt(limit) || 10,
-                searchColumns: ['pattern_name'] // ✅ No 'status' here
-            },
-            search || null // Search keyword
-         );
+//         const result = await listHelper(
+//             'work_week_pattern',
+//             status ? { status } : {}, // Exact match filters
+//             null, // No ID → list mode
+//             {
+//                 page: parseInt(page) || 1,
+//                 limit: parseInt(limit) || 10,
+//                 searchColumns: ['pattern_name'] // ✅ No 'status' here
+//             },
+//             search || null // Search keyword
+//          );
 
-        res.status(200).json({ success: true, ...result });
+//         res.status(200).json({ success: true, ...result });
 
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getWorkWeek = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, company_id, user_id } = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getWorkWeekQuery = `SELECT w.*, c.name, u.first_name, u.last_name
+        FROM work_week_pattern w
+        LEFT JOIN company c ON c.company_id = w.company_id
+        LEFT JOIN users u ON u.user_id = w.user_id
+        WHERE 1 AND w.status = 1`;
+        
+        let countQuery = `SELECT COUNT(*) AS total 
+        FROM work_week_pattern w
+        LEFT JOIN company c ON c.company_id = w.company_id
+        LEFT JOIN users u ON u.user_id = w.user_id
+        WHERE 1 AND w.status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+                getWorkWeekQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(w.pattern_name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(w.pattern_name) LIKE '%${lowercaseKey}%')`;
+        }
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getWorkWeekQuery += ` AND DATE(w.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(w.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (company_id) {
+            getWorkWeekQuery += ` AND w.company_id = ${company_id}`;
+            countQuery += `  AND w.company_id = ${company_id}`;
+        }
+
+        if (user_id) {
+            getWorkWeekQuery += ` AND w.user_id = ${user_id}`;
+            countQuery += `  AND w.user_id = ${user_id}`;
+        }
+
+        getWorkWeekQuery += " ORDER BY w.cts DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getWorkWeekQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getWorkWeekQuery);
+        const workWeek = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Work Week retrieved successfully",
+            data: workWeek,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -199,4 +283,4 @@ const onStatusChange = async (req, res) => {
 
 
 
-module.exports = { create_work_week_pattern, listwork_week_pattern, getwork_week_patternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown, onStatusChange };
+module.exports = { create_work_week_pattern, getWorkWeek, getwork_week_patternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown, onStatusChange };

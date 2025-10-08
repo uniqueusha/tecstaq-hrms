@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { createshift_type } = require('./shift_type.controller');
-const { listshift_type  } = require('./shift_type.controller');
+const { getShiftType  } = require('./shift_type.controller');
 const { getshift_typeById  } = require('./shift_type.controller');
 const { updateshift_type } = require('./shift_type.controller');
 const { deleteshift_type } = require('./shift_type.controller');
@@ -14,7 +14,7 @@ const { onStatusChange } = require('./shift_type.controller');
 router.post('/',verifyToken, createshift_type);
 
 // Get shift_type list
-router.get('/list', verifyToken, listshift_type);
+router.get('/list', verifyToken, getShiftType);
 
 // Dropdown shift_type and get by id at dropdown
 router.get('/dropdown', verifyToken, shift_typeDropdown);

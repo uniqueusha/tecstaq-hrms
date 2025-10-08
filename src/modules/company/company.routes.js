@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { createCompany } = require('./company.controller');
-const { listCompanies  } = require('./company.controller');
+const { getCompanies  } = require('./company.controller');
 const { getCompanyById  } = require('./company.controller');
 const { updateCompany } = require('./company.controller');
 const { deleteCompany } = require('./company.controller');
@@ -14,7 +14,7 @@ const { onStatusChange } = require('./company.controller')
 router.post('/',verifyToken, createCompany);
 
 // Get company list
-router.get('/list', verifyToken, listCompanies);
+router.get('/list', verifyToken, getCompanies);
 
 // Dropdown company and get by id at dropdown
 router.get('/dropdown', verifyToken, companyDropdown);

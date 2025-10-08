@@ -58,26 +58,112 @@ async function createleave_type_master(req, res) {
     }
 }
 
-async function listleave_type_master(req, res) {
-   try {
-        const { page, limit, search, status } = req.query;
+// async function listleave_type_master(req, res) {
+//    try {
+//         const { page, limit, search, status } = req.query;
 
-        const result = await listHelper(
-            'leave_type_master',
-            status ? { status } : {}, // Exact match filters
-            null, // No ID → list mode
-            {
-                page: parseInt(page) || 1,
-                limit: parseInt(limit) || 10,
-                searchColumns: ['leave_type_name'] // ✅ No 'status' here
-            },
-            search || null // Search keyword
-         );
+//         const result = await listHelper(
+//             'leave_type_master',
+//             status ? { status } : {}, // Exact match filters
+//             null, // No ID → list mode
+//             {
+//                 page: parseInt(page) || 1,
+//                 limit: parseInt(limit) || 10,
+//                 searchColumns: ['leave_type_name'] // ✅ No 'status' here
+//             },
+//             search || null // Search keyword
+//          );
 
-        res.status(200).json({ success: true, ...result });
+//         res.status(200).json({ success: true, ...result });
 
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getLeaveType = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, company_id, user_id } = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getLeaveTypeQuery = `SELECT ltm.*, c.name, u.first_name, u.last_name, p.policy_title
+        FROM leave_type_master ltm
+        LEFT JOIN company c ON c.company_id = ltm.company_id
+        LEFT JOIN users u ON u.user_id = ltm.user_id
+        LEFT JOIN policy_master p ON p.policy_master_id = ltm.policy_id
+        WHERE 1 AND ltm.status = 1`;
+        
+        let countQuery = `SELECT COUNT(*) AS total 
+        FROM leave_type_master ltm
+        LEFT JOIN company c ON c.company_id = ltm.company_id
+        LEFT JOIN users u ON u.user_id = ltm.user_id
+        LEFT JOIN policy_master p ON p.policy_master_id = ltm.policy_id
+        WHERE 1 AND ltm.status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+                getLeaveTypeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(ltm.leave_type_master) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(ltm.leave_type_master) LIKE '%${lowercaseKey}%')`;
+        }
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getLeaveTypeQuery += ` AND DATE(ltm.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(ltm.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (company_id) {
+            getLeaveTypeQuery += ` AND ltm.company_id = ${company_id}`;
+            countQuery += `  AND ltm.company_id = ${company_id}`;
+        }
+
+        if (user_id) {
+            getLeaveTypeQuery += ` AND ltm.user_id = ${user_id}`;
+            countQuery += `  AND ltm.user_id = ${user_id}`;
+        }
+
+        getLeaveTypeQuery += " ORDER BY ltm.cts DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getLeaveTypeQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getLeaveTypeQuery);
+        const leaveType = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Leave type retrieved successfully",
+            data: leaveType,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -96,7 +182,6 @@ async function getleave_type_masterById(req, res) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
-
 
 async function updateleave_type_master(req, res) {
     try {
@@ -206,7 +291,4 @@ const onStatusChange = async (req, res) => {
     }
 };
 
-
-
-
-module.exports = { createleave_type_master, listleave_type_master, getleave_type_masterById, updateleave_type_master,deleteleave_type_master,leave_type_masterDropdown, onStatusChange};
+module.exports = { createleave_type_master, getLeaveType, getleave_type_masterById, updateleave_type_master,deleteleave_type_master,leave_type_masterDropdown, onStatusChange};

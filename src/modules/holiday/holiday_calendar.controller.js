@@ -56,26 +56,110 @@ async function createholiday_calendar(req, res) {
     }
 }
 
-async function listholiday_calendar(req, res) {
-   try {
-        const { page, limit, search, status } = req.query;
+// async function listholiday_calendar(req, res) {
+//    try {
+//         const { page, limit, search, status } = req.query;
 
-        const result = await listHelper(
-            'holiday_calendar',
-            status ? { status } : {}, // Exact match filters
-            null, // No ID → list mode
-            {
-                page: parseInt(page) || 1,
-                limit: parseInt(limit) || 10,
-                searchColumns: ['calendar_name'] // ✅ No 'status' here
-            },
-            search || null // Search keyword
-         );
+//         const result = await listHelper(
+//             'holiday_calendar',
+//             status ? { status } : {}, // Exact match filters
+//             null, // No ID → list mode
+//             {
+//                 page: parseInt(page) || 1,
+//                 limit: parseInt(limit) || 10,
+//                 searchColumns: ['calendar_name'] // ✅ No 'status' here
+//             },
+//             search || null // Search keyword
+//          );
 
-        res.status(200).json({ success: true, ...result });
+//         res.status(200).json({ success: true, ...result });
 
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getHoliday = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, company_id, user_id } = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getHolidayQuery = `SELECT h.*, c.name, u.first_name, u.last_name
+        FROM holiday_calendar h
+        LEFT JOIN company c ON c.company_id = h.company_id
+        LEFT JOIN users u ON u.user_id = h.user_id
+        WHERE 1 AND h.status = 1`;
+        
+        let countQuery = `SELECT COUNT(*) AS total 
+        FROM holiday_calendar h
+        LEFT JOIN company c ON c.company_id = h.company_id
+        LEFT JOIN users u ON u.user_id = h.user_id
+        WHERE 1 AND h.status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+                getHolidayQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%')`;
+        }
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getHolidayQuery += ` AND DATE(h.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(h.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (company_id) {
+            getHolidayQuery += ` AND h.company_id = ${company_id}`;
+            countQuery += `  AND h.company_id = ${company_id}`;
+        }
+
+        if (user_id) {
+            getHolidayQuery += ` AND h.user_id = ${user_id}`;
+            countQuery += `  AND h.user_id = ${user_id}`;
+        }
+
+        getHolidayQuery += " ORDER BY h.cts DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getHolidayQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getHolidayQuery);
+        const holiday = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Holiday retrieved successfully",
+            data: holiday,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -233,4 +317,4 @@ const onStatusChange = async (req, res) => {
     }
 };
 
-module.exports = { createholiday_calendar, listholiday_calendar, getholiday_calendarById, list_with_details_holiday_calendar,updateHolidayCalendar,deleteholiday_calendar,holiday_calendarDropdown, onStatusChange };
+module.exports = { createholiday_calendar, getHoliday, getholiday_calendarById, list_with_details_holiday_calendar,updateHolidayCalendar,deleteholiday_calendar,holiday_calendarDropdown, onStatusChange };

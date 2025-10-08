@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { createDepartments } = require('./departments.controller');
-const { listDepartments  } = require('./departments.controller');
+const { getDepartments  } = require('./departments.controller');
 const { getDepartmentById  } = require('./departments.controller');
 const { updateDepartments } = require('./departments.controller');
 const { deleteDepartments } = require('./departments.controller');
@@ -14,7 +14,7 @@ const { onStatusChange } = require('./departments.controller')
 router.post('/',verifyToken, createDepartments);
 
 // Get Deaprtments list
-router.get('/list', verifyToken, listDepartments);
+router.get('/list', verifyToken, getDepartments);
 
 // Dropdown Deaprtments and get by id at dropdown
 router.get('/dropdown', verifyToken, departmentsDropdown);

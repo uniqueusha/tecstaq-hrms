@@ -3,6 +3,17 @@
  const { updateHelper } = require('../../common/updateHelper');
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
+ const pool = require('../../common/db');
+
+//function to obtain a database connection 
+const getConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        return connection;
+    } catch (error) {
+        throw new Error("Failed to obtain database connection:" + error.message);
+    }
+}
  
 async function create_work_week_pattern(req, res) {
     try {
@@ -84,7 +95,6 @@ async function getwork_week_patternById(req, res) {
     }
 }
 
-
 async function updatework_week_pattern(req, res) {
     try {
         const { id } = req.params;
@@ -135,8 +145,58 @@ async function work_week_patternDropdown(req, res) {
     }
 }
 
+const onStatusChange = async (req, res) => {
+    const workWeekId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the workWeek exists
+        const workWeekQuery = "SELECT * FROM work_week_pattern WHERE work_week_pattern_id = ? ";
+        const workWeekResult = await connection.query(workWeekQuery, [workWeekId]);
+
+        if (workWeekResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Work Week not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+        
+            // Soft update the work Week status
+            const updateQuery = `
+            UPDATE work_week_pattern
+            SET status = ?
+            WHERE work_week_pattern_id = ?`;
+            await connection.query(updateQuery, [status, workWeekId]);
+        
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Work week pattern ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
 
 
 
-
-module.exports = { create_work_week_pattern, listwork_week_pattern, getwork_week_patternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown };
+module.exports = { create_work_week_pattern, listwork_week_pattern, getwork_week_patternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown, onStatusChange };

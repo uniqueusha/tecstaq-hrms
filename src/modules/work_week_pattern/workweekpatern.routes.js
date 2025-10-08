@@ -7,6 +7,7 @@ const { getwork_week_patternById  } = require('./workweekpatern.controller');
 const { updatework_week_pattern } = require('./workweekpatern.controller');
 const { deletework_week_pattern } = require('./workweekpatern.controller');
 const { work_week_patternDropdown } = require('./workweekpatern.controller');
+const { onStatusChange } = require('./workweekpatern.controller');
 
 // Creare New work_week_pattern
 router.post('/',verifyToken, create_work_week_pattern);
@@ -22,6 +23,9 @@ router.get('/:id', verifyToken, getwork_week_patternById);
 
 // Put work_week_pattern update by id
 router.put('/:id', verifyToken, updatework_week_pattern);
+
+//patch status change
+router.patch('/:id', onStatusChange);
 
 // Delete work_week_pattern update by id
 router.delete('/:id', verifyToken, deletework_week_pattern);

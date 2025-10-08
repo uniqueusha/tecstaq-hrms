@@ -8,6 +8,7 @@ const { getholiday_calendarById  } = require('./holiday_calendar.controller');
 const { updateHolidayCalendar } = require('./holiday_calendar.controller');
 const { deleteholiday_calendar } = require('./holiday_calendar.controller');
 const { holiday_calendarDropdown } = require('./holiday_calendar.controller');
+const { onStatusChange } = require('./holiday_calendar.controller');
 
 
 // Creare New  holiday_calenda
@@ -28,6 +29,9 @@ router.get('/:id', verifyToken, getholiday_calendarById);
 
 // Put  holiday_calenda update by id
 router.put('/:id', verifyToken, updateHolidayCalendar);
+
+//patch status change
+router.patch('/:id', onStatusChange);
 
 // Delete  holiday_calenda update by id
 router.delete('/:id', verifyToken, deleteholiday_calendar);

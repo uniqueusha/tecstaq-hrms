@@ -4,6 +4,17 @@
  const { updateWithDetails } = require('../../common/updateHelper');
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
+ const pool = require('../../common/db');
+
+//function to obtain a database connection 
+const getConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        return connection;
+    } catch (error) {
+        throw new Error("Failed to obtain database connection:" + error.message);
+    }
+}
  
 async function createholiday_calendar(req, res) {
     try {
@@ -87,7 +98,6 @@ async function list_with_details_holiday_calendar(req, res) {
     }
 }
 
-
 async function getholiday_calendarById(req, res) {
      try {
         const { id } = req.params;
@@ -103,7 +113,6 @@ async function getholiday_calendarById(req, res) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
-
 
 async function updateHolidayCalendar(req, res) {
     try {
@@ -172,5 +181,56 @@ async function holiday_calendarDropdown(req, res) {
     }
 }
 
+const onStatusChange = async (req, res) => {
+    const holidayId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
 
-module.exports = { createholiday_calendar, listholiday_calendar, getholiday_calendarById, list_with_details_holiday_calendar,updateHolidayCalendar,deleteholiday_calendar,holiday_calendarDropdown };
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the employment_type exists
+        const holidayQuery = "SELECT * FROM holiday_calendar WHERE holiday_calendar_id = ? ";
+        const holidayResult = await connection.query(holidayQuery, [holidayId]);
+
+        if (holidayResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Holiday not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+        
+            // Soft update the holiday status
+            const updateQuery = `
+            UPDATE holiday_calendar
+            SET status = ?
+            WHERE holiday_calendar_id = ?`;
+            await connection.query(updateQuery, [status, holidayId]);
+        
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Holiday ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
+
+module.exports = { createholiday_calendar, listholiday_calendar, getholiday_calendarById, list_with_details_holiday_calendar,updateHolidayCalendar,deleteholiday_calendar,holiday_calendarDropdown, onStatusChange };

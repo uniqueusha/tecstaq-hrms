@@ -192,7 +192,7 @@ const onStatusChange = async (req, res) => {
         await connection.commit();
         return res.status(200).json({
             status: 200,
-            message: `Leave Type ${statusMessage} successfully.`,
+            message: `Employement Type ${statusMessage} successfully.`,
         });
     } catch (error) {
         return error500(error, res);

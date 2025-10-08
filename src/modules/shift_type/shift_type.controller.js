@@ -4,6 +4,7 @@
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
  const pool = require('../../common/db');
+const { LONG } = require('mysql/lib/protocol/constants/types');
 
 //function to obtain a database connection 
 const getConnection = async () => {
@@ -56,26 +57,110 @@ async function createshift_type(req, res) {
     }
 }
 
-async function listshift_type(req, res) {
-   try {
-        const { page, limit, search, status } = req.query;
+// async function listshift_type(req, res) {
+//    try {
+//         const { page, limit, search, status } = req.query;
 
-        const result = await listHelper(
-            'shift_type_header',
-            status ? { status } : {}, // Exact match filters
-            null, // No ID → list mode
-            {
-                page: parseInt(page) || 1,
-                limit: parseInt(limit) || 10,
-                searchColumns: ['shift_type_name'] // ✅ No 'status' here
-            },
-            search || null // Search keyword
-         );
+//         const result = await listHelper(
+//             'shift_type_header',
+//             status ? { status } : {}, // Exact match filters
+//             null, // No ID → list mode
+//             {
+//                 page: parseInt(page) || 1,
+//                 limit: parseInt(limit) || 10,
+//                 searchColumns: ['shift_type_name'] // ✅ No 'status' here
+//             },
+//             search || null // Search keyword
+//          );
 
-        res.status(200).json({ success: true, ...result });
+//         res.status(200).json({ success: true, ...result });
 
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getShiftType = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, company_id, user_id } = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getShiftTypeQuery = `SELECT st.*, c.name, u.first_name, u.last_name
+        FROM shift_type_header st
+        LEFT JOIN company c ON c.company_id = st.company_id
+        LEFT JOIN users u ON u.user_id = st.user_id
+        WHERE 1 AND st.status = 1`;
+        
+        let countQuery = `SELECT COUNT(*) AS total 
+        FROM shift_type_header st
+        LEFT JOIN company c ON c.company_id = st.company_id
+        LEFT JOIN users u ON u.user_id = st.user_id
+        WHERE 1 AND st.status = 1`;
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+                getShiftTypeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(sf.shift_type_name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(sf.shift_type_name) LIKE '%${lowercaseKey}%')`;
+        }
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getShiftTypeQuery += ` AND DATE(st.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(st.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (company_id) {
+            getShiftTypeQuery += ` AND st.company_id = ${company_id}`;
+            countQuery += `  AND st.company_id = ${company_id}`;
+        }
+
+        if (user_id) {
+            getShiftTypeQuery += ` AND st.user_id = ${user_id}`;
+            countQuery += `  AND st.user_id = ${user_id}`;
+        }
+
+        getShiftTypeQuery += " ORDER BY st.cts DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getShiftTypeQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getShiftTypeQuery);
+        const shiftType = result[0];
+
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Shift Type retrieved successfully",
+            data: shiftType,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -205,4 +290,4 @@ const onStatusChange = async (req, res) => {
     }
 };
 
-module.exports = { createshift_type, listshift_type, getshift_typeById, updateshift_type,deleteshift_type,shift_typeDropdown, onStatusChange };
+module.exports = { createshift_type, getShiftType, getshift_typeById, updateshift_type,deleteshift_type,shift_typeDropdown, onStatusChange };

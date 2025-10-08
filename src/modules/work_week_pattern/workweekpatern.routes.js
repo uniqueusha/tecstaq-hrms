@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { create_work_week_pattern } = require('./workweekpatern.controller');
-const { listwork_week_pattern  } = require('./workweekpatern.controller');
+const { getWorkWeek  } = require('./workweekpatern.controller');
 const { getwork_week_patternById  } = require('./workweekpatern.controller');
 const { updatework_week_pattern } = require('./workweekpatern.controller');
 const { deletework_week_pattern } = require('./workweekpatern.controller');
@@ -13,7 +13,7 @@ const { onStatusChange } = require('./workweekpatern.controller');
 router.post('/',verifyToken, create_work_week_pattern);
 
 // Get work_week_pattern list
-router.get('/list', verifyToken, listwork_week_pattern);
+router.get('/list', verifyToken, getWorkWeek);
 
 // Dropdown work_week_pattern and get by id at dropdown
 router.get('/dropdown', verifyToken, work_week_patternDropdown);

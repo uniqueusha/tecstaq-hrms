@@ -72,26 +72,103 @@ async function createCompany(req, res) {
     }
 }
 
-async function listCompanies(req, res) {
-   try {
-        const { page, limit, search, status } = req.query;
+// async function listCompanies(req, res) {
+//    try {
+//         const { page, limit, search, status } = req.query;
 
-        const result = await listHelper(
-            'company',
-            status ? { status } : {}, // Exact match filters
-            null, // No ID → list mode
-            {
-                page: parseInt(page) || 1,
-                limit: parseInt(limit) || 10,
-                searchColumns: ['name', 'email', 'phone'] // ✅ No 'status' here
-            },
-            search || null // Search keyword
-         );
+//         const result = await listHelper(
+//             'company',
+//             status ? { status } : {}, // Exact match filters
+//             null, // No ID → list mode
+//             {
+//                 page: parseInt(page) || 1,
+//                 limit: parseInt(limit) || 10,
+//                 searchColumns: ['name', 'email', 'phone'] // ✅ No 'status' here
+//             },
+//             search || null // Search keyword
+//          );
 
-        res.status(200).json({ success: true, ...result });
+//         res.status(200).json({ success: true, ...result });
 
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getCompanies = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, user_id } = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getCompaniesQuery = `SELECT c.*, u.first_name, u.last_name
+        FROM company c
+        LEFT JOIN users u ON u.user_id = c.user_id
+        WHERE 1 AND c.status = 1`;
+        
+        let countQuery = `SELECT COUNT(*) AS total 
+        FROM company c
+        LEFT JOIN users u ON u.user_id = c.user_id
+        WHERE 1 AND c.status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+                getCompaniesQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%')`;
+        }
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getCompaniesQuery += ` AND DATE(c.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(c.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (user_id) {
+            getCompaniesQuery += ` AND c.user_id = ${user_id}`;
+            countQuery += `  AND c.user_id = ${user_id}`;
+        }
+
+        getCompaniesQuery += " ORDER BY c.cts DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getCompaniesQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getCompaniesQuery);
+        const companies = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Companies retrieved successfully",
+            data: companies,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -217,4 +294,4 @@ const onStatusChange = async (req, res) => {
 };
 
 
-module.exports = { createCompany, listCompanies, getCompanyById, updateCompany,deleteCompany,companyDropdown,onStatusChange };
+module.exports = { createCompany, getCompanies, getCompanyById, updateCompany,deleteCompany,companyDropdown,onStatusChange };

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { createholiday_calendar } = require('./holiday_calendar.controller');
-const { listholiday_calendar  } = require('./holiday_calendar.controller');
+const { getHoliday  } = require('./holiday_calendar.controller');
 const { list_with_details_holiday_calendar  } = require('./holiday_calendar.controller');
 const { getholiday_calendarById  } = require('./holiday_calendar.controller');
 const { updateHolidayCalendar } = require('./holiday_calendar.controller');
@@ -15,7 +15,7 @@ const { onStatusChange } = require('./holiday_calendar.controller');
 router.post('/',verifyToken, createholiday_calendar);
 
 // Get  holiday_calenda list
-router.get('/list', verifyToken, listholiday_calendar);
+router.get('/list', verifyToken, getHoliday);
 
 // Get  list_with_details_holiday_calendarr list
 router.get('/with-details/:id/', verifyToken, list_with_details_holiday_calendar);

@@ -53,26 +53,110 @@ async function createemployment_type(req, res) {
     }
 }
 
-async function listemployment_type(req, res) {
-   try {
-        const { page, limit, search, status } = req.query;
+// async function listemployment_type(req, res) {
+//    try {
+//         const { page, limit, search, status } = req.query;
 
-        const result = await listHelper(
-            'employment_type',
-            status ? { status } : {}, // Exact match filters
-            null, // No ID → list mode
-            {
-                page: parseInt(page) || 1,
-                limit: parseInt(limit) || 10,
-                searchColumns: ['employment_type'] // ✅ No 'status' here
-            },
-            search || null // Search keyword
-         );
+//         const result = await listHelper(
+//             'employment_type',
+//             status ? { status } : {}, // Exact match filters
+//             null, // No ID → list mode
+//             {
+//                 page: parseInt(page) || 1,
+//                 limit: parseInt(limit) || 10,
+//                 searchColumns: ['employment_type'] // ✅ No 'status' here
+//             },
+//             search || null // Search keyword
+//          );
 
-        res.status(200).json({ success: true, ...result });
+//         res.status(200).json({ success: true, ...result });
 
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getEmploymentType = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, company_id, user_id } = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getEmploymentTypeQuery = `SELECT et.*, c.name, u.first_name, u.last_name
+        FROM employment_type et
+        LEFT JOIN company c ON c.company_id = et.company_id
+        LEFT JOIN users u ON u.user_id = et.user_id
+        WHERE 1 AND et.status = 1`;
+        
+        let countQuery = `SELECT COUNT(*) AS total 
+        FROM employment_type et
+        LEFT JOIN company c ON c.company_id = et.company_id
+        LEFT JOIN users u ON u.user_id = et.user_id
+        WHERE 1 AND et.status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+                getEmploymentTypeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(et.employment_type) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(et.employment_type) LIKE '%${lowercaseKey}%')`;
+        }
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getEmploymentTypeQuery += ` AND DATE(et.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(et.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (company_id) {
+            getEmploymentTypeQuery += ` AND et.company_id = ${company_id}`;
+            countQuery += `  AND et.company_id = ${company_id}`;
+        }
+
+        if (user_id) {
+            getEmploymentTypeQuery += ` AND et.user_id = ${user_id}`;
+            countQuery += `  AND et.user_id = ${user_id}`;
+        }
+
+        getEmploymentTypeQuery += " ORDER BY et.cts DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getEmploymentTypeQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getEmploymentTypeQuery);
+        const employmentType = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Employment Type retrieved successfully",
+            data: employmentType,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -91,7 +175,6 @@ async function getemployment_typeById(req, res) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
-
 
 async function updateemployment_type(req, res) {
     try {
@@ -202,4 +285,5 @@ const onStatusChange = async (req, res) => {
 };
 
 
-module.exports = { createemployment_type, listemployment_type, getemployment_typeById, updateemployment_type,deleteemployment_type,employment_typeDropdown, onStatusChange };
+
+module.exports = { createemployment_type, getEmploymentType, getemployment_typeById, updateemployment_type,deleteemployment_type,employment_typeDropdown, onStatusChange };

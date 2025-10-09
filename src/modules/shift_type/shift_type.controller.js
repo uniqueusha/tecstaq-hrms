@@ -105,8 +105,8 @@ const getShiftType = async (req, res) => {
         WHERE 1 AND st.status = 1`;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-                getShiftTypeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(sf.shift_type_name) LIKE '%${lowercaseKey}%')`;
-                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(sf.shift_type_name) LIKE '%${lowercaseKey}%')`;
+                getShiftTypeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(st.shift_type_name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(st.shift_type_name) LIKE '%${lowercaseKey}%')`;
         }
 
         // from date and to date

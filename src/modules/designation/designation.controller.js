@@ -4,6 +4,8 @@
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
  const pool = require('../../common/db');
+ const xlsx = require("xlsx");
+ const fs = require("fs");
 
 //function to obtain a database connection 
 const getConnection = async () => {
@@ -333,6 +335,77 @@ const onStatusChange = async (req, res) => {
     }
 };
 
+//download list
+const getDesignationDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getDesignationQuery = `SELECT d.*, c.name, u.first_name, u.last_name
+        FROM designation d
+        LEFT JOIN company c ON c.company_id = d.company_id
+        LEFT JOIN users u ON u.user_id = d.user_id
+        WHERE 1 AND d.status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getDesignationQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(d.designation) LIKE '%${lowercaseKey}%')`;
+        }
+        getDesignationQuery += " ORDER BY d.cts DESC";
+
+        let result = await connection.query(getDesignationQuery);
+        let designation = result[0];
 
 
-module.exports = { createDesignation, getDesignations, getDesignationById, updateDesignation,deleteDesignation,designationDropdown,document_typeDropdown, onStatusChange };
+        if (designation.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        designation = designation.map((item, index) => ({
+            "Sr No": index + 1,
+            "Designation": item.designation,
+            "Description": item.description,
+            "Company Name": item.name,
+            "Create By": `${item.first_name} ${item.last_name}`,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(designation);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "designationInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+
+module.exports = { createDesignation, getDesignations, getDesignationById, updateDesignation,deleteDesignation,designationDropdown,document_typeDropdown, onStatusChange, getDesignationDownload };

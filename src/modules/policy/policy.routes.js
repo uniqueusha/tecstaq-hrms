@@ -9,12 +9,17 @@ const { getPolicy } = require("./policy.controller");
 const { updatePolicy } = require("./policy.controller");
 const { onStatusChange } = require("./policy.controller");
 const { getPolicyWma } = require("./policy.controller");
+const { getPolicyDownload } = require("./policy.controller");
+
 
 // Create New policy
 router.post('/',verifyToken, createPolicy);
 
 // get all list policy
 router.get('/', getAllPolicy);
+
+//download list
+router.get('/download', getPolicyDownload);
 
 //Active policy
 router.get('/wma', getPolicyWma);

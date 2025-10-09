@@ -5,6 +5,8 @@
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
  const pool = require('../../common/db');
+ const xlsx = require("xlsx");
+ const fs = require("fs");
 
 //function to obtain a database connection 
 const getConnection = async () => {
@@ -352,4 +354,75 @@ const onStatusChange = async (req, res) => {
     }
 };
 
-module.exports = { createholiday_calendar, getHoliday, getHolidayCalendarById, list_with_details_holiday_calendar,updateHolidayCalendar,deleteholiday_calendar,holiday_calendarDropdown, onStatusChange };
+//download list
+const getHolidayCalendarDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getHolidayCalendarQuery = `SELECT h.*, c.name, u.first_name, u.last_name
+        FROM holiday_calendar h
+        LEFT JOIN company c ON c.company_id = h.company_id
+        LEFT JOIN users u ON u.user_id = h.user_id
+        WHERE 1 AND h.status = 1`;
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getHolidayCalendarQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%')`;
+        }
+        getHolidayCalendarQuery += " ORDER BY h.cts DESC";
+
+        let result = await connection.query(getHolidayCalendarQuery);
+        let holidayCalendar = result[0];
+
+
+        if (holidayCalendar.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        holidayCalendar = holidayCalendar.map((item, index) => ({
+            "Sr No": index + 1,
+            "Calendar Name": item.calendar_name,
+            "Description": item.description,
+            "Company Name": item.name,
+            "Create By": `${item.first_name} ${item.last_name}`,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(holidayCalendar);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "holidayCalendarInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+module.exports = { createholiday_calendar, getHoliday, getHolidayCalendarById, list_with_details_holiday_calendar,updateHolidayCalendar,deleteholiday_calendar,holiday_calendarDropdown, onStatusChange, getHolidayCalendarDownload };

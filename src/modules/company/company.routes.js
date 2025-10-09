@@ -7,8 +7,8 @@ const { getCompanyById  } = require('./company.controller');
 const { updateCompany } = require('./company.controller');
 const { deleteCompany } = require('./company.controller');
 const { companyDropdown } = require('./company.controller');
-const { onStatusChange } = require('./company.controller')
-
+const { onStatusChange } = require('./company.controller');
+const { getCompanyDownload } = require('./company.controller');
 
 // Creare New Company
 router.post('/',verifyToken, createCompany);
@@ -18,6 +18,9 @@ router.get('/list', verifyToken, getCompanies);
 
 // Dropdown company and get by id at dropdown
 router.get('/dropdown', verifyToken, companyDropdown);
+
+//download list
+router.get('/download', getCompanyDownload);
 
 // Get company by id
 router.get('/:id', verifyToken, getCompanyById); 

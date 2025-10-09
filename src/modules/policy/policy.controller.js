@@ -130,8 +130,8 @@ const getAllPolicy = async (req, res) => {
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-                getPolicyQuery += ` AND (LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' OR LOWER(c.name) LIKE '%${lowercaseKey}%' LOWER(u.first_name) LIKE '%${lowercaseKey}%' LOWER(u.last_name) LIKE '%${lowercaseKey}%' ) `;
-                countQuery += ` AND (LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' OR LOWER(c.name) LIKE '%${lowercaseKey}%' LOWER(u.first_name) LIKE '%${lowercaseKey}%' LOWER(u.last_name) LIKE '%${lowercaseKey}%') `;
+                getPolicyQuery += ` AND (LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' OR LOWER(c.name) LIKE '%${lowercaseKey}%' OR LOWER(u.first_name) LIKE '%${lowercaseKey}%' OR LOWER(u.last_name) LIKE '%${lowercaseKey}%' ) `;
+                countQuery += ` AND (LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' OR LOWER(c.name) LIKE '%${lowercaseKey}%' OR LOWER(u.first_name) LIKE '%${lowercaseKey}%' OR LOWER(u.last_name) LIKE '%${lowercaseKey}%') `;
         }
         getPolicyQuery += " ORDER BY pm.cts DESC";
 
@@ -359,7 +359,7 @@ const getPolicyDownload = async (req, res) => {
         LEFT JOIN users u ON u.user_id = pm.user_id WHERE 1`;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getPolicyQuery += ` AND (LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' OR LOWER(c.name) LIKE '%${lowercaseKey}%' LOWER(u.first_name) LIKE '%${lowercaseKey}%' LOWER(u.last_name) LIKE '%${lowercaseKey}%' ) `;
+            getPolicyQuery += ` AND (LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' OR LOWER(c.name) LIKE '%${lowercaseKey}%' OR LOWER(u.first_name) LIKE '%${lowercaseKey}%' OR LOWER(u.last_name) LIKE '%${lowercaseKey}%' ) `;
         }
         getPolicyQuery += " ORDER BY pm.cts DESC";
 

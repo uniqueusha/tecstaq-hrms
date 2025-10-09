@@ -110,8 +110,8 @@ const getLeaveType = async (req, res) => {
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-                getLeaveTypeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(ltm.leave_type_master) LIKE '%${lowercaseKey}%')`;
-                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(ltm.leave_type_master) LIKE '%${lowercaseKey}%')`;
+                getLeaveTypeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(ltm.leave_type_name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(ltm.leave_type_name) LIKE '%${lowercaseKey}%')`;
         }
 
         // from date and to date
@@ -346,7 +346,7 @@ const getLeaveTypeMasterDownload = async (req, res) => {
         WHERE 1 AND ltm.status = 1`;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getLeaveTypeMasterQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(ltm.leave_type_master) LIKE '%${lowercaseKey}%')`;
+            getLeaveTypeMasterQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(ltm.leave_type_name) LIKE '%${lowercaseKey}%')`;
         }
         getLeaveTypeMasterQuery += " ORDER BY ltm.cts DESC";
 

@@ -96,7 +96,7 @@ const getDesignations = async (req, res) => {
         WHERE 1 AND d.status = 1`;
         
         let countQuery = `SELECT COUNT(*) AS total
-        FROM designations d
+        FROM designation d
         LEFT JOIN company c ON c.company_id = d.company_id
         LEFT JOIN users u ON u.user_id = d.user_id
         WHERE 1 AND d.status = 1`;

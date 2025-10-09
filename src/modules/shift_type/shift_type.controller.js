@@ -4,7 +4,6 @@
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
  const pool = require('../../common/db');
-const { LONG } = require('mysql/lib/protocol/constants/types');
 
 //function to obtain a database connection 
 const getConnection = async () => {
@@ -164,19 +163,54 @@ const getShiftType = async (req, res) => {
     }
 }
 
-async function getshift_typeById(req, res) {
-     try {
-        const { id } = req.params;
+// async function getshift_typeById(req, res) {
+//      try {
+//         const { id } = req.params;
 
-        const result = await listHelper('shift_type_header', {}, Number(id));
+//         const result = await listHelper('shift_type_header', {}, Number(id));
 
-        if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'shift_type not found' });
+//         if (!result.data.length) {
+//             return res.status(404).json({ success: false, message: 'shift_type not found' });
+//         }
+
+//         res.status(200).json({ success: true, data: result.data[0] });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getShiftTypeById = async (req, res) => {
+    const shiftTypeId = parseInt(req.params.id);
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const shiftTypeQuery = `SELECT st.*, c.name, u.first_name, u.last_name
+        FROM shift_type_header st
+        LEFT JOIN company c ON c.company_id = st.company_id
+        LEFT JOIN users u ON u.user_id = st.user_id
+        WHERE st.shift_type_header_id = ?`;
+        const shiftTypeResult = await connection.query(shiftTypeQuery, [shiftTypeId]);
+
+        if (shiftTypeResult[0].length == 0) {
+            return error422("Shift Type Master Not Found.", res);
         }
+        const shiftType = shiftTypeResult[0][0];
 
-        res.status(200).json({ success: true, data: result.data[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        return res.status(200).json({
+            status: 200,
+            message: "Shift Type Master Retrived Successfully",
+            data: shiftType
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -290,4 +324,4 @@ const onStatusChange = async (req, res) => {
     }
 };
 
-module.exports = { createshift_type, getShiftType, getshift_typeById, updateshift_type,deleteshift_type,shift_typeDropdown, onStatusChange };
+module.exports = { createshift_type, getShiftType, getShiftTypeById, updateshift_type,deleteshift_type,shift_typeDropdown, onStatusChange };

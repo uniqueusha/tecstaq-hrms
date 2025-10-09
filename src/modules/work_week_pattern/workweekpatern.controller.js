@@ -163,19 +163,54 @@ const getWorkWeek = async (req, res) => {
     }
 }
 
-async function getwork_week_patternById(req, res) {
-     try {
-        const { id } = req.params;
+// async function getwork_week_patternById(req, res) {
+//      try {
+//         const { id } = req.params;
 
-        const result = await listHelper('work_week_pattern', {}, Number(id));
+//         const result = await listHelper('work_week_pattern', {}, Number(id));
 
-        if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'work_week_pattern not found' });
+//         if (!result.data.length) {
+//             return res.status(404).json({ success: false, message: 'work_week_pattern not found' });
+//         }
+
+//         res.status(200).json({ success: true, data: result.data[0] });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getWorkWeekPatternById = async (req, res) => {
+    const workWeekPatternId = parseInt(req.params.id);
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const workWeekPatternQuery = `SELECT w.*, c.name, u.first_name, u.last_name
+        FROM work_week_pattern w
+        LEFT JOIN company c ON c.company_id = w.company_id
+        LEFT JOIN users u ON u.user_id = w.user_id
+        WHERE w.work_week_pattern_id = ?`;
+        const workWeekPatternResult = await connection.query(workWeekPatternQuery, [workWeekPatternId]);
+
+        if (workWeekPatternResult[0].length == 0) {
+            return error422("Work Week Pattern Master Not Found.", res);
         }
+        const workWeekPattern = workWeekPatternResult[0][0];
 
-        res.status(200).json({ success: true, data: result.data[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        return res.status(200).json({
+            status: 200,
+            message: "Work Week Pattern Retrived Successfully",
+            data: workWeekPattern
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -283,4 +318,4 @@ const onStatusChange = async (req, res) => {
 
 
 
-module.exports = { create_work_week_pattern, getWorkWeek, getwork_week_patternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown, onStatusChange };
+module.exports = { create_work_week_pattern, getWorkWeek, getWorkWeekPatternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown, onStatusChange };

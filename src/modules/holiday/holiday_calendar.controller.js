@@ -182,19 +182,54 @@ async function list_with_details_holiday_calendar(req, res) {
     }
 }
 
-async function getholiday_calendarById(req, res) {
-     try {
-        const { id } = req.params;
+// async function getholiday_calendarById(req, res) {
+//      try {
+//         const { id } = req.params;
 
-        const result = await listHelper('holiday_calendar', {}, Number(id));
+//         const result = await listHelper('holiday_calendar', {}, Number(id));
 
-        if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'Calendar not found' });
+//         if (!result.data.length) {
+//             return res.status(404).json({ success: false, message: 'Calendar not found' });
+//         }
+
+//         res.status(200).json({ success: true, data: result.data[0] });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getHolidayCalendarById = async (req, res) => {
+    const holidayCalendarId = parseInt(req.params.id);
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const holidayCalendarQuery = `SELECT h.*, c.name, u.first_name, u.last_name
+        FROM holiday_calendar h
+        LEFT JOIN company c ON c.company_id = h.company_id
+        LEFT JOIN users u ON u.user_id = h.user_id
+        WHERE h.holiday_calendar_id = ?`;
+        const holidayCalendarResult = await connection.query(holidayCalendarQuery, [holidayCalendarId]);
+
+        if (holidayCalendarResult[0].length == 0) {
+            return error422("Holiday Calendar Not Found.", res);
         }
+        const holidayCalendar = holidayCalendarResult[0][0];
 
-        res.status(200).json({ success: true, data: result.data[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        return res.status(200).json({
+            status: 200,
+            message: "Holiday Calendar Retrived Successfully",
+            data: holidayCalendar
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -317,4 +352,4 @@ const onStatusChange = async (req, res) => {
     }
 };
 
-module.exports = { createholiday_calendar, getHoliday, getholiday_calendarById, list_with_details_holiday_calendar,updateHolidayCalendar,deleteholiday_calendar,holiday_calendarDropdown, onStatusChange };
+module.exports = { createholiday_calendar, getHoliday, getHolidayCalendarById, list_with_details_holiday_calendar,updateHolidayCalendar,deleteholiday_calendar,holiday_calendarDropdown, onStatusChange };

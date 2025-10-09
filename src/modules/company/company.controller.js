@@ -172,19 +172,54 @@ const getCompanies = async (req, res) => {
     }
 }
 
-async function getCompanyById(req, res) {
-     try {
-        const { id } = req.params;
+// async function getCompanyById(req, res) {
+//      try {
+//         const { id } = req.params;
 
-        const result = await listHelper('company', {}, Number(id));
+//         const result = await listHelper('company', {}, Number(id));
 
-        if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'Company not found' });
+//         if (!result.data.length) {
+//             return res.status(404).json({ success: false, message: 'Company not found' });
+//         }
+
+//         res.status(200).json({ success: true, data: result.data[0] });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+// get project by id...
+const getCompanyById = async (req, res) => {
+    const companyId = parseInt(req.params.id);
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const companyQuery = `SELECT c.*, u.first_name, u.last_name
+        FROM company c
+        LEFT JOIN users u ON u.user_id = c.user_id
+        WHERE c.company_id = ?`;
+        const companyResult = await connection.query(companyQuery, [companyId]);
+
+        if (companyResult[0].length == 0) {
+            return error422("Company Not Found.", res);
         }
+        const company = companyResult[0][0];
 
-        res.status(200).json({ success: true, data: result.data[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        return res.status(200).json({
+            status: 200,
+            message: "Company Retrived Successfully",
+            data: company
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 

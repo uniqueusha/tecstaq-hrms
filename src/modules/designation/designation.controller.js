@@ -160,19 +160,54 @@ const getDesignations = async (req, res) => {
     }
 }
 
-async function getDesignationById(req, res) {
-     try {
-        const { id } = req.params;
+// async function getDesignationById(req, res) {
+//      try {
+//         const { id } = req.params;
 
-        const result = await listHelper('designation', {}, Number(id));
+//         const result = await listHelper('designation', {}, Number(id));
 
-        if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'Designation not found' });
+//         if (!result.data.length) {
+//             return res.status(404).json({ success: false, message: 'Designation not found' });
+//         }
+
+//         res.status(200).json({ success: true, data: result.data[0] });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getDesignationById = async (req, res) => {
+    const designationId = parseInt(req.params.id);
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const designationQuery = `SELECT d.*, c.name, u.first_name, u.last_name
+        FROM designation d
+        LEFT JOIN company c ON c.company_id = d.company_id
+        LEFT JOIN users u ON u.user_id = d.user_id
+        WHERE d.designation_id = ?`;
+        const designationResult = await connection.query(designationQuery, [designationId]);
+
+        if (designationResult[0].length == 0) {
+            return error422("Designation Not Found.", res);
         }
+        const designation = designationResult[0][0];
 
-        res.status(200).json({ success: true, data: result.data[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        return res.status(200).json({
+            status: 200,
+            message: "Designation Retrived Successfully",
+            data: designation
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 

@@ -8,6 +8,7 @@ const { updateshift_type } = require('./shift_type.controller');
 const { deleteshift_type } = require('./shift_type.controller');
 const { shift_typeDropdown } = require('./shift_type.controller');
 const { onStatusChange } = require('./shift_type.controller');
+const { getShiftTypeDownload } = require('./shift_type.controller');
 
 
 // Creare New shift_type
@@ -18,6 +19,9 @@ router.get('/list', verifyToken, getShiftType);
 
 // Dropdown shift_type and get by id at dropdown
 router.get('/dropdown', verifyToken, shift_typeDropdown);
+
+//download list
+router.get('/download', getShiftTypeDownload);
 
 // Get shift_type by id
 router.get('/:id', verifyToken, getShiftTypeById); 

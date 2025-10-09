@@ -7,8 +7,8 @@ const { getDepartmentById  } = require('./departments.controller');
 const { updateDepartments } = require('./departments.controller');
 const { deleteDepartments } = require('./departments.controller');
 const { departmentsDropdown } = require('./departments.controller');
-const { onStatusChange } = require('./departments.controller')
-
+const { onStatusChange } = require('./departments.controller');
+const { getDepartmentsDownload } = require('./departments.controller');
 
 // Creare New Deaprtments
 router.post('/',verifyToken, createDepartments);
@@ -18,6 +18,9 @@ router.get('/list', verifyToken, getDepartments);
 
 // Dropdown Deaprtments and get by id at dropdown
 router.get('/dropdown', verifyToken, departmentsDropdown);
+
+//download list
+router.get('/download', getDepartmentsDownload)
 
 // Get Deaprtment by id
 router.get('/:id', verifyToken, getDepartmentById); 

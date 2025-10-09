@@ -4,6 +4,8 @@
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
  const pool = require('../../common/db');
+ const xlsx = require("xlsx");
+ const fs = require("fs");
 
 //function to obtain a database connection 
 const getConnection = async () => {
@@ -316,6 +318,77 @@ const onStatusChange = async (req, res) => {
     }
 };
 
+//download list
+const getWorkWeekPatternDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getWorkWeekPatternQuery = `SELECT w.*, c.name, u.first_name, u.last_name
+        FROM work_week_pattern w
+        LEFT JOIN company c ON c.company_id = w.company_id
+        LEFT JOIN users u ON u.user_id = w.user_id
+        WHERE 1 AND w.status = 1`;
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getWorkWeekPatternQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(w.pattern_name) LIKE '%${lowercaseKey}%')`;
+        }
+        getWorkWeekPatternQuery += " ORDER BY cts DESC";
+
+        let result = await connection.query(getWorkWeekPatternQuery);
+        let workWeekPattern = result[0];
 
 
-module.exports = { create_work_week_pattern, getWorkWeek, getWorkWeekPatternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown, onStatusChange };
+        if (workWeekPattern.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        workWeekPattern = workWeekPattern.map((item, index) => ({
+            "Sr No": index + 1,
+            "Pattern Name": item.pattern_name,
+            "Working Days": item.working_days,
+            "Weekly Hours": item.weekly_hours,
+            "Remarks": item.remarks,
+            "Company Name": item.name,
+            "Create By": `${item.first_name} ${item.last_name}`,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(workWeekPattern);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "workWeekPatternInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+module.exports = { create_work_week_pattern, getWorkWeek, getWorkWeekPatternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown, onStatusChange, getWorkWeekPatternDownload };

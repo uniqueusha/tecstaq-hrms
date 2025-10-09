@@ -9,6 +9,7 @@ const { updateHolidayCalendar } = require('./holiday_calendar.controller');
 const { deleteholiday_calendar } = require('./holiday_calendar.controller');
 const { holiday_calendarDropdown } = require('./holiday_calendar.controller');
 const { onStatusChange } = require('./holiday_calendar.controller');
+const { getHolidayCalendarDownload } = require('./holiday_calendar.controller');
 
 
 // Creare New  holiday_calenda
@@ -23,6 +24,9 @@ router.get('/with-details/:id/', verifyToken, list_with_details_holiday_calendar
 
 // Dropdown  holiday_calenda and get by id at dropdown
 router.get('/dropdown', verifyToken, holiday_calendarDropdown);
+
+//download list
+router.get('/download', getHolidayCalendarDownload)
 
 // Get  holiday_calenda by id
 router.get('/:id', verifyToken, getHolidayCalendarById); 

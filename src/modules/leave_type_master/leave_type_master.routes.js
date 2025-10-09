@@ -8,6 +8,7 @@ const { updateleave_type_master } = require('./leave_type_master.controller');
 const { deleteleave_type_master } = require('./leave_type_master.controller');
 const { leave_type_masterDropdown } = require('./leave_type_master.controller');
 const { onStatusChange } = require('./leave_type_master.controller')
+const { getLeaveTypeMasterDownload } = require('./leave_type_master.controller')
 
 // Creare New leave_type_masterDropdown
 router.post('/',verifyToken, createleave_type_master);
@@ -17,6 +18,9 @@ router.get('/list', verifyToken, getLeaveType);
 
 // Dropdown leave_type_masterDropdown and get by id at dropdown
 router.get('/dropdown', verifyToken, leave_type_masterDropdown);
+
+//download list
+router.get('/download', getLeaveTypeMasterDownload)
 
 // Get Deaprtment by id
 router.get('/:id', verifyToken, getLeaveTypeMasterById); 

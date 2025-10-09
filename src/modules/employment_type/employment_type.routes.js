@@ -8,6 +8,7 @@ const { updateemployment_type} = require('./employment_type.controller');
 const { deleteemployment_type} = require('./employment_type.controller');
 const { employment_typeDropdown } = require('./employment_type.controller');
 const { onStatusChange } = require('./employment_type.controller');
+const { getEmploymentTypeDownload } = require('./employment_type.controller');
 
 
 // Creare New employment_type
@@ -18,6 +19,9 @@ router.get('/list', verifyToken, getEmploymentType);
 
 // Dropdown employment_typeand get by id at dropdown
 router.get('/dropdown', verifyToken, employment_typeDropdown);
+
+//download list
+router.get('/download', getEmploymentTypeDownload);
 
 // Get employment_typeby id
 router.get('/:id', verifyToken, getEmploymentTypeById); 

@@ -8,7 +8,8 @@ const { updateDesignation } = require('./designation.controller');
 const { deleteDesignation } = require('./designation.controller');
 const { designationDropdown } = require('./designation.controller');
 const { document_typeDropdown } = require('./designation.controller');
-const { onStatusChange } = require('./designation.controller')
+const { onStatusChange } = require('./designation.controller');
+const { getDesignationDownload } = require('./designation.controller');
 
 // Creare New Deaprtments
 router.post('/',verifyToken, createDesignation);
@@ -21,6 +22,9 @@ router.get('/dropdown', verifyToken, designationDropdown);
 
 // Dropdown Document Type and get by id at dropdown
 router.get('/dtdropdown', verifyToken, document_typeDropdown);
+
+//download list
+router.get('/download', getDesignationDownload)
 
 
 // Get Deaprtment by id

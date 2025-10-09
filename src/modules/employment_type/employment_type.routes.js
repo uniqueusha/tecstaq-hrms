@@ -3,7 +3,7 @@ const router = express.Router();
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { createemployment_type} = require('./employment_type.controller');
 const { getEmploymentType  } = require('./employment_type.controller');
-const { getemployment_typeById  } = require('./employment_type.controller');
+const { getEmploymentTypeById  } = require('./employment_type.controller');
 const { updateemployment_type} = require('./employment_type.controller');
 const { deleteemployment_type} = require('./employment_type.controller');
 const { employment_typeDropdown } = require('./employment_type.controller');
@@ -20,7 +20,7 @@ router.get('/list', verifyToken, getEmploymentType);
 router.get('/dropdown', verifyToken, employment_typeDropdown);
 
 // Get employment_typeby id
-router.get('/:id', verifyToken, getemployment_typeById); 
+router.get('/:id', verifyToken, getEmploymentTypeById); 
 
 // Put employment_typeupdate by id
 router.put('/:id', verifyToken, updateemployment_type);

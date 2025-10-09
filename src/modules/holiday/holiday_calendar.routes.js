@@ -4,7 +4,7 @@ const { verifyToken } = require('../../middleware/authMiddleware');
 const { createholiday_calendar } = require('./holiday_calendar.controller');
 const { getHoliday  } = require('./holiday_calendar.controller');
 const { list_with_details_holiday_calendar  } = require('./holiday_calendar.controller');
-const { getholiday_calendarById  } = require('./holiday_calendar.controller');
+const { getHolidayCalendarById  } = require('./holiday_calendar.controller');
 const { updateHolidayCalendar } = require('./holiday_calendar.controller');
 const { deleteholiday_calendar } = require('./holiday_calendar.controller');
 const { holiday_calendarDropdown } = require('./holiday_calendar.controller');
@@ -25,7 +25,7 @@ router.get('/with-details/:id/', verifyToken, list_with_details_holiday_calendar
 router.get('/dropdown', verifyToken, holiday_calendarDropdown);
 
 // Get  holiday_calenda by id
-router.get('/:id', verifyToken, getholiday_calendarById); 
+router.get('/:id', verifyToken, getHolidayCalendarById); 
 
 // Put  holiday_calenda update by id
 router.put('/:id', verifyToken, updateHolidayCalendar);

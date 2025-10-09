@@ -3,7 +3,7 @@ const router = express.Router();
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { createleave_type_master } = require('./leave_type_master.controller');
 const { getLeaveType  } = require('./leave_type_master.controller');
-const { getleave_type_masterById  } = require('./leave_type_master.controller');
+const { getLeaveTypeMasterById  } = require('./leave_type_master.controller');
 const { updateleave_type_master } = require('./leave_type_master.controller');
 const { deleteleave_type_master } = require('./leave_type_master.controller');
 const { leave_type_masterDropdown } = require('./leave_type_master.controller');
@@ -19,7 +19,7 @@ router.get('/list', verifyToken, getLeaveType);
 router.get('/dropdown', verifyToken, leave_type_masterDropdown);
 
 // Get Deaprtment by id
-router.get('/:id', verifyToken, getleave_type_masterById); 
+router.get('/:id', verifyToken, getLeaveTypeMasterById); 
 
 // Put leave_type_masterDropdown update by id
 router.put('/:id', verifyToken, updateleave_type_master);

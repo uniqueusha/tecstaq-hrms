@@ -160,19 +160,54 @@ const getEmploymentType = async (req, res) => {
     }
 }
 
-async function getemployment_typeById(req, res) {
-     try {
-        const { id } = req.params;
+// async function getemployment_typeById(req, res) {
+//      try {
+//         const { id } = req.params;
 
-        const result = await listHelper('employment_type', {}, Number(id));
+//         const result = await listHelper('employment_type', {}, Number(id));
 
-        if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'Employment type not found' });
+//         if (!result.data.length) {
+//             return res.status(404).json({ success: false, message: 'Employment type not found' });
+//         }
+
+//         res.status(200).json({ success: true, data: result.data[0] });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getEmploymentTypeById = async (req, res) => {
+    const employmentTypeId = parseInt(req.params.id);
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const employmentTypeQuery = `SELECT et.*, c.name, u.first_name, u.last_name
+        FROM employment_type et
+        LEFT JOIN company c ON c.company_id = et.company_id
+        LEFT JOIN users u ON u.user_id = et.user_id
+        WHERE et.employment_type_id = ?`;
+        const employmentTypeResult = await connection.query(employmentTypeQuery, [employmentTypeId]);
+
+        if (employmentTypeResult[0].length == 0) {
+            return error422("Employment Type Not Found.", res);
         }
+        const employmentType = employmentTypeResult[0][0];
 
-        res.status(200).json({ success: true, data: result.data[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        return res.status(200).json({
+            status: 200,
+            message: "Employment Type Retrived Successfully",
+            data: employmentType
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
@@ -286,4 +321,4 @@ const onStatusChange = async (req, res) => {
 
 
 
-module.exports = { createemployment_type, getEmploymentType, getemployment_typeById, updateemployment_type,deleteemployment_type,employment_typeDropdown, onStatusChange };
+module.exports = { createemployment_type, getEmploymentType, getEmploymentTypeById, updateemployment_type,deleteemployment_type,employment_typeDropdown, onStatusChange };

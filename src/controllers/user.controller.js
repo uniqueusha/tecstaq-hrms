@@ -115,8 +115,8 @@ const getUsers = async (req, res) => {
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.employee_first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(em.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
-            countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.employee_first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(em.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
+            getQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(u.mobile_number) LIKE '%${lowercaseKey}%')`;
+            countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(u.mobile_number) LIKE '%${lowercaseKey}%')`;
         }
         //from date and to date
         if (fromDate && toDate) {
@@ -291,7 +291,7 @@ const getUserDownload = async (req, res) => {
         WHERE 1 AND u.role !="Management" `;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getUserQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_code) LIKE '%${lowercaseKey}%')`;
+            getUserQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(u.mobile_number) LIKE '%${lowercaseKey}%')`;
         }
         getUserQuery += " ORDER BY u.cts DESC";
 

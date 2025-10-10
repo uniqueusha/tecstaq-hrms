@@ -10,6 +10,9 @@ router.post('/', employeeController.createEmployee);
 // get all list employee
 router.get('/', employeeController.getEmployees);
 
+//download list
+router.get('/download', employeeController.getEmployeeDownload);
+
 //Active employee
 router.get('/wma', employeeController.getEmployeeWma);
 //admin employee

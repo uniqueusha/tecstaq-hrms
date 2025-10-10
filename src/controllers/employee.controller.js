@@ -1019,6 +1019,134 @@ const getEmployeeAdminWma = async (req, res) => {
     }
 
 }
+
+//download list
+const getEmployeeDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getEmployeeQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.family_dob,ef.is_dependent,ef.is_nominee,ef.family_mobile_number,empc.previous_start_date,empc.previous_end_date,empc.last_drawn_salary,empc.previous_designation,empc.hr_email,empc.hr_mobile,
+        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.shift_start_date,es.shift_end_date,eww.work_week_pattern_id,eww. work_week_start_date,eww.work_week_end_date, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name,ee.last_name AS reporting_manager_last_name FROM employee e
+        LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
+        LEFT JOIN company c ON c.company_id = e.company_id
+        LEFT JOIN designation d ON d.designation_id = e.designation_id
+        LEFT JOIN employee_family ef ON ef.employee_id = e.employee_id
+        LEFT JOIN employee_previous_company empc ON empc.employee_id = e.employee_id
+        LEFT JOIN employee_probation ep ON ep.employee_id = e.employee_id
+        LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
+        LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
+        LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        WHERE 1 AND e.reporting_manager_id !=0 `;
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getEmployeeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_code) LIKE '%${lowercaseKey}%')`;
+        }
+        getEmployeeQuery += " ORDER BY e.cts DESC";
+
+        let result = await connection.query(getEmployeeQuery);
+        let employee = result[0];
+    
+        if (employee.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        employee = employee.map((item, index) => ({
+            "Sr No": index + 1,
+            "Code": item.employee_code,
+            "Name": `${item.title} ${item.first_name} ${item.last_name}`,
+            "Email": item.email_id,
+            "Personal Email": item.personal_email,
+            "Date of Birth": item.dob,
+            "Gender": item.gender,
+            "Father Name": item.father_name,
+            "Mother Name": item.mother_name,
+            "Blood Group": item.blood_group,
+            "Marital Status": item.marital_status,
+            "Country Code": item.country_code,
+            "Mobile No": item.mobile_number,
+            "Profile Photo": item.profile_photo,
+            "Current Address": item.current_address,
+            "Permanent Address": item.permanent_address,
+            "Signed In": item.signed_in,
+            "Alternate Contact Number": item.alternate_contact_number,
+            "Date of Joining": item.doj,
+            "Office Location": item.office_location,
+            "Work Location": item.work_location,
+            "Employee Status": item.employee_status,
+            "UAN Number": item.uan_number,
+            "ESIC Number": item.esic_number,
+            "PF Number": item.pf_number,
+            "PAN Card Number": item.pan_card_number,
+            "Aadhar Number": item.aadhar_number,
+            "Passport Number": item.passport_no,
+            "Passport Expiry": item.passport_expiry,
+            "Payment Mode": item.payment_mode,
+            "Account Number": item.account_number,
+            "Bank Name": item.bank_name,
+            "IFSC Code": item.ifsc_code,
+            "Branch Name": item.branch_name,
+            "Family Member Name": item.family_member_name,
+            "Relationship": item.relationship,
+            "Family DOB": item.family_dob,
+            "Is Dependent": item.is_dependent,
+            "Is Nominee": item.is_nominee,
+            "Family Mobile Number": item.family_mobile_number,
+            "Previous Start Date": item.previous_start_date,
+            "Previous End Date": item.previous_end_date,
+            "Last Drawn Salary": item.last_drawn_salary,
+            "Previous Designation": item.previous_designation,
+            "HR Email": item.hr_email,
+            "HR Mobile": item.hr_mobile,
+            "Probation Start Date": item.probation_start_date,
+            "Probation End Date": item.probation_end_date,
+            "Shift Start Date": item.shift_start_date,
+            "Shift End Date": item.shift_end_date,
+            "Work Week Start Date": item.work_week_start_date,
+            "Work Week End Date": item.work_week_end_date,
+            "Company": item.company_name,
+            "Designation": item.designation,
+            "Reporting Manager": item.reporting_manager_first_name + " " + item.reporting_manager_last_name,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(employee);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "employeeInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
     createEmployee,
     getEmployees,
@@ -1026,6 +1154,7 @@ module.exports = {
     updateEmployee,
     onStatusChange,
     getEmployeeWma,
-    getEmployeeAdminWma
+    getEmployeeAdminWma,
+    getEmployeeDownload
 
 }

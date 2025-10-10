@@ -110,8 +110,11 @@ const getUsers = async (req, res) => {
         WHERE 1 AND u.role !="Management" `;
 
         let countQuery = `SELECT COUNT(*) AS total 
-        FROM users u
+         FROM users u
+        LEFT JOIN employee e ON e.employee_id = u.employee_id
+        LEFT JOIN company c ON c.company_id = e.company_id
         WHERE 1 AND u.role !="Management" `;
+
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();

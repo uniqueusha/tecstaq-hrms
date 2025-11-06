@@ -3,6 +3,19 @@
  const { updateHelper } = require('../../common/updateHelper');
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
+ const pool = require('../../common/db');
+ const xlsx = require("xlsx");
+ const fs = require("fs");
+
+//function to obtain a database connection 
+const getConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        return connection;
+    } catch (error) {
+        throw new Error("Failed to obtain database connection:" + error.message);
+    }
+}
  
 async function create_work_week_pattern(req, res) {
     try {
@@ -45,45 +58,163 @@ async function create_work_week_pattern(req, res) {
     }
 }
 
-async function listwork_week_pattern(req, res) {
-   try {
-        const { page, limit, search, status } = req.query;
+// async function listwork_week_pattern(req, res) {
+//    try {
+//         const { page, limit, search, status } = req.query;
 
-        const result = await listHelper(
-            'work_week_pattern',
-            status ? { status } : {}, // Exact match filters
-            null, // No ID → list mode
-            {
-                page: parseInt(page) || 1,
-                limit: parseInt(limit) || 10,
-                searchColumns: ['pattern_name'] // ✅ No 'status' here
-            },
-            search || null // Search keyword
-         );
+//         const result = await listHelper(
+//             'work_week_pattern',
+//             status ? { status } : {}, // Exact match filters
+//             null, // No ID → list mode
+//             {
+//                 page: parseInt(page) || 1,
+//                 limit: parseInt(limit) || 10,
+//                 searchColumns: ['pattern_name'] // ✅ No 'status' here
+//             },
+//             search || null // Search keyword
+//          );
 
-        res.status(200).json({ success: true, ...result });
+//         res.status(200).json({ success: true, ...result });
 
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-}
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
 
-async function getwork_week_patternById(req, res) {
-     try {
-        const { id } = req.params;
+const getWorkWeek = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, company_id, user_id } = req.query;
 
-        const result = await listHelper('work_week_pattern', {}, Number(id));
+    // attempt to obtain a database connection
+    let connection = await getConnection();
 
-        if (!result.data.length) {
-            return res.status(404).json({ success: false, message: 'work_week_pattern not found' });
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getWorkWeekQuery = `SELECT w.*, c.name, u.first_name, u.last_name
+        FROM work_week_pattern w
+        LEFT JOIN company c ON c.company_id = w.company_id
+        LEFT JOIN users u ON u.user_id = w.user_id
+        WHERE 1 AND w.status = 1`;
+        
+        let countQuery = `SELECT COUNT(*) AS total 
+        FROM work_week_pattern w
+        LEFT JOIN company c ON c.company_id = w.company_id
+        LEFT JOIN users u ON u.user_id = w.user_id
+        WHERE 1 AND w.status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+                getWorkWeekQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(w.pattern_name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(w.pattern_name) LIKE '%${lowercaseKey}%')`;
         }
 
-        res.status(200).json({ success: true, data: result.data[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        // from date and to date
+        if (fromDate && toDate) {
+            getWorkWeekQuery += ` AND DATE(w.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(w.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (company_id) {
+            getWorkWeekQuery += ` AND w.company_id = ${company_id}`;
+            countQuery += `  AND w.company_id = ${company_id}`;
+        }
+
+        if (user_id) {
+            getWorkWeekQuery += ` AND w.user_id = ${user_id}`;
+            countQuery += `  AND w.user_id = ${user_id}`;
+        }
+
+        getWorkWeekQuery += " ORDER BY w.cts DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getWorkWeekQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getWorkWeekQuery);
+        const workWeek = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Work Week retrieved successfully",
+            data: workWeek,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
 }
 
+// async function getwork_week_patternById(req, res) {
+//      try {
+//         const { id } = req.params;
+
+//         const result = await listHelper('work_week_pattern', {}, Number(id));
+
+//         if (!result.data.length) {
+//             return res.status(404).json({ success: false, message: 'work_week_pattern not found' });
+//         }
+
+//         res.status(200).json({ success: true, data: result.data[0] });
+//     } catch (err) {
+//         res.status(500).json({ success: false, error: err.message });
+//     }
+// }
+
+const getWorkWeekPatternById = async (req, res) => {
+    const workWeekPatternId = parseInt(req.params.id);
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const workWeekPatternQuery = `SELECT w.*, c.name, u.first_name, u.last_name
+        FROM work_week_pattern w
+        LEFT JOIN company c ON c.company_id = w.company_id
+        LEFT JOIN users u ON u.user_id = w.user_id
+        WHERE w.work_week_pattern_id = ?`;
+        const workWeekPatternResult = await connection.query(workWeekPatternQuery, [workWeekPatternId]);
+
+        if (workWeekPatternResult[0].length == 0) {
+            return error422("Work Week Pattern Master Not Found.", res);
+        }
+        const workWeekPattern = workWeekPatternResult[0][0];
+
+        return res.status(200).json({
+            status: 200,
+            message: "Work Week Pattern Retrived Successfully",
+            data: workWeekPattern
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 
 async function updatework_week_pattern(req, res) {
     try {
@@ -135,8 +266,129 @@ async function work_week_patternDropdown(req, res) {
     }
 }
 
+const onStatusChange = async (req, res) => {
+    const workWeekId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the workWeek exists
+        const workWeekQuery = "SELECT * FROM work_week_pattern WHERE work_week_pattern_id = ? ";
+        const workWeekResult = await connection.query(workWeekQuery, [workWeekId]);
+
+        if (workWeekResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Work Week not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+        
+            // Soft update the work Week status
+            const updateQuery = `
+            UPDATE work_week_pattern
+            SET status = ?
+            WHERE work_week_pattern_id = ?`;
+            await connection.query(updateQuery, [status, workWeekId]);
+        
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Work week pattern ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
+
+//download list
+const getWorkWeekPatternDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getWorkWeekPatternQuery = `SELECT w.*, c.name, u.first_name, u.last_name
+        FROM work_week_pattern w
+        LEFT JOIN company c ON c.company_id = w.company_id
+        LEFT JOIN users u ON u.user_id = w.user_id
+        WHERE 1 AND w.status = 1`;
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getWorkWeekPatternQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(w.pattern_name) LIKE '%${lowercaseKey}%')`;
+        }
+        getWorkWeekPatternQuery += " ORDER BY cts DESC";
+
+        let result = await connection.query(getWorkWeekPatternQuery);
+        let workWeekPattern = result[0];
 
 
+        if (workWeekPattern.length === 0) {
+            return error422("No data found.", res);
+        }
 
+        workWeekPattern = workWeekPattern.map((item, index) => ({
+            "Sr No": index + 1,
+            "Pattern Name": item.pattern_name,
+            "Working Days": item.working_days,
+            "Weekly Hours": item.weekly_hours,
+            "Remarks": item.remarks,
+            "Company Name": item.name,
+            "Create By": `${item.first_name} ${item.last_name}`,
+            "Status": item.status === 1 ? "activated" : "deactivated",
 
-module.exports = { create_work_week_pattern, listwork_week_pattern, getwork_week_patternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown };
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(workWeekPattern);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "workWeekPatternInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+module.exports = { create_work_week_pattern, getWorkWeek, getWorkWeekPatternById, updatework_week_pattern,deletework_week_pattern,work_week_patternDropdown, onStatusChange, getWorkWeekPatternDownload };

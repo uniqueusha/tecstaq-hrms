@@ -130,16 +130,8 @@ const getAllPolicy = async (req, res) => {
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            // if (lowercaseKey === "activated") {
-            //     getProductQuery += ` AND status = 1`;
-            //     countQuery += ` AND status = 1`;
-            // } else if (lowercaseKey === "deactivated") {
-            //     getProductQuery += ` AND status = 0`;
-            //     countQuery += ` AND status = 0`;
-            // } else {
-                getPolicyQuery += ` AND LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' `;
-                countQuery += ` AND LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' `;
-            // }
+                getPolicyQuery += ` AND (LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' OR LOWER(c.name) LIKE '%${lowercaseKey}%' OR LOWER(u.first_name) LIKE '%${lowercaseKey}%' OR LOWER(u.last_name) LIKE '%${lowercaseKey}%' ) `;
+                countQuery += ` AND (LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' OR LOWER(c.name) LIKE '%${lowercaseKey}%' OR LOWER(u.first_name) LIKE '%${lowercaseKey}%' OR LOWER(u.last_name) LIKE '%${lowercaseKey}%') `;
         }
         getPolicyQuery += " ORDER BY pm.cts DESC";
 
@@ -351,8 +343,82 @@ const getPolicyWma = async (req, res) => {
     } finally {
         if (connection) connection.release()
     }
-
 }
+
+//download list
+const getPolicyDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getPolicyQuery = `SELECT pm.*, c.name AS company_name, u.first_name, u.last_name FROM policy_master pm
+        LEFT JOIN company c ON c.company_id = pm.company_id
+        LEFT JOIN users u ON u.user_id = pm.user_id WHERE 1`;
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getPolicyQuery += ` AND (LOWER(pm.policy_title) LIKE '%${lowercaseKey}%' OR LOWER(c.name) LIKE '%${lowercaseKey}%' OR LOWER(u.first_name) LIKE '%${lowercaseKey}%' OR LOWER(u.last_name) LIKE '%${lowercaseKey}%' ) `;
+        }
+        getPolicyQuery += " ORDER BY pm.cts DESC";
+
+        let result = await connection.query(getPolicyQuery);
+        let policy = result[0];
+
+
+        if (policy.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        policy = policy.map((item, index) => ({
+            "Sr No": index + 1,
+            "Policy Title": item.policy_title,
+            "Policy Subtitle": item.policy_subtitle,
+            "Issued On": item.issued_on,
+            "Prepared By": item.prepared_by,
+            "Approved By": item.approved_by,
+            "Process Head": item.process_head,
+            "Version": item.version,
+            "Policy File Path": item.policy_file_path,
+            "Company Name": item.name,
+            "Create By": `${item.first_name} ${item.last_name}`,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(policy);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "policyInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 
 module.exports = {
     createPolicy,
@@ -360,6 +426,7 @@ module.exports = {
     getPolicy,
     updatePolicy,
     onStatusChange,
-    getPolicyWma
+    getPolicyWma,
+    getPolicyDownload
     
 }

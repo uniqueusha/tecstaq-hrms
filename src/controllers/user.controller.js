@@ -1,5 +1,17 @@
 const pool = require('../common/db');
 const bcrypt = require("bcrypt");
+ const xlsx = require("xlsx");
+ const fs = require("fs");
+
+//function to obtain a database connection 
+const getConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        return connection;
+    } catch (error) {
+        throw new Error("Failed to obtain database connection:" + error.message);
+    }
+}
 
 const error422 = (message, res) => {
     return res.status(422).json({
@@ -98,13 +110,16 @@ const getUsers = async (req, res) => {
         WHERE 1 AND u.role !="Management" `;
 
         let countQuery = `SELECT COUNT(*) AS total 
-        FROM users u
+         FROM users u
+        LEFT JOIN employee e ON e.employee_id = u.employee_id
+        LEFT JOIN company c ON c.company_id = e.company_id
         WHERE 1 AND u.role !="Management" `;
+
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.employee_first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(em.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
-            countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.employee_first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(em.employee_last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
+            getQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(u.mobile_number) LIKE '%${lowercaseKey}%')`;
+            countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(u.mobile_number) LIKE '%${lowercaseKey}%')`;
         }
         //from date and to date
         if (fromDate && toDate) {
@@ -263,9 +278,85 @@ const updateUser = async (req, res) => {
     }
 }
 
+//download list
+const getUserDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getUserQuery = `SELECT u.*, e.title, e.employee_code, c.name
+        FROM users u
+        LEFT JOIN employee e ON e.employee_id = u.employee_id
+        LEFT JOIN company c ON c.company_id = e.company_id
+        WHERE 1 AND u.role !="Management" `;
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getUserQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(u.mobile_number) LIKE '%${lowercaseKey}%')`;
+        }
+        getUserQuery += " ORDER BY u.cts DESC";
+
+        let result = await connection.query(getUserQuery);
+        let user = result[0];
+        console.log(user);
+        
+
+
+        if (user.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        user = user.map((item, index) => ({
+            "Sr No": index + 1,
+            "Code": item.employee_code,
+            "Name": `${item.first_name} ${item.last_name}`,
+            "Email": item.email_id,
+            "Mobile No": item.mobile_number,
+            "Company": item.name,
+            "Role": item.role,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(user);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "userInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
     createUser,
     getUsers,
     getUser,
-    updateUser
+    updateUser,
+    getUserDownload
 }

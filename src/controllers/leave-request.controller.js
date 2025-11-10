@@ -289,6 +289,7 @@ const updateLeaveRequest = async (req, res) => {
                 return error422("Your leave limit is over.", res);
             }
         }
+
         //update leave request
         let updateLeaveRequestQuery = `UPDATE leave_request 
         SET employee_id = ?, leave_type_id = ?, start_date =?, 
@@ -296,22 +297,16 @@ const updateLeaveRequest = async (req, res) => {
         WHERE leave_request_id = ?`;
         let leaveRequestResult = await connection.query(updateLeaveRequestQuery, [employee_id, leave_type_id, start_date, end_date,
             total_days, reason, approver_id, leave_request_id]);
+        let deleteLeaveRequestFooterQuery = 'DELETE FROM leave_request_footer WHERE leave_request_id = ?'
+        await connection.query(deleteLeaveRequestFooterQuery, [leave_request_id]);
         if (leave_details) {
             for (let index = 0; index < leave_details.length; index++) {
                 const element = leave_details[index];
                 let leave_request_footer_id = element.leave_request_footer_id;
-                let leave_date = element.leave_date;
+                let leave_date = element.leave_date; leave_request_footer_id
                 let type = element.type;
-                if (leave_request_footer_id) {
-                    let updateLeaveFooterQuery = `UPDATE  leave_request_footer
-                    SET leave_request_id = ?, leave_date = ?, type = ?
-                    WHERE  leave_request_footer_id = ? `;
-                    await connection.query(updateLeaveFooterQuery, [leave_request_id, leave_date, type, leave_request_footer_id])
-                } else {
-                    let leaveFooterQuery = "INSERT INTO leave_request_footer (leave_request_id, leave_date, type) VALUES (?, ?, ?)";
-                    await connection.query(leaveFooterQuery, [leave_request_id, leave_date, type])
-                }
-
+                let leaveFooterQuery = "INSERT INTO leave_request_footer (leave_request_id, leave_date, type) VALUES (?, ?, ?)";
+                await connection.query(leaveFooterQuery, [leave_request_id, leave_date, type])
             }
         }
 
@@ -333,24 +328,25 @@ const updateLeaveRequest = async (req, res) => {
         if (connection) connection.release()
     }
 }
-const deleteLeaveRequestFooter = async (req, res)=>{
+const deleteLeaveRequestFooter = async (req, res) => {
     let leave_request_footer_id = parseInt(req.params.id);
     let isLeaveRequestFooterQuery = 'SELECT * FROM leave_request_footer WHERE leave_request_footer_id = ?';
-    let [isLeaveRequestFooterResult] = await pool.query(isLeaveRequestFooterQuery,[leave_request_footer_id])
-    if (!isLeaveRequestFooterResult.length>0) {
+    let [isLeaveRequestFooterResult] = await pool.query(isLeaveRequestFooterQuery, [leave_request_footer_id])
+    if (!isLeaveRequestFooterResult.length > 0) {
         return error422("Leave request footer is Not Found", res);
     }
     let connection = await pool.getConnection()
     try {
         //delete leave request footer 
         let deleteLeaveRequestFooterQuery = 'DELETE FROM leave_request_footer WHERE leave_request_footer_id = ?'
-        await connection.query(deleteLeaveRequestFooterQuery,[leave_request_footer_id]);
+        await connection.query(deleteLeaveRequestFooterQuery, [leave_request_footer_id]);
+
         connection.commit();
         return res.status(200).json({
-            status:200,
-            message:"Leave request footer delete successfully."
+            status: 200,
+            message: "Leave request footer delete successfully."
         })
-     } catch (error) {
+    } catch (error) {
         await connection.rollback()
         return error500(error, res);
     } finally {
@@ -424,6 +420,52 @@ const approveLeaveRequest = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//get employee leave type list
+const getEmployeeLeaveTypes = async (req, res) => {
+    const employee_id = parseInt(req.params.id);
+    if (!employee_id) {
+        return error422("Employee id is required.", res);
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        const getLeaveTypeQuery = `
+      SELECT *, IFNULL(SUM(CASE WHEN lr.status = 'approved' THEN lr.total_days ELSE 0 END), 0) AS total_taken,
+          (ltm.number_of_days - IFNULL(SUM(CASE WHEN lr.status = 'approved' THEN lr.total_days ELSE 0 END), 0)) AS remaining_leaves
+      FROM leave_type_master ltm
+      LEFT JOIN leave_request lr 
+          ON ltm.leave_type_master_id = lr.leave_type_id
+          AND lr.employee_id = ?
+      GROUP BY 
+          ltm.leave_type_master_id, 
+          ltm.policy_id, 
+          ltm.company_id, 
+          ltm.leave_type_name, 
+          ltm.leave_type_code, 
+          ltm.number_of_days, 
+          ltm.description, 
+          ltm.status
+      ORDER BY ltm.leave_type_name;
+    `;
+
+        const [leaveTypeResult] = await connection.query(getLeaveTypeQuery, [employee_id]);
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Employee leave type list with remaining count retrieved successfully.",
+            data: leaveTypeResult
+        });
+    } catch (error) {
+        if (connection) await connection.rollback();
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 
 module.exports = {
     createLeaveRequest,
@@ -431,5 +473,6 @@ module.exports = {
     getLeaveRequest,
     updateLeaveRequest,
     approveLeaveRequest,
-    deleteLeaveRequestFooter
+    deleteLeaveRequestFooter,
+    getEmployeeLeaveTypes
 }

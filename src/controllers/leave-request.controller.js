@@ -54,9 +54,10 @@ const createLeaveRequest = async (req, res) => {
         if (parseFloat(leave_type.number_of_days) < parseFloat(total_days)) {
             return error422("Leave limit is over.", res);
         }
+        let current_year = new Date().getFullYear();
         //is leave balance
-        let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ?";
-        let [isLeaveBalanceResult] = await connection.query(isLeaveBalanceQuery, [leave_type_id, employee_id]);
+        let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ? AND year = ?";
+        let [isLeaveBalanceResult] = await connection.query(isLeaveBalanceQuery, [leave_type_id, employee_id, current_year]);
         let leaveBalance = isLeaveBalanceResult[0];
         if (leaveBalance) {
             if (parseFloat(leaveBalance.remaining_days) < parseFloat(total_days)) {
@@ -186,7 +187,6 @@ const getLeaveRequests = async (req, res) => {
 //get leave request..
 const getLeaveRequest = async (req, res) => {
     const leave_request_id = parseInt(req.params.id)
-
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
 
@@ -196,7 +196,7 @@ const getLeaveRequest = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
-        lt.leave_type_name 
+        lt.leave_type_name, lt.leave_type_code 
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
@@ -280,15 +280,17 @@ const updateLeaveRequest = async (req, res) => {
         if (parseFloat(leave_type.number_of_days) < parseFloat(total_days)) {
             return error422("Leave limit is over.", res);
         }
+        let current_year = new Date().getFullYear();
         //is leave balance
-        let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ?";
-        let [isLeaveBalanceResult] = await connection.query(isLeaveBalanceQuery, [leave_type_id, employee_id]);
+        let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ? AND year = ?";
+        let [isLeaveBalanceResult] = await connection.query(isLeaveBalanceQuery, [leave_type_id, employee_id, current_year]);
         let leaveBalance = isLeaveBalanceResult[0];
         if (leaveBalance) {
             if (parseFloat(leaveBalance.remaining_days) < parseFloat(total_days)) {
                 return error422("Your leave limit is over.", res);
             }
         }
+
         //update leave request
         let updateLeaveRequestQuery = `UPDATE leave_request 
         SET employee_id = ?, leave_type_id = ?, start_date =?, 
@@ -296,22 +298,16 @@ const updateLeaveRequest = async (req, res) => {
         WHERE leave_request_id = ?`;
         let leaveRequestResult = await connection.query(updateLeaveRequestQuery, [employee_id, leave_type_id, start_date, end_date,
             total_days, reason, approver_id, leave_request_id]);
+        let deleteLeaveRequestFooterQuery = 'DELETE FROM leave_request_footer WHERE leave_request_id = ?'
+        await connection.query(deleteLeaveRequestFooterQuery, [leave_request_id]);
         if (leave_details) {
             for (let index = 0; index < leave_details.length; index++) {
                 const element = leave_details[index];
                 let leave_request_footer_id = element.leave_request_footer_id;
-                let leave_date = element.leave_date;
+                let leave_date = element.leave_date; leave_request_footer_id
                 let type = element.type;
-                if (leave_request_footer_id) {
-                    let updateLeaveFooterQuery = `UPDATE  leave_request_footer
-                    SET leave_request_id = ?, leave_date = ?, type = ?
-                    WHERE  leave_request_footer_id = ? `;
-                    await connection.query(updateLeaveFooterQuery, [leave_request_id, leave_date, type, leave_request_footer_id])
-                } else {
-                    let leaveFooterQuery = "INSERT INTO leave_request_footer (leave_request_id, leave_date, type) VALUES (?, ?, ?)";
-                    await connection.query(leaveFooterQuery, [leave_request_id, leave_date, type])
-                }
-
+                let leaveFooterQuery = "INSERT INTO leave_request_footer (leave_request_id, leave_date, type) VALUES (?, ?, ?)";
+                await connection.query(leaveFooterQuery, [leave_request_id, leave_date, type])
             }
         }
 
@@ -333,24 +329,25 @@ const updateLeaveRequest = async (req, res) => {
         if (connection) connection.release()
     }
 }
-const deleteLeaveRequestFooter = async (req, res)=>{
+const deleteLeaveRequestFooter = async (req, res) => {
     let leave_request_footer_id = parseInt(req.params.id);
     let isLeaveRequestFooterQuery = 'SELECT * FROM leave_request_footer WHERE leave_request_footer_id = ?';
-    let [isLeaveRequestFooterResult] = await pool.query(isLeaveRequestFooterQuery,[leave_request_footer_id])
-    if (!isLeaveRequestFooterResult.length>0) {
+    let [isLeaveRequestFooterResult] = await pool.query(isLeaveRequestFooterQuery, [leave_request_footer_id])
+    if (!isLeaveRequestFooterResult.length > 0) {
         return error422("Leave request footer is Not Found", res);
     }
     let connection = await pool.getConnection()
     try {
         //delete leave request footer 
         let deleteLeaveRequestFooterQuery = 'DELETE FROM leave_request_footer WHERE leave_request_footer_id = ?'
-        await connection.query(deleteLeaveRequestFooterQuery,[leave_request_footer_id]);
+        await connection.query(deleteLeaveRequestFooterQuery, [leave_request_footer_id]);
+
         connection.commit();
         return res.status(200).json({
-            status:200,
-            message:"Leave request footer delete successfully."
+            status: 200,
+            message: "Leave request footer delete successfully."
         })
-     } catch (error) {
+    } catch (error) {
         await connection.rollback()
         return error500(error, res);
     } finally {
@@ -388,11 +385,15 @@ const approveLeaveRequest = async (req, res) => {
         let used_days = 0
         if (leaveBalance) {
             used_days = leaveBalance.used_days
+            if (parseFloat(leaveBalance.remaining_days) < parseFloat(leaveRequest.total_days)) {
+                return error422("Your leave limit is over.", res);
+            }
         }
+
         let allocated_days = leaveRequest.number_of_days
         used_days = parseFloat(used_days) + parseFloat(leaveRequest.total_days);
         let remaining_days = allocated_days - used_days
-        if (status == 'Approved') {
+        if (status == 'Approved') { 
             if (leaveBalance) {
                 let updateLeaveBalanceQuery = `UPDATE leave_balance 
             SET allocated_days = ?, used_days = ?, remaining_days = ? WHERE leave_balance_id = ?`
@@ -424,6 +425,135 @@ const approveLeaveRequest = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//get employee leave type list
+const getEmployeeLeaveTypes = async (req, res) => {
+    const employee_id = parseInt(req.params.id);
+    if (!employee_id) {
+        return error422("Employee id is required.", res);
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        const getLeaveTypeQuery = `
+      SELECT *, IFNULL(SUM(CASE WHEN lr.status = 'approved' THEN lr.total_days ELSE 0 END), 0) AS total_taken,
+          (ltm.number_of_days - IFNULL(SUM(CASE WHEN lr.status = 'approved' THEN lr.total_days ELSE 0 END), 0)) AS remaining_leaves
+      FROM leave_type_master ltm
+      LEFT JOIN leave_request lr 
+          ON ltm.leave_type_master_id = lr.leave_type_id
+          AND lr.employee_id = ?
+      GROUP BY 
+          ltm.leave_type_master_id, 
+          ltm.policy_id, 
+          ltm.company_id, 
+          ltm.leave_type_name, 
+          ltm.leave_type_code, 
+          ltm.number_of_days, 
+          ltm.description, 
+          ltm.status
+      ORDER BY ltm.leave_type_name;
+    `;
+
+        const [leaveTypeResult] = await connection.query(getLeaveTypeQuery, [employee_id]);
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Employee leave type list with remaining count retrieved successfully.",
+            data: leaveTypeResult
+        });
+    } catch (error) {
+        if (connection) await connection.rollback();
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+//get leave balances
+const getLeaveBalances = async (req, res )=>{
+     const { page, perPage, key, fromDate, toDate, employee_id, leave_type_id } = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await pool.getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT lb.*, e.first_name, e.last_name,
+        lt.leave_type_name 
+        FROM leave_balance lb
+        LEFT JOIN employee e ON e.employee_id = lb.employee_id
+        LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lb.leave_type_id
+        WHERE 1`;
+
+        let countQuery = `SELECT COUNT(*) AS total FROM leave_balance lb
+        LEFT JOIN employee e ON e.employee_id = lb.employee_id
+        LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lb.leave_type_id
+        WHERE 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
+            countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
+        }
+        // from date and to date
+        // if (fromDate && toDate) {
+        //     getQuery += ` AND DATE(lb.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+        //     countQuery += ` AND DATE(lb.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+        // }
+
+        if (employee_id) {
+            getQuery += ` AND lb.employee_id = ${employee_id}`;
+            countQuery += `  AND lb.employee_id = ${employee_id}`;
+        }
+
+        if (leave_type_id) {
+            getQuery += ` AND lb.leave_type_id = ${leave_type_id}`;
+            countQuery += `  AND lb.leave_type_id = ${leave_type_id}`;
+        }
+
+        // getQuery += " ORDER BY lb.applied_date DESC";
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getQuery);
+        const leaveRequests = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Leave Requests retrieved successfully",
+            data: leaveRequests,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 
 module.exports = {
     createLeaveRequest,
@@ -431,5 +561,7 @@ module.exports = {
     getLeaveRequest,
     updateLeaveRequest,
     approveLeaveRequest,
-    deleteLeaveRequestFooter
+    deleteLeaveRequestFooter,
+    getEmployeeLeaveTypes,
+    getLeaveBalances
 }

@@ -517,6 +517,13 @@ const getEmployee = async (req, res) => {
         let employeeEducationResult = await connection.query(employeeEducationQuery, [employeeId]);
         employee['employeeEducation'] = employeeEducationResult[0];
 
+        let getCalenderQuery='SELECT * FROM holiday_calendar_details WHERE holiday_calendar_id = ?'
+        let [calenderResult] = await connection.query(getCalenderQuery,[employee.holiday_calendar_id])
+        employee['calendarDetails'] =calenderResult;
+        
+        let getWorkWeekPatternQuery = 'SELECT * FROM work_week_pattern WHERE work_week_pattern_id =? '
+        let [workWeekPatternResult] = await connection.query(getWorkWeekPatternQuery,[employee.work_week_pattern_id])
+        employee['workWeekPatternDetails'] =workWeekPatternResult[0];  
 
         return res.status(200).json({
             status: 200,

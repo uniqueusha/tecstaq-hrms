@@ -15,6 +15,8 @@ router.get('/download', employeeController.getEmployeeDownload);
 
 //Active employee
 router.get('/wma', employeeController.getEmployeeWma);
+//get upcoming leave
+router.get('/upcoming-leave', employeeController.getUpcomingLeaves);
 //admin employee
 router.get('/admin/wma', employeeController.getEmployeeAdminWma);
 

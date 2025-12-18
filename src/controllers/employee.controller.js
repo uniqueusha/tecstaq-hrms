@@ -962,7 +962,7 @@ const onStatusChange = async (req, res) => {
 
 //get employee active...
 const getEmployeeWma = async (req, res) => {
-
+    const { is_upcoming_birthday } = req.query;
     // attempt to obtain a database connection
     let connection = await getConnection();
 
@@ -971,10 +971,27 @@ const getEmployeeWma = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const employeeQuery = `SELECT * FROM employee
-        
-        WHERE status = 1  ORDER BY first_name`;
+        let employeeQuery = `SELECT * FROM employee
+        WHERE status = 1  `;
 
+        // Upcoming birthdays within next 7 days
+        if (is_upcoming_birthday) {
+          employeeQuery += `
+            AND (
+              DAYOFYEAR(dob) BETWEEN DAYOFYEAR(CURDATE())
+              AND DAYOFYEAR(DATE_ADD(CURDATE(), INTERVAL 7 DAY))
+              OR
+              (
+                DAYOFYEAR(DATE_ADD(CURDATE(), INTERVAL 7 DAY)) < DAYOFYEAR(CURDATE())
+                AND (
+                  DAYOFYEAR(dob) >= DAYOFYEAR(CURDATE())
+                  OR DAYOFYEAR(dob) <= DAYOFYEAR(DATE_ADD(CURDATE(), INTERVAL 7 DAY))
+                )
+              )
+            )
+          `;
+        }
+         employeeQuery +=" ORDER BY first_name"
         const employeeResult = await connection.query(employeeQuery);
         const employee = employeeResult[0];
 
@@ -1153,6 +1170,74 @@ const getEmployeeDownload = async (req, res) => {
         if (connection) connection.release();
     }
 };
+//Upcoming Leave
+const getUpcomingLeaves = async (req, res) => {
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let employeeQuery = `SELECT 
+                lr.leave_request_id,
+                lr.employee_id,
+                lr.leave_type_id,
+                lr.start_date,
+                lr.end_date,
+                lr.total_days,
+                lr.reason,
+                lr.status AS leave_status,
+                lr.approver_id,
+                lr.applied_date,
+                lr.approved_date,
+
+                lrf.leave_request_footer_id,
+                lrf.leave_date,
+                lrf.type AS leave_day_type,
+
+                e.employee_id,
+                e.employee_code,
+                e.first_name,
+                e.last_name,
+                e.email,
+                e.departments_id,
+                e.designation_id,
+                e.profile_photo
+
+            FROM leave_request lr
+            INNER JOIN leave_request_footer lrf
+                ON lrf.leave_request_id = lr.leave_request_id
+            INNER JOIN employee e
+                ON e.employee_id = lr.employee_id
+
+            WHERE 
+                lr.status = 'Approved'                -- approved leave
+                AND e.status = 1             -- active employee
+                AND lrf.leave_date BETWEEN CURDATE()
+                AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+
+            ORDER BY lrf.leave_date ASC `;
+
+        const employeeResult = await connection.query(employeeQuery);
+        const employee = employeeResult[0];
+
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Upcoming leaves retrieved successfully.",
+            data: employee,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+
+}
 
 module.exports = {
     createEmployee,
@@ -1162,6 +1247,7 @@ module.exports = {
     onStatusChange,
     getEmployeeWma,
     getEmployeeAdminWma,
-    getEmployeeDownload
+    getEmployeeDownload,
+    getUpcomingLeaves
 
 }

@@ -98,8 +98,13 @@ const createLeaveRequest = async (req, res) => {
 }
 // get leave requests...
 const getLeaveRequests = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id, approver_id, leave_type_id } = req.query;
+    const { page, perPage, key, fromDate, toDate, employee_id, approver_id, leave_type_id,status } = req.query;
 
+    if (status) {
+        if (status!="Pending"&&status!="Approved"&&status!="Rejected"&&status!="Cancelled") {
+        return error422("Leave status is Invalid.", res);
+    } 
+    }
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
 
@@ -145,7 +150,10 @@ const getLeaveRequests = async (req, res) => {
             getQuery += ` AND lq.leave_type_id = ${leave_type_id}`;
             countQuery += `  AND lq.leave_type_id = ${leave_type_id}`;
         }
-
+        if (status) {
+            getQuery += ` AND lq.status = '${status}'`;
+            countQuery += `  AND lq.status = '${status}'`;
+        }
         getQuery += " ORDER BY lq.applied_date DESC";
         // Apply pagination if both page and perPage are provided
         let total = 0;

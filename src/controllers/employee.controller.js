@@ -326,7 +326,7 @@ const createEmployee = async (req, res) => {
 
 // get employee list...
 const getEmployees = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id, department_id, company_id } = req.query;
+    const { page, perPage, key, fromDate, toDate, employee_id, department_id, company_id,reporting_manager_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -387,6 +387,10 @@ const getEmployees = async (req, res) => {
         if (company_id) {
             getEmployeesQuery += ` AND e.company_id = ${company_id}`;
             countQuery += `  AND e.company_id = ${company_id}`;
+        }
+        if (reporting_manager_id) {
+            getEmployeesQuery += ` AND e.reporting_manager_id = ${reporting_manager_id}`;
+            countQuery += `  AND e.reporting_manager_id = ${reporting_manager_id}`;
         }
 
         if (employee_id) {

@@ -23,7 +23,7 @@ const policyRoutes = require('./src/modules/policy/policy.routes');
 const employeeRoutes = require('./src/routes/employee.routes'); 
 const leaveRequestRoutes = require('./src/routes/leave-request.route');
 const userRoutes = require('./src/routes/user.route');
-
+const attendanceRoutes = require('./src/routes/attendance.routes')
 
 // Middleware
 app.use(bodyParser.json());
@@ -56,6 +56,7 @@ app.use('/leave_type_master', leave_type_master);
 app.use('/employee', employeeRoutes);
 app.use('/leave-request', leaveRequestRoutes);
 app.use('/user', userRoutes);
+app.use('/attendance', attendanceRoutes);
 
 
 module.exports = app;

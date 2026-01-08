@@ -148,9 +148,6 @@ const importAttendanceFromBase64 = async (req, res) => {
         if (connection) connection.release();
     }
   }
-const getAttendanceFiles = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id } = req.query;
-
 const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
     const { page, perPage, key, fromDate, toDate, employee_code } = req.query;
     // attempt to obtain a database connection

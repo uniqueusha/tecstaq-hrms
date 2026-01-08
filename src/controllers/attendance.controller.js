@@ -21,20 +21,25 @@ const importAttendanceFromBase64 = async (req, res) => {
     try {
         //Start the transaction
         await connection.beginTransaction();
-    const { fileBase64,file_name } = req.body;
+    const { file_base64,file_name } = req.body;
       const user_id = req.user.user_id
-    if (!fileBase64) {
+    if (!file_base64) {
       return error422("Excel file required", res)
     }else if (!file_name) {
       return error422("Excel file name required", res)
     }
-
-    const buffer = Buffer.from(fileBase64, "base64");
+    //check file already exists or not
+    const isExistFileQuery = `SELECT * FROM attendance_upload WHERE file_name = ? `;
+    const isExistFileResult = await pool.query(isExistFileQuery, [file_name]);
+    if (isExistFileResult[0].length > 0) {
+        return error422("File is already uploaded.", res);
+    }
+    const buffer = Buffer.from(file_base64, "base64");
     const workbook = XLSX.read(buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    /*  FIND DAYS ROW */
+    /* FIND DAYS ROW */
     const daysRowIndex = rows.findIndex(
       r => String(r[0]).trim().toLowerCase() === "days"
     );
@@ -45,7 +50,7 @@ const importAttendanceFromBase64 = async (req, res) => {
 
     const daysRow = rows[daysRowIndex];
 
-    /*  EXTRACT DAY NUMBERS */
+    /* EXTRACT DAY NUMBERS */
     const days = [];
     for (let i = 1; i < daysRow.length; i++) {
       const match = String(daysRow[i]).match(/\d+/);
@@ -54,7 +59,7 @@ const importAttendanceFromBase64 = async (req, res) => {
 
     const result = [];
 
-    /*  LOOP THROUGH ROWS */
+    /* LOOP THROUGH ROWS */
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -102,7 +107,7 @@ const importAttendanceFromBase64 = async (req, res) => {
           if (rows.length === 0) {
           // Insert into DB  
           const sql = "INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, shift, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )";
-          await connection.query(sql, [employeeId, employeeName,attendance_date,  status,status, in_time, out_time, duration, late_by, early_by, ot, shift, 'excel-sheet'])
+          await connection.query(sql, [employeeId, employeeName,attendance_date,  status, in_time, out_time, duration, late_by, early_by, ot, shift, 'excel-sheet'])
           }else{
             const updateSql = `
               UPDATE attendance_master
@@ -146,67 +151,64 @@ const importAttendanceFromBase64 = async (req, res) => {
 const getAttendanceFiles = async (req, res) => {
     const { page, perPage, key, fromDate, toDate, employee_id } = req.query;
 
+const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, employee_code } = req.query;
     // attempt to obtain a database connection
-    let connection = await pool.getConnection()
+    let connection = await pool.getConnection();
 
     try {
 
         //start a transaction
         await connection.beginTransaction();
 
-        let getEmployeesQuery = `SELECT a.*, e.first_name ,e.last_name FROM attendance_upload a
-        LEFT JOIN employee e ON a.created_by = e.employee_id 
-        WHERE 1 `;
-        
-        let countQuery = `SELECT COUNT(*) AS total FROM attendance_upload a
-        LEFT JOIN employee e ON a.created_by = e.employee_id 
+        let getQuery = `SELECT a.* 
+        FROM attendance_master a
         WHERE 1 `;
 
-        if (key) {
-            const lowercaseKey = key.toLowerCase().trim();
-            if (lowercaseKey === "activated") {
-                // getEmployeesQuery += ` AND e.status = 1`;
-                // countQuery += ` AND e.status = 1`;
-            } else if (lowercaseKey === "deactivated") {
-                // getEmployeesQuery += ` AND e.status = 0`;
-                // countQuery += ` AND e.status = 0`;
-            } else {
-                getEmployeesQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' ) `;
-                countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' ) `;
-            }
-        }
+        let countQuery = `SELECT COUNT(*) AS total         
+        FROM attendance_master a
+        WHERE 1 `;
 
         // from date and to date
         if (fromDate && toDate) {
-            getEmployeesQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
-            countQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+            getQuery += ` AND DATE(lq.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(lq.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
         }
 
-        if (employee_id) {
-            getEmployeesQuery += ` AND e.employee_id = ${employee_id}`;
-            countQuery += `  AND e.employee_id = ${employee_id}`;
+        if (employee_code) {
+            getQuery += ` AND a.employee_code = '${employee_code}'`;
+            countQuery += `  AND a.employee_code = '${employee_code}'`;
         }
-
-        getEmployeesQuery += " ORDER BY a.created_at DESC";
-
+        getQuery += " ORDER BY a.attendance_date DESC";
+        
         // Apply pagination if both page and perPage are provided
         let total = 0;
         if (page && perPage) {
             const totalResult = await connection.query(countQuery);
             total = parseInt(totalResult[0][0].total);
             const start = (page - 1) * perPage;
-            getEmployeesQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+            getQuery += ` LIMIT ${perPage} OFFSET ${start}`;
         }
 
-        const result = await connection.query(getEmployeesQuery);
-        const employees = result[0];
-
+        const result = await connection.query(getQuery);
+        const employee_attendance = result[0];
+        // calendarDetails
+        let getEmployeeQuery = `SELECT employee_id, company_id, departments_id, designation_id, employment_type_id, employee_code, title, first_name, last_name,holiday_calendar_id  FROM employee WHERE employee_code = ?`
+        let getEmployeeResult = await connection.query(getEmployeeQuery,[employee_code]);
+        if (getEmployeeResult[0].length==0) {
+          return error422("Employee Not Found", res);
+        }
+        let getCalendarDetailsQuery = "SELECT * FROM holiday_calendar_details WHERE holiday_calendar_id = ?"
+        let getCalendarDetails = await connection.query(getCalendarDetailsQuery,[getEmployeeResult[0][0].holiday_calendar_id])
+       
+        
         // Commit the transaction
         await connection.commit();
         const data = {
             status: 200,
-            message: "Upload file retrieved successfully",
-            data: employees,
+            message: "Employee Attendance retrieved successfully",
+            data: employee_attendance,
+            calendarDetails:getCalendarDetails[0]
         };
         // Add pagination information if provided
         if (page && perPage) {
@@ -220,55 +222,86 @@ const getAttendanceFiles = async (req, res) => {
 
         return res.status(200).json(data);
     } catch (error) {
+        await connection.rollback()
         return error500(error, res);
     } finally {
         if (connection) connection.release()
     }
 }
-const getEmployeeAttendanceSummary = async (req, res) => {
-  let connection = await pool.getConnection()
-  try {
-    const query = `
-      SELECT 
-          e.employee_id,
-          e.employee_code,
-          e.first_name,
-          e.last_name,
-          IFNULL(a.present_days, 0) AS present_days,
-          IFNULL(a.absent_days, 0) AS absent_days,
-          IFNULL(l.leave_days, 0) AS leave_days
-      FROM employee e
-      LEFT JOIN (
-          SELECT 
-              employee_code,
-              SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) AS present_days,
-              SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) AS absent_days
-          FROM attendance_master
-          GROUP BY employee_code
-      ) a ON a.employee_code = e.employee_code
-      LEFT JOIN (
-          SELECT 
-              lr.employee_id,
-              COUNT(lrf.leave_date) AS leave_days
-          FROM leave_request lr
-          INNER JOIN leave_request_footer lrf 
-              ON lr.leave_request_id = lrf.leave_request_id
-          WHERE lr.status = 'Approved'
-          GROUP BY lr.employee_id
-      ) l ON l.employee_id = e.employee_id
-      WHERE e.status = 1
-    `;
+const getAttendanceUploadList = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, employee_id } = req.query;
+    // attempt to obtain a database connection
+    let connection = await pool.getConnection();
 
-    const [rows] = await connection.query(query);
-    return res.json({ status: 200, data: rows });
+    try {
 
-  } catch (err) {
-    return res.status(500).json({ status: 500, error: err.message });
-  }
-};
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT a.*, e.first_name, e.last_name 
+        FROM attendance_upload a
+        LEFT JOIN employee e
+        ON e.employee_id = a.created_by
+        WHERE 1 `;
+
+        let countQuery = `SELECT COUNT(*) AS total         
+        FROM attendance_upload a
+        LEFT JOIN employee e
+        ON e.employee_id = a.created_by
+        WHERE 1 `;
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (employee_id) {
+            getQuery += ` AND a.created_by = '${employee_id}'`;
+            countQuery += `  AND a.created_by = '${employee_id}'`;
+        }
+        getQuery += " ORDER BY a.created_at DESC";
+        
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getQuery);
+        const employee_attendance = result[0];
+        
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Attendance upload retrieved successfully",
+            data: employee_attendance,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 
 module.exports = { 
   importAttendanceFromBase64,
-  getAttendanceFiles,
-  getEmployeeAttendanceSummary
+  getEmployeeAttendanceByEmployeeCode,
+  getAttendanceUploadList 
 };

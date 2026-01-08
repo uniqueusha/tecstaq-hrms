@@ -1,15 +1,6 @@
 const XLSX = require("xlsx");
 const moment = require("moment");
 const pool = require('../common/db');
-//function to obtain a database connection 
-const getConnection = async () => {
-    try {
-        const connection = await pool.getConnection();
-        return connection;
-    } catch (error) {
-        throw new Error("Failed to obtain database connection:" + error.message);
-    }
-} 
 const error422 = (message, res) => {
     return res.status(422).json({
         status: 422,
@@ -30,20 +21,25 @@ const importAttendanceFromBase64 = async (req, res) => {
     try {
         //Start the transaction
         await connection.beginTransaction();
-    const { fileBase64,file_name } = req.body;
+    const { file_base64,file_name } = req.body;
       const user_id = req.user.user_id
-    if (!fileBase64) {
+    if (!file_base64) {
       return error422("Excel file required", res)
     }else if (!file_name) {
       return error422("Excel file name required", res)
     }
-
-    const buffer = Buffer.from(fileBase64, "base64");
+    //check file already exists or not
+    const isExistFileQuery = `SELECT * FROM attendance_upload WHERE file_name = ? `;
+    const isExistFileResult = await pool.query(isExistFileQuery, [file_name]);
+    if (isExistFileResult[0].length > 0) {
+        return error422("File is already uploaded.", res);
+    }
+    const buffer = Buffer.from(file_base64, "base64");
     const workbook = XLSX.read(buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    /* 🔹 FIND DAYS ROW */
+    /* FIND DAYS ROW */
     const daysRowIndex = rows.findIndex(
       r => String(r[0]).trim().toLowerCase() === "days"
     );
@@ -54,7 +50,7 @@ const importAttendanceFromBase64 = async (req, res) => {
 
     const daysRow = rows[daysRowIndex];
 
-    /* 🔹 EXTRACT DAY NUMBERS */
+    /* EXTRACT DAY NUMBERS */
     const days = [];
     for (let i = 1; i < daysRow.length; i++) {
       const match = String(daysRow[i]).match(/\d+/);
@@ -63,7 +59,7 @@ const importAttendanceFromBase64 = async (req, res) => {
 
     const result = [];
 
-    /* 🔹 LOOP THROUGH ROWS */
+    /* LOOP THROUGH ROWS */
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -106,12 +102,12 @@ const importAttendanceFromBase64 = async (req, res) => {
             ot:ot,
             shift:shift,
           });
-          const isExistAttendanceQuery = "SELECT * FROM attendance_master WHERE employe_code = ? AND attendance_date = ?"
+          const isExistAttendanceQuery = "SELECT * FROM attendance_master WHERE employee_code = ? AND attendance_date = ?"
           const [rows] = await connection.query(isExistAttendanceQuery, [employeeId,attendance_date]);
           if (rows.length === 0) {
           // Insert into DB  
           const sql = "INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, shift, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )";
-          await connection.query(sql, [employeeId, employeeName,attendance_date,  status,status, in_time, out_time, duration, late_by, early_by, ot, shift, 'excel-sheet'])
+          await connection.query(sql, [employeeId, employeeName,attendance_date,  status, in_time, out_time, duration, late_by, early_by, ot, shift, 'excel-sheet'])
           }else{
             const updateSql = `
               UPDATE attendance_master
@@ -153,4 +149,157 @@ const importAttendanceFromBase64 = async (req, res) => {
     }
   }
 
-module.exports = { importAttendanceFromBase64 };
+const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, employee_code } = req.query;
+    // attempt to obtain a database connection
+    let connection = await pool.getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT a.* 
+        FROM attendance_master a
+        WHERE 1 `;
+
+        let countQuery = `SELECT COUNT(*) AS total         
+        FROM attendance_master a
+        WHERE 1 `;
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getQuery += ` AND DATE(lq.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(lq.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (employee_code) {
+            getQuery += ` AND a.employee_code = '${employee_code}'`;
+            countQuery += `  AND a.employee_code = '${employee_code}'`;
+        }
+        getQuery += " ORDER BY a.attendance_date DESC";
+        
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getQuery);
+        const employee_attendance = result[0];
+        // calendarDetails
+        let getEmployeeQuery = `SELECT employee_id, company_id, departments_id, designation_id, employment_type_id, employee_code, title, first_name, last_name,holiday_calendar_id  FROM employee WHERE employee_code = ?`
+        let getEmployeeResult = await connection.query(getEmployeeQuery,[employee_code]);
+        if (getEmployeeResult[0].length==0) {
+          return error422("Employee Not Found", res);
+        }
+        let getCalendarDetailsQuery = "SELECT * FROM holiday_calendar_details WHERE holiday_calendar_id = ?"
+        let getCalendarDetails = await connection.query(getCalendarDetailsQuery,[getEmployeeResult[0][0].holiday_calendar_id])
+       
+        
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Employee Attendance retrieved successfully",
+            data: employee_attendance,
+            calendarDetails:getCalendarDetails[0]
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+const getAttendanceUploadList = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, employee_id } = req.query;
+    // attempt to obtain a database connection
+    let connection = await pool.getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT a.*, e.first_name, e.last_name 
+        FROM attendance_upload a
+        LEFT JOIN employee e
+        ON e.employee_id = a.created_by
+        WHERE 1 `;
+
+        let countQuery = `SELECT COUNT(*) AS total         
+        FROM attendance_upload a
+        LEFT JOIN employee e
+        ON e.employee_id = a.created_by
+        WHERE 1 `;
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (employee_id) {
+            getQuery += ` AND a.created_by = '${employee_id}'`;
+            countQuery += `  AND a.created_by = '${employee_id}'`;
+        }
+        getQuery += " ORDER BY a.created_at DESC";
+        
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getQuery);
+        const employee_attendance = result[0];
+        
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Attendance upload retrieved successfully",
+            data: employee_attendance,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
+module.exports = { 
+  importAttendanceFromBase64,
+  getEmployeeAttendanceByEmployeeCode,
+  getAttendanceUploadList 
+};

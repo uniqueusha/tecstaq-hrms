@@ -13,6 +13,26 @@ const error500 = (error, res) => {
         error: error
     })
 }
+const getSettings = async (req, res) => {
+    let connection
+    try {
+        connection = await pool.getConnection()
+        const setCalendarQuery = `SELECT * FROM hrms_settings WHERE 1`
+        const result = await connection.query(setCalendarQuery);
+
+        await connection.commit()
+        return res.status(200).json({
+            status:200,
+            message:"Settings retrived successfully.",
+            data:result[0]
+        })
+    } catch (error) {
+        if(connection) await connection.rollback()
+        return error500(error, res)
+    } finally {
+        if(connection) await connection.release()
+    }
+}
 const setCalendar = async(req, res)=>{
     let holiday_calendar_id = req.body.holiday_calendar_id ? req.body.holiday_calendar_id :''
     if (!holiday_calendar_id) {
@@ -23,6 +43,8 @@ const setCalendar = async(req, res)=>{
         connection = await pool.getConnection()
         const setCalendarQuery = `UPDATE employee SET holiday_calendar_id = ${holiday_calendar_id}  WHERE 1`
         await connection.query(setCalendarQuery);
+        const settingsQuery = `UPDATE hrms_settings SET setting_value = ${holiday_calendar_id}  WHERE setting_key = 'holiday_calendar_id'`
+        await connection.query(settingsQuery);
 
         await connection.commit()
         return res.status(200).json({
@@ -38,5 +60,6 @@ const setCalendar = async(req, res)=>{
 }
 
 module.exports = {
-    setCalendar
+    setCalendar,
+    getSettings
 }

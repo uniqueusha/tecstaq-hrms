@@ -296,9 +296,125 @@ const getAttendanceUploadList = async (req, res) => {
         if (connection) connection.release()
     }
 }
+const checkIn = async (req, res)=>{
+    let employee_code = req.body.employee_code ? req.body.employee_code :'';
+    let attendance_date = req.body.attendance_date ? req.body.attendance_date :'';
+    let in_time = req.body.in_time ? req.body.in_time :'';
+    
+    if (!employee_code) {
+        return error422("Employee code is required.", res)
+    } else if(!attendance_date) {
+        return error422("Attendance date is required.", res)
+    } else if(!in_time) {
+        return error422("In time is required.", res);
+    }
+    let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name FROM employee WHERE employee_code = '${employee_code}' `;
+    let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
+    if (isExistEmployeeResult[0].length==0) {
+        return error422("Employee Not Found.", res)
+    }
+    const employee_name = isExistEmployeeResult[0][0].employee_name;
+    let isExistAttendanceQuery = `SELECT in_time FROM attendance_master WHERE employee_code = ? AND attendance_date = ?`;
+    let isExistAttendanceResult = await pool.query(isExistAttendanceQuery,[employee_code, attendance_date]);
+    if (isExistAttendanceResult[0].length > 0) {
+        return error422("Employee already checked in.", res);
+    }
+
+    let connection
+    try {
+        connection = await pool.getConnection()
+        const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, medium) VALUES ( ?, ?, ?, ?, ?, ?)`;
+        await connection.query(insertAttendanceQuery,[employee_code, employee_name, attendance_date, 'P', in_time, 'manual']);
+
+        await connection.commit()
+        return res.status(200).json({
+            status:200,
+            message:"Check In successfully."
+        })
+    } catch (error) {
+        if(connection) await connection.rollback()
+        return error500(error, res)
+    } finally {
+        if(connection) await connection.release()
+    }
+}
+const checkOut = async (req, res) => {
+    let employee_code = req.body.employee_code ? req.body.employee_code : '';
+    let attendance_date = req.body.attendance_date ? req.body.attendance_date : '';
+    let out_time = req.body.out_time ? req.body.out_time :'';
+    
+    if (!employee_code) {
+        return error422("Employee code is required.", res)
+    } else if(!attendance_date) {
+        return error422("Attendance date is required.", res);
+    } else if(!out_time) {
+        return error422("Out time is required.", res)
+    }
+    let isExistEmployeeQuery = ` SELECT employee_code, CONCAT(first_name,'',last_name) AS employee_name FROM employee WHERE employee_code = '${employee_code}' `;
+    let isExistEmployeeResult = await pool.query(isExistEmployeeQuery)
+    if (isExistEmployeeResult[0].length==0) {
+        return error422("Employee Not Found.", res)
+    }
+    const employee_name = isExistEmployeeResult[0][0].employee_name;
+    let isExistAttendanceQuery = `SELECT in_time, out_time FROM attendance_master WHERE employee_code = ? AND attendance_date = ?`;
+    let isExistAttendanceResult = await pool.query(isExistAttendanceQuery,[employee_code, attendance_date])
+    if (isExistAttendanceResult[0].length === 0) {
+        return error422("Check-in not found. Please check in first.", res)
+    }
+    const { in_time, out_time: existingOutTime } = isExistAttendanceResult[0][0];
+
+    //  Validation
+    if (!in_time || in_time === '00:00:00') {
+      return error422("Employee has not checked in yet.", res);
+    }
+
+    if (existingOutTime && existingOutTime !== '00:00:00') {
+      return error422("Employee already checked out.", res);
+    }
+
+    // Validate time order
+    const inMoment = moment(in_time, "HH:mm:ss");
+    const outMoment = moment(out_time, "HH:mm:ss");
+
+    if (outMoment.isSameOrBefore(inMoment)) {
+      return error422("Out time must be after in time.", res);
+    }
+
+    //Calculate duration
+    const durationMinutes = outMoment.diff(inMoment, "minutes");
+    const duration = moment.utc(durationMinutes * 60 * 1000).format("HH:mm:ss");
+    let connection 
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        //  Update attendance
+    await connection.query(
+      `UPDATE attendance_master
+       SET out_time = ?, duration = ?, status = 'P', medium = 'manual'
+       WHERE employee_code = ?
+         AND attendance_date = ?`,
+      [out_time, duration, employee_code, attendance_date]
+    );
+
+    await connection.commit();
+
+    return res.status(200).json({
+      status: 200,
+      message: "Check-out successfully.",
+    });
+    } catch (error) {
+        if(connection) await connection.rollback();
+        return error422(error, res)
+    } finally {
+        if(connection) await connection.release();
+    }
+}
 
 module.exports = { 
   importAttendanceFromBase64,
   getEmployeeAttendanceByEmployeeCode,
-  getAttendanceUploadList 
+  getAttendanceUploadList,
+  checkIn,
+  checkOut
 };

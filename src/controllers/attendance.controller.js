@@ -190,14 +190,24 @@ const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
         const result = await connection.query(getQuery);
         const employee_attendance = result[0];
         // calendarDetails
-        let getEmployeeQuery = `SELECT employee_id, company_id, departments_id, designation_id, employment_type_id, employee_code, title, first_name, last_name,holiday_calendar_id  FROM employee WHERE employee_code = ?`
+        let getEmployeeQuery = `SELECT e.employee_id, e.company_id, e.departments_id, e.designation_id, e.employment_type_id, e.employee_code, e.title, e.first_name, e.last_name, e.holiday_calendar_id,
+        eww.work_week_pattern_id  
+        FROM employee e  
+        LEFT JOIN employee_work_week eww 
+        ON e.employee_id = eww.employee_id
+
+        WHERE e.employee_code = ?`
+                //LEFT JOIN work_week_pattern wwp
+        //ON eww.work_week_pattern_id = wwp.work_week_pattern_id
         let getEmployeeResult = await connection.query(getEmployeeQuery,[employee_code]);
         if (getEmployeeResult[0].length==0) {
           return error422("Employee Not Found", res);
         }
         let getCalendarDetailsQuery = "SELECT * FROM holiday_calendar_details WHERE holiday_calendar_id = ?"
         let getCalendarDetails = await connection.query(getCalendarDetailsQuery,[getEmployeeResult[0][0].holiday_calendar_id])
-       
+
+        let getWorkWeekPatternQuery = 'SELECT * FROM work_week_pattern WHERE work_week_pattern_id =? '
+        let [workWeekPatternResult] = await connection.query(getWorkWeekPatternQuery,[getEmployeeResult[0][0].work_week_pattern_id])
         
         // Commit the transaction
         await connection.commit();
@@ -205,7 +215,8 @@ const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
             status: 200,
             message: "Employee Attendance retrieved successfully",
             data: employee_attendance,
-            calendarDetails:getCalendarDetails[0]
+            calendarDetails:getCalendarDetails[0],
+            workWeekPatternDetails : workWeekPatternResult[0]
         };
         // Add pagination information if provided
         if (page && perPage) {

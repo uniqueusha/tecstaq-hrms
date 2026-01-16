@@ -23,7 +23,10 @@ const policyRoutes = require('./src/modules/policy/policy.routes');
 const employeeRoutes = require('./src/routes/employee.routes'); 
 const leaveRequestRoutes = require('./src/routes/leave-request.route');
 const userRoutes = require('./src/routes/user.route');
-
+const salaryStructureComponentsRoutes = require('./src/routes/salary-structure-components.route');
+const salaryStructureStatutoryRulesRoute = require('./src/routes/salary-structure-statutory-rules.route');
+const professionalTaxRuleRoute = require('./src/routes/professional_tax_rules.route');
+const professionalTaxSlabRoute = require('./src/routes/professional-tax-slabs.route')
 
 // Middleware
 app.use(bodyParser.json());
@@ -56,6 +59,14 @@ app.use('/leave_type_master', leave_type_master);
 app.use('/employee', employeeRoutes);
 app.use('/leave-request', leaveRequestRoutes);
 app.use('/user', userRoutes);
+app.use('/salary-structure-components', salaryStructureComponentsRoutes);
+app.use('/salary-structure-statutory-rules', salaryStructureStatutoryRulesRoute);
+app.use('/professional-tax-rule', professionalTaxRuleRoute);
+app.use('/professional-tax-slabs', professionalTaxSlabRoute);
 
-
+app.get('/', (req,res)=>{
+    res.status(200).json({
+        message:"Wel come to HRMS"
+    })
+})
 module.exports = app;

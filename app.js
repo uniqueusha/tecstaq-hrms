@@ -26,6 +26,12 @@ const userRoutes = require('./src/routes/user.route');
 const attendanceRoutes = require('./src/routes/attendance.routes');
 const settingsRoutes = require('./src/routes/settings.routes')
 
+// master 
+const gradeController = require('./src/routes/master/grade.routes');
+const salaryStructureController = require('./src/routes/master/salary-structure.routes');
+const componentTypeController = require('./src/routes/master/component-type.routes');
+const calculationTypeController = require('./src/routes/master/calculation-type.routes');
+
 // Middleware
 app.use(bodyParser.json());
 app.use((req,res,next)=>{
@@ -59,6 +65,11 @@ app.use('/leave-request', leaveRequestRoutes);
 app.use('/user', userRoutes);
 app.use('/attendance', attendanceRoutes);
 app.use('/settings', settingsRoutes);
+// master
+app.use('/grade', gradeController)
+app.use('/salary-structure', salaryStructureController)
+app.use('/component-type', componentTypeController)
+app.use('/calculation-type', calculationTypeController)
 
 
 module.exports = app;

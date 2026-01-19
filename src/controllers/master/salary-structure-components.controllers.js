@@ -1,4 +1,4 @@
-const pool = require('../common/db');
+const pool = require('../../common/db');
 const xlsx = require("xlsx");
 const fs = require("fs");
 const path = require('path');
@@ -54,12 +54,12 @@ const createSalaryStructureComponent = async (req, res)=>{
         return error422("Calculation order is required.", res);
     } 
 
-    // // // Check if the salary_component exists and is active
-    // const isSalaryComponentExist = "SELECT * FROM salary_component WHERE salary_component_id = ?";
-    // const isSalaryComponentResult = await pool.query(isSalaryComponentExist,[ salary_component_id]);
-    // if (isSalaryComponentResult[0].length == 0) {
-    //     return error422("Salary Component Not Found.", res);
-    // }
+    // Check if the salary_component exists and is active
+    const isSalaryComponentExist = "SELECT * FROM salary_component WHERE salary_component_id = ?";
+    const isSalaryComponentResult = await pool.query(isSalaryComponentExist,[ salary_component_id]);
+    if (isSalaryComponentResult[0].length == 0) {
+        return error422("Salary Component Not Found.", res);
+    }
     let connection = await getConnection();
 
     try {

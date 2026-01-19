@@ -23,10 +23,10 @@ const policyRoutes = require('./src/modules/policy/policy.routes');
 const employeeRoutes = require('./src/routes/employee.routes'); 
 const leaveRequestRoutes = require('./src/routes/leave-request.route');
 const userRoutes = require('./src/routes/user.route');
-const salaryStructureComponentsRoutes = require('./src/routes/salary-structure-components.route');
-const salaryStructureStatutoryRulesRoute = require('./src/routes/salary-structure-statutory-rules.route');
-const professionalTaxRuleRoute = require('./src/routes/professional_tax_rules.route');
-const professionalTaxSlabRoute = require('./src/routes/professional-tax-slabs.route')
+const salaryStructureComponentsRoutes = require('./src/routes/master/salary-structure-components.route');
+const salaryStructureStatutoryRulesRoute = require('./src/routes/master/salary-structure-statutory-rules.route');
+const professionalTaxRuleRoute = require('./src/routes/master/professional_tax_rules.route');
+const professionalTaxSlabRoute = require('./src/routes/master/professional-tax-slabs.route')
 const attendanceRoutes = require('./src/routes/attendance.routes');
 const settingsRoutes = require('./src/routes/settings.routes')
 

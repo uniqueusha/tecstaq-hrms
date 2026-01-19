@@ -1,4 +1,4 @@
-const pool = require('../common/db');
+const pool = require('../../common/db');
 const xlsx = require("xlsx");
 const fs = require("fs");
 const path = require('path');
@@ -51,12 +51,12 @@ const createSalaryStructureStatutoryRules = async (req, res)=>{
         return error422("Pt applicable is required.", res);
     } 
 
-    // // // Check if the salary_structure exists and is active
-    // const isSalaryStructureExist = "SELECT * FROM salary_structure WHERE salary_structure_id = ?";
-    // const isSalaryStructureResult = await pool.query(isSalaryStructureExist,[ salary_structure_id]);
-    // if (isSalaryStructureResult[0].length == 0) {
-    //     return error422("Salary Structure Not Found.", res);
-    // }
+    // Check if the salary_structure exists and is active
+    const isSalaryStructureExist = "SELECT * FROM salary_structure WHERE salary_structure_id = ?";
+    const isSalaryStructureResult = await pool.query(isSalaryStructureExist,[ salary_structure_id]);
+    if (isSalaryStructureResult[0].length == 0) {
+        return error422("Salary Structure Not Found.", res);
+    }
 
     //  Check if professional_tax_rules exists
         const professionalTaxRulesQuery = "SELECT * FROM professional_tax_rules WHERE pt_rule_id  = ?";
@@ -224,14 +224,14 @@ const updateSalaryStructureStatutoryRules = async (req, res) => {
 
         //start a transaction
         await connection.beginTransaction();
- // // // Check if the salary_structure exists and is active
-    // const isSalaryStructureExist = "SELECT * FROM salary_structure WHERE salary_structure_id = ?";
-    // const isSalaryStructureResult = await connection.query(isSalaryStructureExist,[ salary_structure_id]);
-    // if (isSalaryStructureResult[0].length == 0) {
-    //     return error422("Salary Structure Not Found.", res);
-    // }
+        // Check if the salary_structure exists and is active
+        const isSalaryStructureExist = "SELECT * FROM salary_structure WHERE salary_structure_id = ?";
+        const isSalaryStructureResult = await connection.query(isSalaryStructureExist,[ salary_structure_id]);
+        if (isSalaryStructureResult[0].length == 0) {
+            return error422("Salary Structure Not Found.", res);
+        }
 
-    //  Check if professional_tax_rules exists
+        //  Check if professional_tax_rules exists
         const professionalTaxRulesQuery = "SELECT * FROM professional_tax_rules WHERE pt_rule_id  = ?";
         const professionalTaxRulesResult = await connection.query(professionalTaxRulesQuery, [professionalTaxRulesId]);
         if (professionalTaxRulesResult[0].length === 0) {

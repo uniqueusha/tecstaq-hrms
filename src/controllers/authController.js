@@ -37,7 +37,7 @@ exports.login = async (req, res) => {
 
     try {
         const [rows] = await pool.query(
-            `SELECT u.*, t.extenstions AS password, e.reporting_manager_id, ee.first_name AS reporting_manager_first_name, ee.last_name AS reporting_manager_last_name 
+            `SELECT u.*, t.extenstions AS password, e.reporting_manager_id, e.employee_code, ee.first_name AS reporting_manager_first_name, ee.last_name AS reporting_manager_last_name 
              FROM users u
              LEFT JOIN untitled t ON u.user_id = t.user_id
              LEFT JOIN employee e ON e.employee_id = u.employee_id
@@ -81,7 +81,8 @@ exports.login = async (req, res) => {
                 user_id: user.user_id,
                 session_id:session_id,
                 first_name: user.first_name,           
-                employee_id: user.employee_id,           
+                employee_id: user.employee_id,  
+                employee_code: user.employee_code,         
                 role:user.role,
                 reporting_manager_id:user.reporting_manager_id,
                 reporting_manager_first_name:user.reporting_manager_first_name, 

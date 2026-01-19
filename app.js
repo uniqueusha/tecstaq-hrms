@@ -27,6 +27,14 @@ const salaryStructureComponentsRoutes = require('./src/routes/salary-structure-c
 const salaryStructureStatutoryRulesRoute = require('./src/routes/salary-structure-statutory-rules.route');
 const professionalTaxRuleRoute = require('./src/routes/professional_tax_rules.route');
 const professionalTaxSlabRoute = require('./src/routes/professional-tax-slabs.route')
+const attendanceRoutes = require('./src/routes/attendance.routes');
+const settingsRoutes = require('./src/routes/settings.routes')
+
+// master 
+const gradeController = require('./src/routes/master/grade.routes');
+const salaryStructureController = require('./src/routes/master/salary-structure.routes');
+const componentTypeController = require('./src/routes/master/component-type.routes');
+const calculationTypeController = require('./src/routes/master/calculation-type.routes');
 
 // Middleware
 app.use(bodyParser.json());
@@ -63,6 +71,13 @@ app.use('/salary-structure-components', salaryStructureComponentsRoutes);
 app.use('/salary-structure-statutory-rules', salaryStructureStatutoryRulesRoute);
 app.use('/professional-tax-rule', professionalTaxRuleRoute);
 app.use('/professional-tax-slabs', professionalTaxSlabRoute);
+app.use('/attendance', attendanceRoutes);
+app.use('/settings', settingsRoutes);
+// master
+app.use('/grade', gradeController)
+app.use('/salary-structure', salaryStructureController)
+app.use('/component-type', componentTypeController)
+app.use('/calculation-type', calculationTypeController)
 
 app.get('/', (req,res)=>{
     res.status(200).json({

@@ -95,6 +95,9 @@ const createEmployee = async (req, res) => {
     const work_week_end_date = req.body.work_week_end_date ? req.body.work_week_end_date : null
     const employeeDocuments = req.body.employeeDocuments ? req.body.employeeDocuments : [];
     const employeeEducation = req.body.employeeEducation ? req.body.employeeEducation : [];
+    const employeePreviousCompanyDocuments = req.body.employeePreviousCompanyDocuments ? req.body.employeePreviousCompanyDocuments : [];
+    const employeeBankDocuments = req.body.employeeBankDocuments ? req.body.employeeBankDocuments : [];
+    const employeeStatutoryDocuments  = req.body.employeeStatutoryDocuments ? req.body.employeeStatutoryDocuments : [];
     let userId = req.body.user_id ? req.body.user_id : ''; 
     if (!first_name) {
         return error422("First name is required.", res);
@@ -148,7 +151,7 @@ const createEmployee = async (req, res) => {
     const isExistEmployeeQuery = `SELECT * FROM employee WHERE email = ? `;
     const isExistEmployeeResult = await pool.query(isExistEmployeeQuery, [email]);
     if (isExistEmployeeResult[0].length > 0) {
-        return error422("Employee is already exists.", res);
+        // return error422("Employee is already exists.", res);
     }
 
     let connection = await getConnection();
@@ -292,9 +295,73 @@ const createEmployee = async (req, res) => {
             const education_name = element.education_name ? element.education_name.trim() : '';
             const passing_year = element.passing_year ? element.passing_year : '';
             const university = element.university ? element.university.trim() : '';
+            const document_name = element.document_name ? element.document_name.trim() : '';
+            const file_path = element.file_path ? element.file_path.trim() : '';
+            // Upload education document if provided
+            const filePath = await uploadFile(file_path, 'education_document');
+            let insertEmployeeDocumentsQuery = 'INSERT INTO employee_education (employee_id, education_type, education_name, passing_year, university, document_name, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)';
+            let insertEmployeeDocumentsValues = [employeeId, education_type, education_name, passing_year, university, document_name, filePath];
+            let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
+        }
+        
+        let previousCompanyDocumentArray = employeePreviousCompanyDocuments
+        for (let i = 0; i < previousCompanyDocumentArray.length; i++) {
+            const element = previousCompanyDocumentArray[i];
+            const document_type_id = element.document_type_id ? element.document_type_id : '';
+            const document_name = element.document_name ? element.document_name.trim() : '';
+            const file_path = element.file_path ? element.file_path.trim() : '';
+            // Upload previous company files if provided
+            const filePath = await uploadFile(file_path, 'previous_company'); 
 
-            let insertEmployeeDocumentsQuery = 'INSERT INTO employee_education (employee_id, education_type, education_name, passing_year, university) VALUES (?, ?, ?, ?, ?)';
-            let insertEmployeeDocumentsValues = [employeeId, education_type, education_name, passing_year, university];
+            //check document_type is exists or not
+            const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
+            const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
+            if (isExistDocumentTypeResult[0].length === 0) {
+                return error422("Document type not found.", res);
+            }
+
+            let insertEmployeeDocumentsQuery = 'INSERT INTO employee_previous_company_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
+            let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
+            let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
+        }
+        let bankDocumentArray = employeeBankDocuments
+        for (let i = 0; i < bankDocumentArray.length; i++) {
+            const element = bankDocumentArray[i];
+            const document_type_id = element.document_type_id ? element.document_type_id : '';
+            const document_name = element.document_name ? element.document_name.trim() : '';
+            const file_path = element.file_path ? element.file_path.trim() : '';
+            // Upload previous company files if provided
+            const filePath = await uploadFile(file_path, 'bank_document');
+
+            //check document_type is exists or not
+            const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
+            const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
+            if (isExistDocumentTypeResult[0].length === 0) {
+                return error422("Document type not found.", res);
+            }
+
+            let insertEmployeeDocumentsQuery = 'INSERT INTO employee_bank_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
+            let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
+            let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
+        }
+        let statutoryDocumentArray = employeeStatutoryDocuments
+        for (let i = 0; i < statutoryDocumentArray.length; i++) {
+            const element = statutoryDocumentArray[i];
+            const document_type_id = element.document_type_id ? element.document_type_id : '';
+            const document_name = element.document_name ? element.document_name.trim() : '';
+            const file_path = element.file_path ? element.file_path.trim() : '';
+            // Upload statutory files if provided
+            const filePath = await uploadFile(file_path, 'statutory_document');
+
+            //check document_type is exists or not
+            const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
+            const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
+            if (isExistDocumentTypeResult[0].length === 0) {
+                return error422("Document type not found.", res);
+            }
+
+            let insertEmployeeDocumentsQuery = 'INSERT INTO employee_statutory_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
+            let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
             let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
         }
         if (reporting_manager_id == 0) {
@@ -326,7 +393,7 @@ const createEmployee = async (req, res) => {
 
 // get employee list...
 const getEmployees = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id, department_id, company_id } = req.query;
+    const { page, perPage, key, fromDate, toDate, employee_id, department_id, company_id,reporting_manager_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -387,6 +454,10 @@ const getEmployees = async (req, res) => {
         if (company_id) {
             getEmployeesQuery += ` AND e.company_id = ${company_id}`;
             countQuery += `  AND e.company_id = ${company_id}`;
+        }
+        if (reporting_manager_id) {
+            getEmployeesQuery += ` AND e.reporting_manager_id = ${reporting_manager_id}`;
+            countQuery += `  AND e.reporting_manager_id = ${reporting_manager_id}`;
         }
 
         if (employee_id) {
@@ -515,7 +586,93 @@ const getEmployee = async (req, res) => {
         let employeeEducationQuery = `SELECT ee.* FROM employee_education ee
             WHERE ee.employee_id = ?`;
         let employeeEducationResult = await connection.query(employeeEducationQuery, [employeeId]);
+        for (let index = 0; index < employeeEducationResult[0].length; index++) {
+            const element = employeeEducationResult[0][index];
+            if (element.file_path) {
+                // Read the image file from the filesystem
+                const imagePath = path.join(__dirname, "..", "..", "images", element.file_path);
+                if (fs.existsSync(imagePath)) {
+                    const imageBuffer = fs.readFileSync(imagePath);
+                    if (imageBuffer) {
+                        // Convert the image buffer to base64
+                        const imageBase64 = imageBuffer.toString('base64');
+                        // Add the base64 image to the file upload object
+                        element.image_base64 = imageBase64;
+                    }
+                }
+
+            }
+        }
         employee['employeeEducation'] = employeeEducationResult[0];
+
+        //get employee previous company 
+        let employeePreviousCompanyQuery = `SELECT ee.* FROM employee_previous_company_document_details ee
+            WHERE ee.employee_id = ?`;
+        let employeePreviousCompanyResult = await connection.query(employeePreviousCompanyQuery, [employeeId]);
+        for (let index = 0; index < employeePreviousCompanyResult[0].length; index++) {
+            const element = employeePreviousCompanyResult[0][index];
+            if (element.file_path) {
+                // Read the image file from the filesystem
+                const imagePath = path.join(__dirname, "..", "..", "images", element.file_path);
+                if (fs.existsSync(imagePath)) {
+                    const imageBuffer = fs.readFileSync(imagePath);
+                    if (imageBuffer) {
+                        // Convert the image buffer to base64
+                        const imageBase64 = imageBuffer.toString('base64');
+                        // Add the base64 image to the file upload object
+                        element.image_base64 = imageBase64;
+                    }
+                }
+
+            }
+        }
+        employee['employeePreviousCompanyDocuments'] = employeePreviousCompanyResult[0];
+
+        //get employee bank details
+        let employeeBankDocumentQuery = `SELECT ee.* FROM employee_bank_document_details ee
+            WHERE ee.employee_id = ?`;
+        let employeeBankDocumentResult = await connection.query(employeeBankDocumentQuery, [employeeId]);
+        for (let index = 0; index < employeeBankDocumentResult[0].length; index++) {
+            const element = employeeBankDocumentResult[0][index];
+            if (element.file_path) {
+                // Read the image file from the filesystem
+                const imagePath = path.join(__dirname, "..", "..", "images", element.file_path);
+                if (fs.existsSync(imagePath)) {
+                    const imageBuffer = fs.readFileSync(imagePath);
+                    if (imageBuffer) {
+                        // Convert the image buffer to base64
+                        const imageBase64 = imageBuffer.toString('base64');
+                        // Add the base64 image to the file upload object
+                        element.image_base64 = imageBase64;
+                    }
+                }
+
+            }
+        }
+        employee['employeeBankDocuments'] = employeeBankDocumentResult[0];
+        
+        //get employee statutory document details
+        let employeeStatutoryDocumentQuery = `SELECT ee.* FROM employee_statutory_document_details ee
+            WHERE ee.employee_id = ?`;
+        let employeeStatutoryDocumentResult = await connection.query(employeeStatutoryDocumentQuery, [employeeId]);
+        for (let index = 0; index < employeeStatutoryDocumentResult[0].length; index++) {
+            const element = employeeStatutoryDocumentResult[0][index];
+            if (element.file_path) {
+                // Read the image file from the filesystem
+                const imagePath = path.join(__dirname, "..", "..", "images", element.file_path);
+                if (fs.existsSync(imagePath)) {
+                    const imageBuffer = fs.readFileSync(imagePath);
+                    if (imageBuffer) {
+                        // Convert the image buffer to base64
+                        const imageBase64 = imageBuffer.toString('base64');
+                        // Add the base64 image to the file upload object
+                        element.image_base64 = imageBase64;
+                    }
+                }
+
+            }
+        }
+        employee['employeeStatutoryDocuments'] = employeeStatutoryDocumentResult[0];
 
         let getCalenderQuery='SELECT * FROM holiday_calendar_details WHERE holiday_calendar_id = ?'
         let [calenderResult] = await connection.query(getCalenderQuery,[employee.holiday_calendar_id])
@@ -604,7 +761,9 @@ const updateEmployee = async (req, res) => {
     const work_week_end_date = req.body.work_week_end_date ? req.body.work_week_end_date : null
     const employeeDocuments = req.body.employeeDocuments ? req.body.employeeDocuments : [];
     const employeeEducation = req.body.employeeEducation ? req.body.employeeEducation : [];
-
+    const employeePreviousCompanyDocuments = req.body.employeePreviousCompanyDocuments ? req.body.employeePreviousCompanyDocuments : [];
+    const employeeBankDocuments = req.body.employeeBankDocuments ? req.body.employeeBankDocuments : [];
+    const employeeStatutoryDocuments  = req.body.employeeStatutoryDocuments ? req.body.employeeStatutoryDocuments : [];
     if (!first_name) {
         return error422("First name is required.", res);
     } else if (!last_name) {
@@ -861,18 +1020,151 @@ const updateEmployee = async (req, res) => {
             const education_name = element.education_name ? element.education_name.trim() : '';
             const passing_year = element.passing_year ? element.passing_year : '';
             const university = element.university ? element.university.trim() : '';
-
+            const document_name = element.document_name ? element.document_name.trim() : '';
+            const file_path = element.file_path ? element.file_path.trim() : '';
+            
+            // Upload education document if provided
+            const filePath = await uploadFile(file_path, 'education_document');
             if (employee_education_id) {
-                let updateEmployeeEducationQuery = 'UPDATE employee_education SET education_type = ?, education_name = ?, passing_year = ?, university = ? WHERE employee_id = ? AND employee_education_id = ? ';
-                let updateEmployeeEducationValues = [education_type, education_name, passing_year, university, employeeId, employee_education_id];
-                let updateEmployeeEducationResult = await connection.query(updateEmployeeEducationQuery, updateEmployeeEducationValues);
+                // get employee document upload
+                let getUploadQuery = `SELECT * FROM employee_education WHERE employee_education_id = ${employee_education_id}`
+                let uploadResult = await connection.query(getUploadQuery)
+
+                if (uploadResult[0].length > 0) {
+                    let updateDocumentQuery = `UPDATE employee_education SET education_type = ?, education_name = ?, passing_year = ?, university = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_education_id = ?`;
+                    let updateDocumentValue = [education_type, education_name, passing_year, university, document_name, filePath, employeeId, employee_education_id]
+                    let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
+                    let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
+                    if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                        fs.unlinkSync(oldImageFilePath);
+                    }
+                }
+
             } else {
-                let insertEmployeeEducationQuery = 'INSERT INTO employee_education (employee_id, education_type, education_name, passing_year, university) VALUES (?, ?, ?, ?, ?)';
-                let insertEmployeeEducationValues = [employeeId, education_type, education_name, passing_year, university];
+                let insertEmployeeEducationQuery = 'INSERT INTO employee_education (employee_id, education_type, education_name, passing_year, university, document_name, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)';
+                let insertEmployeeEducationValues = [employeeId, education_type, education_name, passing_year, university, document_name, filePath];
                 let insertEmployeeEducationResult = await connection.query(insertEmployeeEducationQuery, insertEmployeeEducationValues);
             }
         }
+        //update previous company document
+        let previousCompanyDocumentsArray = employeePreviousCompanyDocuments
+        for (let i = 0; i < previousCompanyDocumentsArray.length; i++) {
+            const element = previousCompanyDocumentsArray[i];
+            const employee_previous_company_documents_id = element.employee_previous_company_documents_id ? element.employee_previous_company_documents_id : '';
+            const document_type_id = element.document_type_id ? element.document_type_id : '';
+            const document_name = element.document_name ? element.document_name.trim() : '';
+            const file_path = element.file_path ? element.file_path.trim() : '';
+            // Upload files if provided
+            const filePath = await uploadFile(file_path, 'file_path');
 
+            //check document_type is exists or not
+            const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
+            const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
+            if (isExistDocumentTypeResult[0].length === 0) {
+                return error422("Document type not found.", res);
+            }
+
+            if (employee_previous_company_documents_id) {
+                // get document upload
+                let getUploadQuery = `SELECT * FROM employee_previous_company_document_details WHERE employee_previous_company_documents_id = ${employee_previous_company_documents_id}`
+                let uploadResult = await connection.query(getUploadQuery)
+
+                if (uploadResult[0].length > 0) {
+                    let updateDocumentQuery = `UPDATE employee_previous_company_document_details SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_previous_company_documents_id = ?`;
+                    let updateDocumentValue = [document_type_id, document_name, filePath, employeeId, employee_previous_company_documents_id]
+                    let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
+                    let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
+                    if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                        fs.unlinkSync(oldImageFilePath);
+                    }
+                }
+
+            } else {
+                let insertEmployeeDocumentsQuery = 'INSERT INTO employee_previous_company_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
+                let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
+                let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
+            }
+        }
+
+        //update Statutory Documents
+        let statutoryDocumentsArray = employeeStatutoryDocuments
+        for (let i = 0; i < statutoryDocumentsArray.length; i++) {
+            const element = statutoryDocumentsArray[i];
+            const employee_statutory_documents_id = element.employee_statutory_documents_id ? element.employee_statutory_documents_id : '';
+            const document_type_id = element.document_type_id ? element.document_type_id : '';
+            const document_name = element.document_name ? element.document_name.trim() : '';
+            const file_path = element.file_path ? element.file_path.trim() : '';
+            // Upload files if provided
+            const filePath = await uploadFile(file_path, 'file_path');
+
+            //check document_type is exists or not
+            const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
+            const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
+            if (isExistDocumentTypeResult[0].length === 0) {
+                return error422("Document type not found.", res);
+            }
+
+            if (employee_statutory_documents_id) {
+                // get document upload
+                let getUploadQuery = `SELECT * FROM employee_statutory_document_details WHERE employee_statutory_documents_id = ${employee_statutory_documents_id}`
+                let uploadResult = await connection.query(getUploadQuery)
+
+                if (uploadResult[0].length > 0) {
+                    let updateDocumentQuery = `UPDATE employee_statutory_document_details SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_statutory_documents_id = ?`;
+                    let updateDocumentValue = [document_type_id, document_name, filePath, employeeId, employee_statutory_documents_id]
+                    let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
+                    let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
+                    if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                        fs.unlinkSync(oldImageFilePath);
+                    }
+                }
+
+            } else {
+                let insertEmployeeDocumentsQuery = 'INSERT INTO employee_statutory_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
+                let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
+                let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
+            }
+        }
+        //update bank document
+        let bankDocumentsArray = employeeBankDocuments
+        for (let i = 0; i < bankDocumentsArray.length; i++) {
+            const element = bankDocumentsArray[i];
+            const employee_bank_documents_id  = element.employee_bank_documents_id ? element.employee_bank_documents_id : '';
+            const document_type_id = element.document_type_id ? element.document_type_id : '';
+            const document_name = element.document_name ? element.document_name.trim() : '';
+            const file_path = element.file_path ? element.file_path.trim() : '';
+            // Upload files if provided
+            const filePath = await uploadFile(file_path, 'file_path');
+
+            //check document_type is exists or not
+            const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
+            const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
+            if (isExistDocumentTypeResult[0].length === 0) {
+                return error422("Document type not found.", res);
+            }
+
+            if (employee_bank_documents_id) {
+                // get document upload
+                let getUploadQuery = `SELECT * FROM employee_bank_document_details WHERE employee_bank_documents_id = ${employee_bank_documents_id}`
+                let uploadResult = await connection.query(getUploadQuery)
+
+                if (uploadResult[0].length > 0) {
+                    let updateDocumentQuery = `UPDATE employee_bank_document_details SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_bank_documents_id = ?`;
+                    let updateDocumentValue = [document_type_id, document_name, filePath, employeeId, employee_bank_documents_id]
+                    let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
+                    let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
+                    if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                        fs.unlinkSync(oldImageFilePath);
+                    }
+                }
+
+            } else {
+                let insertEmployeeDocumentsQuery = 'INSERT INTO employee_bank_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
+                let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
+                let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
+            }
+        }
+                
         let isUserQuery = `SELECT  * FROM users WHERE employee_id = ?`;
         let [isUserResult] = await connection.query(isUserQuery, employeeId);
         if (isUserResult[0]) {
@@ -962,7 +1254,7 @@ const onStatusChange = async (req, res) => {
 
 //get employee active...
 const getEmployeeWma = async (req, res) => {
-
+    const { is_upcoming_birthday } = req.query;
     // attempt to obtain a database connection
     let connection = await getConnection();
 
@@ -971,10 +1263,27 @@ const getEmployeeWma = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const employeeQuery = `SELECT * FROM employee
-        
-        WHERE status = 1  ORDER BY first_name`;
+        let employeeQuery = `SELECT * FROM employee
+        WHERE status = 1  `;
 
+        // Upcoming birthdays within next 7 days
+        if (is_upcoming_birthday) {
+          employeeQuery += `
+            AND (
+              DAYOFYEAR(dob) BETWEEN DAYOFYEAR(CURDATE())
+              AND DAYOFYEAR(DATE_ADD(CURDATE(), INTERVAL 7 DAY))
+              OR
+              (
+                DAYOFYEAR(DATE_ADD(CURDATE(), INTERVAL 7 DAY)) < DAYOFYEAR(CURDATE())
+                AND (
+                  DAYOFYEAR(dob) >= DAYOFYEAR(CURDATE())
+                  OR DAYOFYEAR(dob) <= DAYOFYEAR(DATE_ADD(CURDATE(), INTERVAL 7 DAY))
+                )
+              )
+            )
+          `;
+        }
+         employeeQuery +=" ORDER BY first_name"
         const employeeResult = await connection.query(employeeQuery);
         const employee = employeeResult[0];
 
@@ -1153,6 +1462,74 @@ const getEmployeeDownload = async (req, res) => {
         if (connection) connection.release();
     }
 };
+//Upcoming Leave
+const getUpcomingLeaves = async (req, res) => {
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let employeeQuery = `SELECT 
+                lr.leave_request_id,
+                lr.employee_id,
+                lr.leave_type_id,
+                lr.start_date,
+                lr.end_date,
+                lr.total_days,
+                lr.reason,
+                lr.status AS leave_status,
+                lr.approver_id,
+                lr.applied_date,
+                lr.approved_date,
+
+                lrf.leave_request_footer_id,
+                lrf.leave_date,
+                lrf.type AS leave_day_type,
+
+                e.employee_id,
+                e.employee_code,
+                e.first_name,
+                e.last_name,
+                e.email,
+                e.departments_id,
+                e.designation_id,
+                e.profile_photo
+
+            FROM leave_request lr
+            INNER JOIN leave_request_footer lrf
+                ON lrf.leave_request_id = lr.leave_request_id
+            INNER JOIN employee e
+                ON e.employee_id = lr.employee_id
+
+            WHERE 
+                lr.status = 'Approved'                -- approved leave
+                AND e.status = 1             -- active employee
+                AND lrf.leave_date BETWEEN CURDATE()
+                AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+
+            ORDER BY lrf.leave_date ASC `;
+
+        const employeeResult = await connection.query(employeeQuery);
+        const employee = employeeResult[0];
+
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Upcoming leaves retrieved successfully.",
+            data: employee,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+
+}
 
 module.exports = {
     createEmployee,
@@ -1162,6 +1539,7 @@ module.exports = {
     onStatusChange,
     getEmployeeWma,
     getEmployeeAdminWma,
-    getEmployeeDownload
+    getEmployeeDownload,
+    getUpcomingLeaves
 
 }

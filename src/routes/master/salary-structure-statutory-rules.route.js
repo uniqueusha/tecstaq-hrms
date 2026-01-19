@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const salaryStructureRuleController = require("../controllers/salary-structure-statutory-rules.controller");
-const { verifyToken } = require('../middleware/authMiddleware');
+const salaryStructureRuleController = require("../../controllers/master/salary-structure-statutory-rules.controller");
+const { verifyToken } = require('../../middleware/authMiddleware');
 
 
 router.post('/', verifyToken, salaryStructureRuleController.createSalaryStructureStatutoryRules);

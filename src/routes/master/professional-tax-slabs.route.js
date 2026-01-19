@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const ProfessionalTaxSlabController = require("../controllers/professional_tax_slabs.controller");
-const { verifyToken } = require('../middleware/authMiddleware');
+const ProfessionalTaxSlabController = require("../../controllers/master/professional_tax_slabs.controller");
+const { verifyToken } = require('../../middleware/authMiddleware');
 
 
 router.post('/', verifyToken,ProfessionalTaxSlabController.createProfessionalTaxSlabs);

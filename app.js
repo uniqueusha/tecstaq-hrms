@@ -31,6 +31,7 @@ const gradeController = require('./src/routes/master/grade.routes');
 const salaryStructureController = require('./src/routes/master/salary-structure.routes');
 const componentTypeController = require('./src/routes/master/component-type.routes');
 const calculationTypeController = require('./src/routes/master/calculation-type.routes');
+const salaryComponentController = require('./src/routes/master/salary-component.routes');
 
 // Middleware
 app.use(bodyParser.json());
@@ -70,6 +71,7 @@ app.use('/grade', gradeController)
 app.use('/salary-structure', salaryStructureController)
 app.use('/component-type', componentTypeController)
 app.use('/calculation-type', calculationTypeController)
+app.use('/salary-component', salaryComponentController)
 
 
 module.exports = app;

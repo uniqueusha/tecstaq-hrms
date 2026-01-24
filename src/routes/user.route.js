@@ -5,6 +5,7 @@ const userController = require("../controllers/user.controller");
 router.post('/', userController.createUser);
 router.get('/', userController.getUsers);
 router.get('/download', userController.getUserDownload);
+router.get('/state', userController.getStateList);
 router.get('/:id', userController.getUser);
 router.put('/change-password',userController.onChangePassword);
 

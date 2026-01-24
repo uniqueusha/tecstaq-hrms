@@ -84,10 +84,14 @@ const getAllProfessionalTaxRules = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getProfessionalTaxRulesQuery = `SELECT pr.* FROM professional_tax_rules pr
+        let getProfessionalTaxRulesQuery = `SELECT pr.*, s.state_name FROM professional_tax_rules pr
+        LEFT JOIN state s
+        ON s.state_id = pr.state_id
         WHERE 1 `;
 
         let countQuery = `SELECT COUNT(*) AS total FROM professional_tax_rules pr 
+        LEFT JOIN state s
+        ON s.state_id = pr.state_id
         WHERE 1 `;
 
         if (key) {
@@ -155,7 +159,9 @@ const getprofessionalTaxRule = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const professionalTaxRulesQuery = `SELECT pr.* FROM professional_tax_rules pr
+        const professionalTaxRulesQuery = `SELECT pr.*, s.state_name FROM professional_tax_rules pr
+        LEFT JOIN state s
+        ON s.state_id = pr.state_id
         WHERE pr.pt_rule_id = ?`;
         const professionalTaxRulesResult = await connection.query(professionalTaxRulesQuery, [professionalTaxRulesId]);
         if (professionalTaxRulesResult[0].length == 0) {
@@ -200,8 +206,8 @@ const updateProfessionalTaxRules = async (req, res) => {
         await connection.beginTransaction();
 
         // // Check if the rule name exists and is active
-        const isRuleNameExist = "SELECT * FROM professional_tax_rules WHERE rule_name = ?";
-        const isRuleNameResult = await pool.query(isRuleNameExist,[ rule_name]);
+        const isRuleNameExist = "SELECT * FROM professional_tax_rules WHERE rule_name = ? AND pt_rule_id !=?";
+        const isRuleNameResult = await pool.query(isRuleNameExist,[ rule_name, professionalTaxRulesId]);
         if (isRuleNameResult[0].length > 0) {
             return error422("Rule Name is already is exist.", res);
         }
@@ -303,8 +309,10 @@ const getProfessionalTaxRulesIdWma = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const professionalTaxRulesIdQuery = `SELECT * FROM professional_tax_rules
-        WHERE status = 1 `;
+        const professionalTaxRulesIdQuery = `SELECT pr.*, s.state_name FROM professional_tax_rules pr
+        LEFT JOIN state s
+        ON s.state_id = pr.state_id
+        WHERE pr.status = 1 `;
 
         const professionalTaxRulesIdResult = await connection.query(professionalTaxRulesIdQuery);
         const professionalTaxRules = professionalTaxRulesIdResult[0];

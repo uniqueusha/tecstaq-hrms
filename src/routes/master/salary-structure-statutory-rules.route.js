@@ -4,7 +4,7 @@ const salaryStructureRuleController = require("../../controllers/master/salary-s
 const { verifyToken } = require('../../middleware/authMiddleware');
 
 
-router.post('/', verifyToken, salaryStructureRuleController.createSalaryStructureStatutoryRules);
+router.post('/', salaryStructureRuleController.createSalaryStructureStatutoryRules);
 router.get('/', salaryStructureRuleController.getAllSalaryStructureStatutoryRules);
 router.get('/wma', salaryStructureRuleController.getSalaryStructureStatutoryRulesIdWma);
 router.get('/:id', salaryStructureRuleController.getSalaryStructureStatutoryRule);

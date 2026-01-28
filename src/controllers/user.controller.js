@@ -760,6 +760,26 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
         if (connection) connection.release();
     }
 };
+// get state list 
+const getStateList = async (req, res) =>{
+    let connection = await pool.getConnection();
+    try {
+        //get state query
+        let getStateQuery= "SELECT * FROM state WHERE status = 1"
+        let stateResult = await connection.query(getStateQuery);
+
+        return res.status(200).json({
+            status:200,
+            message:"State retrived successfully.",
+            data:stateResult[0]
+        })
+        
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 
 module.exports = {
     createUser,
@@ -772,5 +792,6 @@ module.exports = {
     verifyOtp,
     checkEmailId,
     forgotPassword,
-    sendOtpIfEmailIdNotExists
+    sendOtpIfEmailIdNotExists,
+    getStateList
 }

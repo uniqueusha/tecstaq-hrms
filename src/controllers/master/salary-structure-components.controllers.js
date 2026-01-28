@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require('path');
 
 //function to obtain a database connection 
-const getConnection = async ()=> {
+const getConnection = async () => {
     try {
         const connection = await pool.getConnection();
         return connection;
@@ -13,52 +13,58 @@ const getConnection = async ()=> {
     }
 }
 //error handle 422...
-error422 = (message, res)=>{
+error422 = (message, res) => {
     return res.status(422).json({
-        status:422,
-        message:message
+        status: 422,
+        message: message
     });
 }
 //error handle 500...
-error500 = (error, res)=>{
+error500 = (error, res) => {
     return res.status(500).json({
-        status:500,
-        message:"Internal Server Error",
-        error:error
+        status: 500,
+        message: "Internal Server Error",
+        error: error
     });
 }
 
 //create salary structure component
-const createSalaryStructureComponent = async (req, res)=>{
-    const salary_component_id = req.body.salary_component_id ? req.body.salary_component_id :'';
-    const percentage_of = req.body.percentage_of ? req.body.percentage_of.trim() :'';
-    const value  = req.body.value  ? req.body.value :'';
-    const min_limit = req.body.min_limit ? req.body.min_limit :'';
-    const max_limit = req.body.max_limit ? req.body.max_limit :'';
-    const calculation_order = req.body.calculation_order ? req.body.calculation_order :'';
+const createSalaryStructureComponent = async (req, res) => {
+    const salary_component_id = req.body.salary_component_id ? req.body.salary_component_id : '';
+    const percentage_of = req.body.percentage_of ? req.body.percentage_of : '';
+    const value = req.body.value ? req.body.value : '';
+    const min_limit = req.body.min_limit ? req.body.min_limit : '';
+    const max_limit = req.body.max_limit ? req.body.max_limit : '';
+    const calculation_order = req.body.calculation_order ? req.body.calculation_order : '';
     // const user_id = req.companyData.userId;
     const user_id = req.user?.user_id;
 
-
+  
     if (!salary_component_id) {
         return error422("Salary component id is required.", res);
-    } else if (!percentage_of) {
+    } else if (!percentage_of && percentage_of != 0) {
         return error422("Percentage of is required.", res);
-    } else if (!value) {
+    } else if (!value && value != 0) {
         return error422("Value is required.", res);
-    } else if (!min_limit) {
+    } else if (!min_limit && min_limit != 0) {
         return error422("Min limit is required.", res);
-    } else if (!max_limit) {
+    } else if (!max_limit && max_limit != 0) {
         return error422("Max limit is required.", res);
     } else if (!calculation_order) {
         return error422("Calculation order is required.", res);
-    } 
+    }
 
     // Check if the salary_component exists and is active
     const isSalaryComponentExist = "SELECT * FROM salary_component WHERE salary_component_id = ?";
-    const isSalaryComponentResult = await pool.query(isSalaryComponentExist,[ salary_component_id]);
+    const isSalaryComponentResult = await pool.query(isSalaryComponentExist, [salary_component_id]);
     if (isSalaryComponentResult[0].length == 0) {
         return error422("Salary Component Not Found.", res);
+    }
+    // Check if the percentage of exists and is active
+    const isPercentageOfExist = "SELECT * FROM salary_structure_components WHERE percentage_of = ?";
+    const isPercentageOfResult = await pool.query(isPercentageOfExist, [percentage_of]);
+    if (isPercentageOfResult[0].length > 0) {
+        return error422("Percentage of is already is exist.", res);
     }
     let connection = await getConnection();
 
@@ -67,17 +73,17 @@ const createSalaryStructureComponent = async (req, res)=>{
         await connection.beginTransaction();
 
         const insertQuery = "INSERT INTO salary_structure_components (salary_component_id, percentage_of, value , min_limit, max_limit, calculation_order, created_by)VALUES(?, ?, ?, ?, ?, ?, ?)";
-        const result = await connection.query(insertQuery,[salary_component_id, percentage_of, value , min_limit, max_limit, calculation_order, user_id]);
+        const result = await connection.query(insertQuery, [salary_component_id, percentage_of, value, min_limit, max_limit, calculation_order, user_id]);
 
         await connection.commit()
         return res.status(200).json({
-            status:200,
-            message:"Salary Structure Components created successfully."
+            status: 200,
+            message: "Salary Structure Components created successfully."
         })
     } catch (error) {
         if (connection) connection.rollback();
         return error500(error, res);
-    } finally{
+    } finally {
         if (connection) connection.release();
     }
 }
@@ -85,19 +91,22 @@ const createSalaryStructureComponent = async (req, res)=>{
 //all salary_structure_components list
 const getAllSalaryStructureComponents = async (req, res) => {
     const { page, perPage, key } = req.query;
-   
+
     // attempt to obtain a database connection
     let connection = await getConnection();
-
     try {
 
         //start a transaction
         await connection.beginTransaction();
 
-        let getSalaryStructureComponentsQuery = `SELECT ssc.* FROM salary_structure_components ssc
+        let getSalaryStructureComponentsQuery = `SELECT ssc.*, sc.salary_component_name FROM salary_structure_components ssc
+        LEFT JOIN salary_component sc
+        ON sc.salary_component_id = ssc.salary_component_id
         WHERE 1 `;
 
-        let countQuery = `SELECT COUNT(*) AS total FROM salary_structure_components ssc 
+        let countQuery = `SELECT COUNT(*) AS total FROM salary_structure_components ssc
+        LEFT JOIN salary_component sc
+        ON sc.salary_component_id = ssc.salary_component_id 
         WHERE 1 `;
 
         if (key) {
@@ -165,7 +174,9 @@ const getSalaryStructureComponents = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const salaryStructureComponentsQuery = `SELECT ssc.* FROM salary_structure_components ssc
+        const salaryStructureComponentsQuery = `SELECT ssc.*, sc.salary_component_name FROM salary_structure_components ssc
+        LEFT JOIN salary_component sc
+        ON sc.salary_component_id = ssc.salary_component_id
         WHERE ssc.salary_structure_component_id = ?`;
         const salaryStructureComponentsResult = await connection.query(salaryStructureComponentsQuery, [salaryStructureComponentsId]);
         if (salaryStructureComponentsResult[0].length == 0) {
@@ -188,12 +199,12 @@ const getSalaryStructureComponents = async (req, res) => {
 //Update salary Structure Components
 const updatesalaryStructureComponents = async (req, res) => {
     const salaryStructureComponentsId = parseInt(req.params.id);
-    const salary_component_id = req.body.salary_component_id ? req.body.salary_component_id :'';
-    const percentage_of = req.body.percentage_of ? req.body.percentage_of.trim() :'';
-    const value  = req.body.value  ? req.body.value :'';
-    const min_limit = req.body.min_limit ? req.body.min_limit :'';
-    const max_limit = req.body.max_limit ? req.body.max_limit :'';
-    const calculation_order = req.body.calculation_order ? req.body.calculation_order :'';
+    const salary_component_id = req.body.salary_component_id ? req.body.salary_component_id : '';
+    const percentage_of = req.body.percentage_of ? req.body.percentage_of : '';
+    const value = req.body.value ? req.body.value : '';
+    const min_limit = req.body.min_limit ? req.body.min_limit : '';
+    const max_limit = req.body.max_limit ? req.body.max_limit : '';
+    const calculation_order = req.body.calculation_order ? req.body.calculation_order : '';
     const user_id = req.user?.user_id;
 
     if (!salary_component_id) {
@@ -208,7 +219,7 @@ const updatesalaryStructureComponents = async (req, res) => {
         return error422("Max limit is required.", res);
     } else if (!calculation_order) {
         return error422("Calculation order is required.", res);
-    } 
+    }
 
 
     // attempt to obtain a database connection
@@ -233,7 +244,7 @@ const updatesalaryStructureComponents = async (req, res) => {
             WHERE salary_structure_component_id = ?
         `;
 
-        await connection.query(updateQuery, [ salary_component_id, percentage_of, value , min_limit, max_limit, calculation_order, user_id, salaryStructureComponentsId]);
+        await connection.query(updateQuery, [salary_component_id, percentage_of, value, min_limit, max_limit, calculation_order, user_id, salaryStructureComponentsId]);
         // Commit the transaction
         await connection.commit();
 
@@ -316,8 +327,10 @@ const getSalaryStructureComponentsIdWma = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const salaryStructureComponentsIdQuery = `SELECT * FROM salary_structure_components
-        WHERE status = 1  ORDER BY percentage_of`;
+        const salaryStructureComponentsIdQuery = `SELECT ssc.*, sc.salary_component_name FROM salary_structure_components ssc
+        LEFT JOIN salary_component sc
+        ON sc.salary_component_id = ssc.salary_component_id
+        WHERE ssc.status = 1  ORDER BY ssc.percentage_of`;
 
         const salaryStructureComponentsIdResult = await connection.query(salaryStructureComponentsIdQuery);
         const salaryStructureComponents = salaryStructureComponentsIdResult[0];

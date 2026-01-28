@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require('path');
 
 //function to obtain a database connection 
-const getConnection = async ()=> {
+const getConnection = async () => {
     try {
         const connection = await pool.getConnection();
         return connection;
@@ -13,75 +13,118 @@ const getConnection = async ()=> {
     }
 }
 //error handle 422...
-error422 = (message, res)=>{
+error422 = (message, res) => {
     return res.status(422).json({
-        status:422,
-        message:message
+        status: 422,
+        message: message
     });
 }
 //error handle 500...
-error500 = (error, res)=>{
+error500 = (error, res) => {
     return res.status(500).json({
-        status:500,
-        message:"Internal Server Error",
-        error:error
+        status: 500,
+        message: "Internal Server Error",
+        error: error
     });
 }
 
 //create salary structure statutory_rules
-const createSalaryStructureStatutoryRules = async (req, res)=>{
+const createSalaryStructureStatutoryRules = async (req, res) => {
     const salary_structure_id = req.body.salary_structure_id ? req.body.salary_structure_id : '';
-    const pf_applicable = req.body.pf_applicable ? req.body.pf_applicable :'';
-    const pf_employee_pct  = req.body.pf_employee_pct  ? req.body.pf_employee_pct : null;
-    const pf_wage_limit = req.body.pf_wage_limit ? req.body.pf_wage_limit : null;
-    const esi_applicable = req.body.esi_applicable ? req.body.esi_applicable :'';
-    const esi_employee_pct = req.body.esi_employee_pct ? req.body.esi_employee_pct : null;
-    const esi_gross_limit = req.body.esi_gross_limit ? req.body.esi_gross_limit : null;
-    const pt_applicable = req.body.pt_applicable ? req.body.pt_applicable :'';
-    const pt_rule_id = req.body.pt_rule_id ? req.body.pt_rule_id : null;
-    const user_id = req.user?.user_id;
+    let pf_applicable = req.body.pf_applicable ? req.body.pf_applicable : 0;
+    let pf_rule_id = req.body.pf_rule_id ? req.body.pf_rule_id : null;
+    let pf_wage_limit = req.body.pf_wage_limit ? req.body.pf_wage_limit : null;
+    let esi_applicable = req.body.esi_applicable ? req.body.esi_applicable : 0;
+    let esi_rule_id = req.body.esi_rule_id ? req.body.esi_rule_id : null;
+    let esi_gross_limit = req.body.esi_gross_limit ? req.body.esi_gross_limit : null;
+    let pt_applicable = req.body.pt_applicable ? req.body.pt_applicable : 0;
+    let pt_rule_id = req.body.pt_rule_id ? req.body.pt_rule_id : null;
+    let user_id = 1;
 
     if (!salary_structure_id) {
         return error422("Salary structure id is required.", res);
-    } else if (!pf_applicable) {
+    } else if (!pf_applicable && pf_applicable != 0) {
         return error422("Pf applicable  is required.", res);
-    } else if (!esi_applicable) {
+    } else if (!esi_applicable && esi_applicable != 0) {
         return error422("esi applicable is required.", res);
-    } else if (!pt_applicable) {
+    } else if (!pt_applicable && pt_applicable != 0) {
         return error422("Pt applicable is required.", res);
-    } 
+    }
+    if (pf_applicable == 0) {
+        pf_rule_id = 0, pf_wage_limit = 0
+    } else {
+        if (!pf_rule_id) {
+            return error422("PF Rule is required.", res);
+        } else if (!pf_wage_limit) {
+            return error422("PF wage limit is required.", res);
+        }
+    }
+    if (esi_applicable == 0) {
+        esi_rule_id = 0, esi_gross_limit = 0
+    } else {
+        if (!esi_rule_id) {
+            return error422("ESI Rule is required.", res);
+        } else if (!esi_gross_limit) {
+            return error422("ESI gross limit is required.", res);
+        }
+    }
+    if (pt_applicable == 0) {
+        pt_rule_id = 0
+    } else {
+        if (!pt_rule_id) {
+            return error422("Professional Tax Rule is required.", res);
+        }
+    }
 
     // Check if the salary_structure exists and is active
     const isSalaryStructureExist = "SELECT * FROM salary_structure WHERE salary_structure_id = ?";
-    const isSalaryStructureResult = await pool.query(isSalaryStructureExist,[ salary_structure_id]);
+    const isSalaryStructureResult = await pool.query(isSalaryStructureExist, [salary_structure_id]);
     if (isSalaryStructureResult[0].length == 0) {
         return error422("Salary Structure Not Found.", res);
     }
 
-    //  Check if professional_tax_rules exists
+    if (pf_rule_id) {
+        //  Check if provident fund rule exists
+        const providentFundRulesQuery = "SELECT * FROM provident_fund_rules WHERE pf_rule_id  = ?";
+        const providentFundRulesResult = await pool.query(providentFundRulesQuery, [pf_rule_id]);
+        if (providentFundRulesResult[0].length === 0) {
+            return error422("Provident Fund Rules Not Found.", res);
+        }
+    }
+    if (esi_rule_id) {
+        //  Check if esi rule exists
+        const esiRulesQuery = "SELECT * FROM esi_rules WHERE esi_rule_id  = ?";
+        const esiRulesResult = await pool.query(esiRulesQuery, [esi_rule_id]);
+        if (esiRulesResult[0].length === 0) {
+            return error422("ESI Rules Not Found.", res);
+        }
+    }
+    if (pt_rule_id) {
+        //  Check if professional tax rule exists
         const professionalTaxRulesQuery = "SELECT * FROM professional_tax_rules WHERE pt_rule_id  = ?";
         const professionalTaxRulesResult = await pool.query(professionalTaxRulesQuery, [pt_rule_id]);
         if (professionalTaxRulesResult[0].length === 0) {
             return error422("Professional Tax Rules Not Found.", res);
         }
+    }
     let connection = await getConnection();
 
     try {
         // start the transaction
         await connection.beginTransaction();
-
-        const insertQuery = "INSERT INTO salary_structure_statutory_rules (salary_structure_id, pf_applicable, pf_employee_pct , pf_wage_limit, esi_applicable, esi_employee_pct, esi_gross_limit, pt_applicable, pt_rule_id, created_by)VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const result = await connection.query(insertQuery,[salary_structure_id, pf_applicable, pf_employee_pct , pf_wage_limit, esi_applicable, esi_employee_pct, esi_gross_limit, pt_applicable, pt_rule_id, user_id]);
+        const insertQuery = "INSERT INTO salary_structure_statutory_rules (salary_structure_id, pf_applicable , pf_rule_id, pf_wage_limit, esi_applicable, esi_rule_id, esi_gross_limit, pt_applicable, pt_rule_id, created_by)VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const result = await connection.query(insertQuery, [salary_structure_id, pf_applicable, pf_rule_id, pf_wage_limit, esi_applicable, esi_rule_id, esi_gross_limit, pt_applicable, pt_rule_id, user_id]);
 
         await connection.commit()
         return res.status(200).json({
-            status:200,
-            message:"Salary Structure  Statutory Rules created successfully."
+            status: 200,
+            message: "Salary Structure Statutory Rules created successfully."
         })
     } catch (error) {
+        console.log(error);
         if (connection) connection.rollback();
         return error500(error, res);
-    } finally{
+    } finally {
         if (connection) connection.release();
     }
 }
@@ -89,7 +132,6 @@ const createSalaryStructureStatutoryRules = async (req, res)=>{
 //all Salary Structure  Statutory Rules list
 const getAllSalaryStructureStatutoryRules = async (req, res) => {
     const { page, perPage, key } = req.query;
-   
     // attempt to obtain a database connection
     let connection = await getConnection();
 
@@ -97,13 +139,25 @@ const getAllSalaryStructureStatutoryRules = async (req, res) => {
 
         //start a transaction
         await connection.beginTransaction();
-
-        let getSalaryStructureStatutoryRulesQuery = `SELECT sssr.*, pr.rule_name FROM salary_structure_statutory_rules sssr
-        LEFT JOIN professional_tax_rules pr ON pr.pt_rule_id = sssr.pt_rule_id
+        let getSalaryStructureStatutoryRulesQuery = `SELECT sssr.*, ss.structure_name, pf.rule_name AS provident_fund_rule_name, esi.rule_name AS esi_rule_name, pt.rule_name AS professional_tax_rule_name  FROM salary_structure_statutory_rules sssr
+        LEFT JOIN salary_structure ss 
+        ON ss.salary_structure_id = sssr.salary_structure_id
+        LEFT JOIN provident_fund_rules pf 
+        ON pf.pf_rule_id = sssr.pf_rule_id
+        LEFT JOIN esi_rules esi
+        ON esi.esi_rule_id = sssr.esi_rule_id
+        LEFT JOIN professional_tax_rules pt 
+        ON pt.pt_rule_id = sssr.pt_rule_id
         WHERE 1 `;
-
         let countQuery = `SELECT COUNT(*) AS total FROM salary_structure_statutory_rules sssr 
-        LEFT JOIN professional_tax_rules pr ON pr.pt_rule_id = sssr.pt_rule_id
+        LEFT JOIN salary_structure ss 
+        ON ss.salary_structure_id = sssr.salary_structure_id
+        LEFT JOIN provident_fund_rules pf 
+        ON pf.pf_rule_id = sssr.pf_rule_id
+        LEFT JOIN esi_rules esi
+        ON esi.esi_rule_id = sssr.esi_rule_id
+        LEFT JOIN professional_tax_rules pt 
+        ON pt.pt_rule_id = sssr.pt_rule_id
         WHERE 1 `;
 
         if (key) {
@@ -115,8 +169,8 @@ const getAllSalaryStructureStatutoryRules = async (req, res) => {
                 getSalaryStructureStatutoryRulesQuery += ` AND sssr.status = 0`;
                 countQuery += ` AND sssr.status = 0`;
             } else {
-                getSalaryStructureStatutoryRulesQuery += ` AND (LOWER(pr.rule_name) LIKE '%${lowercaseKey}%' || LOWER(sssr.pf_employee_pct) LIKE '%${lowercaseKey}%' || LOWER(sssr.pf_wage_limit) LIKE '%${lowercaseKey}%'|| LOWER(sssr.esi_employee_pct) LIKE '%${lowercaseKey}%' || LOWER(sssr.esi_gross_limit) LIKE '%${lowercaseKey}%')`;
-                countQuery += ` AND (LOWER(pr.rule_name) LIKE '%${lowercaseKey}%' || LOWER(sssr.pf_employee_pct) LIKE '%${lowercaseKey}%' || LOWER(sssr.pf_wage_limit) LIKE '%${lowercaseKey}%' || LOWER(sssr.esi_employee_pct) LIKE '%${lowercaseKey}%' || LOWER(sssr.esi_gross_limit) LIKE '%${lowercaseKey}%')`;
+                getSalaryStructureStatutoryRulesQuery += ` AND (LOWER(ss.structure_name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(ss.structure_name) LIKE '%${lowercaseKey}%')`;
             }
         }
         getSalaryStructureStatutoryRulesQuery += " ORDER BY sssr.cts DESC";
@@ -138,7 +192,7 @@ const getAllSalaryStructureStatutoryRules = async (req, res) => {
         await connection.commit();
         const data = {
             status: 200,
-            message: "Salary Structure  Statutory Rules retrieved successfully",
+            message: "Salary Structure Statutory Rules retrieved successfully",
             data: salaryStructureStatutoryRules,
         };
         // Add pagination information if provided
@@ -159,7 +213,7 @@ const getAllSalaryStructureStatutoryRules = async (req, res) => {
     }
 }
 
-//salary_structure_Statutory Rules by id
+//salary structure statutory rules by id
 const getSalaryStructureStatutoryRule = async (req, res) => {
     const salaryStructureStatutoryRulesId = parseInt(req.params.id);
 
@@ -171,9 +225,16 @@ const getSalaryStructureStatutoryRule = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const salaryStructureStatutoryRulesQuery = `SELECT sr.*, pr.rule_name FROM salary_structure_statutory_rules sr
-        LEFT JOIN professional_tax_rules pr ON pr.pt_rule_id = sr.pt_rule_id
-        WHERE sr.statutory_rule_id = ?`;
+        const salaryStructureStatutoryRulesQuery = `SELECT sssr.*, ss.structure_name, pf.rule_name AS provident_fund_rule_name, esi.rule_name AS esi_rule_name, pt.rule_name AS professional_tax_rule_name  FROM salary_structure_statutory_rules sssr
+        LEFT JOIN salary_structure ss 
+        ON ss.salary_structure_id = sssr.salary_structure_id
+        LEFT JOIN provident_fund_rules pf 
+        ON pf.pf_rule_id = sssr.pf_rule_id
+        LEFT JOIN esi_rules esi
+        ON esi.esi_rule_id = sssr.esi_rule_id
+        LEFT JOIN professional_tax_rules pt 
+        ON pt.pt_rule_id = sssr.pt_rule_id
+        WHERE sssr.statutory_rule_id = ?`;
         const salaryStructureStatutoryRulesResult = await connection.query(salaryStructureStatutoryRulesQuery, [salaryStructureStatutoryRulesId]);
         if (salaryStructureStatutoryRulesResult[0].length == 0) {
             return error422("Salary Structure Statutory Rules Not Found.", res);
@@ -182,7 +243,7 @@ const getSalaryStructureStatutoryRule = async (req, res) => {
 
         return res.status(200).json({
             status: 200,
-            message: "Salary  Structure  Statutory Rules Retrived Successfully",
+            message: "Salary Structure Statutory Rules Retrived Successfully",
             data: salaryStructureStatutoryRules
         });
     } catch (error) {
@@ -195,27 +256,90 @@ const getSalaryStructureStatutoryRule = async (req, res) => {
 //Update salary Structure Statutory Rules
 const updateSalaryStructureStatutoryRules = async (req, res) => {
     const salaryStructureStatutoryRulesId = parseInt(req.params.id);
-    const salary_structure_id = req.body.salary_structure_id ? req.body.salary_structure_id :'';
-    const pf_applicable = req.body.pf_applicable ? req.body.pf_applicable :'';
-    const pf_employee_pct  = req.body.pf_employee_pct  ? req.body.pf_employee_pct : null;
-    const pf_wage_limit = req.body.pf_wage_limit ? req.body.pf_wage_limit : null;
-    const esi_applicable = req.body.esi_applicable ? req.body.esi_applicable :'';
-    const esi_employee_pct = req.body.esi_employee_pct ? req.body.esi_employee_pct : null;
-    const esi_gross_limit = req.body.esi_gross_limit ? req.body.esi_gross_limit : null;
-    const pt_applicable = req.body.pt_applicable ? req.body.pt_applicable :'';
-    const pt_rule_id = req.body.pt_rule_id ? req.body.pt_rule_id : null;
-    const user_id = req.user?.user_id;
+    let salary_structure_id = req.body.salary_structure_id ? req.body.salary_structure_id : '';
+    let pf_applicable = req.body.pf_applicable ? req.body.pf_applicable : 0;
+    let pf_rule_id = req.body.pf_rule_id ? req.body.pf_rule_id : null;
+    let pf_wage_limit = req.body.pf_wage_limit ? req.body.pf_wage_limit : null;
+    let esi_applicable = req.body.esi_applicable ? req.body.esi_applicable : 0;
+    let esi_rule_id = req.body.esi_rule_id ? req.body.esi_rule_id : null;
+    let esi_gross_limit = req.body.esi_gross_limit ? req.body.esi_gross_limit : null;
+    let pt_applicable = req.body.pt_applicable ? req.body.pt_applicable : 0;
+    let pt_rule_id = req.body.pt_rule_id ? req.body.pt_rule_id : null;
+    let user_id = 1;
 
     if (!salary_structure_id) {
         return error422("Salary structure id is required.", res);
-    } else if (!pf_applicable) {
+    } else if (!pf_applicable && pf_applicable != 0) {
         return error422("Pf applicable  is required.", res);
-    } else if (!esi_applicable) {
+    } else if (!esi_applicable && esi_applicable != 0) {
         return error422("esi applicable is required.", res);
-    } else if (!pt_applicable) {
+    } else if (!pt_applicable && pt_applicable != 0) {
         return error422("Pt applicable is required.", res);
-    } 
+    }
+    if (pf_applicable == 0) {
+        pf_rule_id = 0, pf_wage_limit = 0
+    } else {
+        if (!pf_rule_id) {
+            return error422("PF Rule is required.", res);
+        } else if (!pf_wage_limit) {
+            return error422("PF wage limit is required.", res);
+        }
+    }
+    if (esi_applicable == 0) {
+        esi_rule_id = 0, esi_gross_limit = 0
+    } else {
+        if (!esi_rule_id) {
+            return error422("ESI Rule is required.", res);
+        } else if (!esi_gross_limit) {
+            return error422("ESI gross limit is required.", res);
+        }
+    }
+    if (pt_applicable == 0) {
+        pt_rule_id = 0
+    } else {
+        if (!pt_rule_id) {
+            return error422("Professional Tax Rule is required.", res);
+        }
+    }
 
+    // Check if salary Structure Statutory Rules exists
+    const salaryStructureStatutoryRulesQuery = "SELECT * FROM salary_structure_statutory_rules WHERE statutory_rule_id  = ?";
+    const salaryStructureStatutoryRulesResult = await pool.query(salaryStructureStatutoryRulesQuery, [salaryStructureStatutoryRulesId]);
+    if (salaryStructureStatutoryRulesResult[0].length === 0) {
+        return error422("Salary Structure Statutory Rules Not Found.", res);
+    }
+
+    // Check if the salary_structure exists and is active
+    const isSalaryStructureExist = "SELECT * FROM salary_structure WHERE salary_structure_id = ?";
+    const isSalaryStructureResult = await pool.query(isSalaryStructureExist, [salary_structure_id]);
+    if (isSalaryStructureResult[0].length == 0) {
+        return error422("Salary Structure Not Found.", res);
+    }
+
+    if (pf_rule_id) {
+        //  Check if provident fund rule exists
+        const providentFundRulesQuery = "SELECT * FROM provident_fund_rules WHERE pf_rule_id  = ?";
+        const providentFundRulesResult = await pool.query(providentFundRulesQuery, [pf_rule_id]);
+        if (providentFundRulesResult[0].length === 0) {
+            return error422("Provident Fund Rules Not Found.", res);
+        }
+    }
+    if (esi_rule_id) {
+        //  Check if esi rule exists
+        const esiRulesQuery = "SELECT * FROM esi_rules WHERE esi_rule_id  = ?";
+        const esiRulesResult = await pool.query(esiRulesQuery, [esi_rule_id]);
+        if (esiRulesResult[0].length === 0) {
+            return error422("ESI Rules Not Found.", res);
+        }
+    }
+    if (pt_rule_id) {
+        //  Check if professional tax rule exists
+        const professionalTaxRulesQuery = "SELECT * FROM professional_tax_rules WHERE pt_rule_id  = ?";
+        const professionalTaxRulesResult = await pool.query(professionalTaxRulesQuery, [pt_rule_id]);
+        if (professionalTaxRulesResult[0].length === 0) {
+            return error422("Professional Tax Rules Not Found.", res);
+        }
+    }
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -224,40 +348,20 @@ const updateSalaryStructureStatutoryRules = async (req, res) => {
 
         //start a transaction
         await connection.beginTransaction();
-        // Check if the salary_structure exists and is active
-        const isSalaryStructureExist = "SELECT * FROM salary_structure WHERE salary_structure_id = ?";
-        const isSalaryStructureResult = await connection.query(isSalaryStructureExist,[ salary_structure_id]);
-        if (isSalaryStructureResult[0].length == 0) {
-            return error422("Salary Structure Not Found.", res);
-        }
-
-        //  Check if professional_tax_rules exists
-        const professionalTaxRulesQuery = "SELECT * FROM professional_tax_rules WHERE pt_rule_id  = ?";
-        const professionalTaxRulesResult = await connection.query(professionalTaxRulesQuery, [professionalTaxRulesId]);
-        if (professionalTaxRulesResult[0].length === 0) {
-            return error422("Professional Tax Rules Not Found.", res);
-        }
-        // Check if salary Structure Statutory Rules exists
-        const salaryStructureStatutoryRulesQuery = "SELECT * FROM salary_structure_statutory_rules WHERE statutory_rule_id  = ?";
-        const salaryStructureStatutoryRulesResult = await connection.query(salaryStructureStatutoryRulesQuery, [salaryStructureStatutoryRulesId]);
-        if (salaryStructureStatutoryRulesResult[0].length === 0) {
-            return error422("Salary Structure Statutory Rules Not Found.", res);
-        }
-
         // Update the salary Structure Statutory Rules record with new data
         const updateQuery = `
             UPDATE salary_structure_statutory_rules
-            SET salary_structure_id = ?, pf_applicable = ?, pf_employee_pct = ?, pf_wage_limit = ?, esi_applicable = ?, esi_employee_pct = ?, esi_gross_limit = ?, pt_applicable =?, pt_rule_id = ?, created_by = ?
+            SET salary_structure_id = ?, pf_applicable = ?, pf_rule_id = ?, pf_wage_limit = ?, esi_applicable = ?, esi_rule_id = ?, esi_gross_limit = ?, pt_applicable =?, pt_rule_id = ?, created_by = ?
             WHERE statutory_rule_id = ?
         `;
 
-        await connection.query(updateQuery, [ salary_structure_id, pf_applicable, pf_employee_pct , pf_wage_limit, esi_applicable, esi_employee_pct, esi_gross_limit, pt_applicable, pt_rule_id, user_id, salaryStructureStatutoryRulesId]);
+        await connection.query(updateQuery, [salary_structure_id, pf_applicable, pf_rule_id, pf_wage_limit, esi_applicable, esi_rule_id, esi_gross_limit, pt_applicable, pt_rule_id, user_id, salaryStructureStatutoryRulesId]);
         // Commit the transaction
         await connection.commit();
 
         return res.status(200).json({
             status: 200,
-            message: " Salary Structure  Statutory Rules updated successfully.",
+            message: " Salary Structure Statutory Rules updated successfully.",
         });
     } catch (error) {
         if (connection) connection.rollback();
@@ -267,11 +371,10 @@ const updateSalaryStructureStatutoryRules = async (req, res) => {
     }
 }
 
-//status change of salary_structure_statutory_rules...
+//status change of salary structure statutory rules...
 const onStatusChange = async (req, res) => {
     const salaryStructureStatutoryRulesId = parseInt(req.params.id);
     const status = parseInt(req.query.status); // Validate and parse the status parameter
-
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -314,7 +417,7 @@ const onStatusChange = async (req, res) => {
         await connection.commit();
         return res.status(200).json({
             status: 200,
-            message: `Salary Structure  Statutory Rules ${statusMessage} successfully.`,
+            message: `Salary Structure Statutory Rules ${statusMessage} successfully.`,
         });
     } catch (error) {
         return error500(error, res);
@@ -345,7 +448,7 @@ const getSalaryStructureStatutoryRulesIdWma = async (req, res) => {
 
         return res.status(200).json({
             status: 200,
-            message: "Salary Structure  Statutory Rules retrieved successfully.",
+            message: "Salary Structure Statutory Rules retrieved successfully.",
             data: salaryStructureStatutoryRules,
         });
     } catch (error) {

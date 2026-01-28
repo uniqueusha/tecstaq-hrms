@@ -28,15 +28,14 @@ error500 = (error, res)=>{
     });
 }
 
-//create Professional Tax rules
-const createProfessionalTaxRules = async (req, res)=>{
+//create provident fund rule
+const createProvidentFundRule = async (req, res)=>{
     const state_id = req.body.state_id ? req.body.state_id :'';
     const rule_name = req.body.rule_name ? req.body.rule_name.trim() :'';
     const description  = req.body.description  ? req.body.description.trim() : null;
     const effective_from = req.body.effective_from ? req.body.effective_from :'';
     const effective_to = req.body.effective_to ? req.body.effective_to : null;
-    const user_id = req.user?.user_id;
-
+    const user_id = 1
     if (!state_id) {
         return error422("State is required.", res);
     } else if (!rule_name) {
@@ -45,7 +44,7 @@ const createProfessionalTaxRules = async (req, res)=>{
         return error422("Effective from is required.", res);
     } else if (!effective_to) {
         return error422("Effective to is required.", res);
-    }   
+    } 
 
     let connection = await getConnection();
 
@@ -54,19 +53,19 @@ const createProfessionalTaxRules = async (req, res)=>{
         await connection.beginTransaction();
 
         // // Check if the rule name exists and is active
-        const isRuleNameExist = "SELECT * FROM professional_tax_rules WHERE rule_name = ?";
+        const isRuleNameExist = "SELECT * FROM provident_fund_rules WHERE rule_name = ?";
         const isRuleNameResult = await pool.query(isRuleNameExist,[ rule_name]);
         if (isRuleNameResult[0].length > 0) {
             return error422("Rule Name is already is exist.", res);
         }
 
-        const insertQuery = "INSERT INTO professional_tax_rules (state_id, rule_name, description , effective_from, effective_to, created_by)VALUES(?, ?, ?, ?, ?, ?)";
+        const insertQuery = "INSERT INTO provident_fund_rules (state_id, rule_name, description , effective_from, effective_to, created_by)VALUES(?, ?, ?, ?, ?, ?)";
         const result = await connection.query(insertQuery,[state_id, rule_name, description , effective_from, effective_to, user_id]);
 
         await connection.commit()
         return res.status(200).json({
             status:200,
-            message:"Professional tax rules created successfully."
+            message:"Provident Fund Rule created successfully."
         })
     } catch (error) {
         if (connection) connection.rollback();
@@ -76,8 +75,8 @@ const createProfessionalTaxRules = async (req, res)=>{
     }
 }
 
-//all Professional tax rules list
-const getAllProfessionalTaxRules = async (req, res) => {
+//all provident fund rule list
+const getAllProvidentFundRules = async (req, res) => {
     const { page, perPage, key } = req.query;
    
     // attempt to obtain a database connection
@@ -88,30 +87,30 @@ const getAllProfessionalTaxRules = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getProfessionalTaxRulesQuery = `SELECT pr.*, s.state_name FROM professional_tax_rules pr
+        let getProvidentFundRulesQuery = `SELECT pf.*, s.state_name FROM provident_fund_rules pf
         LEFT JOIN state s
-        ON s.state_id = pr.state_id
+        ON s.state_id = pf.state_id
         WHERE 1 `;
 
-        let countQuery = `SELECT COUNT(*) AS total FROM professional_tax_rules pr 
+        let countQuery = `SELECT COUNT(*) AS total FROM provident_fund_rules pf 
         LEFT JOIN state s
-        ON s.state_id = pr.state_id
+        ON s.state_id = pf.state_id
         WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
             if (lowercaseKey === "activated") {
-                getProfessionalTaxRulesQuery += ` AND pr.status = 1`;
-                countQuery += ` AND pr.status = 1`;
+                getProvidentFundRulesQuery += ` AND pf.status = 1`;
+                countQuery += ` AND pf.status = 1`;
             } else if (lowercaseKey === "deactivated") {
-                getProfessionalTaxRulesQuery += ` AND pr.status = 0`;
-                countQuery += ` AND pr.status = 0`;
+                getProvidentFundRulesQuery += ` AND pf.status = 0`;
+                countQuery += ` AND pf.status = 0`;
             } else {
-                getProfessionalTaxRulesQuery += ` AND (LOWER(pr.rule_name) LIKE '%${lowercaseKey}%')`;
-                countQuery += ` AND (LOWER(pr.rule_name) LIKE '%${lowercaseKey}%')`;
+                getProvidentFundRulesQuery += ` AND (LOWER(pf.rule_name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(pf.rule_name) LIKE '%${lowercaseKey}%')`;
             }
         }
-        getProfessionalTaxRulesQuery += " ORDER BY pr.cts DESC";
+        getProvidentFundRulesQuery += " ORDER BY pf.cts DESC";
 
         // Apply pagination if both page and perPage are provided
         let total = 0;
@@ -120,18 +119,18 @@ const getAllProfessionalTaxRules = async (req, res) => {
             total = parseInt(totalResult[0][0].total);
 
             const start = (page - 1) * perPage;
-            getProfessionalTaxRulesQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+            getProvidentFundRulesQuery += ` LIMIT ${perPage} OFFSET ${start}`;
         }
 
-        const result = await connection.query(getProfessionalTaxRulesQuery);
-        const professionalTaxRules = result[0];
+        const result = await connection.query(getProvidentFundRulesQuery);
+        const providentFundRules = result[0];
 
         // Commit the transaction
         await connection.commit();
         const data = {
             status: 200,
-            message: "Professional Tax Rules retrieved successfully",
-            data: professionalTaxRules,
+            message: "Provident Fund Rules retrieved successfully",
+            data: providentFundRules,
         };
         // Add pagination information if provided
         if (page && perPage) {
@@ -151,9 +150,9 @@ const getAllProfessionalTaxRules = async (req, res) => {
     }
 }
 
-//Professional Tax Rules  by id
-const getprofessionalTaxRule = async (req, res) => {
-    const professionalTaxRulesId = parseInt(req.params.id);
+//Provident fund Rules  by id
+const getProvidentFundRule = async (req, res) => {
+    const providentFundRulesId = parseInt(req.params.id);
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -163,20 +162,20 @@ const getprofessionalTaxRule = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const professionalTaxRulesQuery = `SELECT pr.*, s.state_name FROM professional_tax_rules pr
+        const providentFundRulesQuery = `SELECT pf.*, s.state_name FROM provident_fund_rules pf
         LEFT JOIN state s
-        ON s.state_id = pr.state_id
-        WHERE pr.pt_rule_id = ?`;
-        const professionalTaxRulesResult = await connection.query(professionalTaxRulesQuery, [professionalTaxRulesId]);
-        if (professionalTaxRulesResult[0].length == 0) {
-            return error422("Professional Tax Rules Not Found.", res);
+        ON s.state_id = pf.state_id
+        WHERE pf.pf_rule_id = ?`;
+        const providentFundRulesResult = await connection.query(providentFundRulesQuery, [providentFundRulesId]);
+        if (providentFundRulesResult[0].length == 0) {
+            return error422("Provident Fund Rules Not Fund.", res);
         }
-        const professionalTaxRules = professionalTaxRulesResult[0][0];
+        const providentFundRules = providentFundRulesResult[0][0];
 
         return res.status(200).json({
             status: 200,
-            message: "Professional Tax Rules Retrived Successfully",
-            data: professionalTaxRules
+            message: "Provident Fund Rules Retrived Successfully",
+            data: providentFundRules
         });
     } catch (error) {
         return error500(error, res);
@@ -185,15 +184,15 @@ const getprofessionalTaxRule = async (req, res) => {
     }
 }
 
-//Update professional tax rules
-const updateProfessionalTaxRules = async (req, res) => {
-    const professionalTaxRulesId = parseInt(req.params.id);
+//Update provident fund rule
+const updateProvidentFundRule = async (req, res) => {
+    const providentFundRulesId = parseInt(req.params.id);
     const state_id = req.body.state_id ? req.body.state_id :'';
     const rule_name = req.body.rule_name ? req.body.rule_name.trim() :'';
     const description  = req.body.description  ? req.body.description.trim() : null;
     const effective_from = req.body.effective_from ? req.body.effective_from :'';
     const effective_to = req.body.effective_to ? req.body.effective_to : null;
-    const user_id = req.user?.user_id;
+    const user_id = 1
 
     if (!state_id) {
         return error422("State is required.", res);
@@ -214,33 +213,33 @@ const updateProfessionalTaxRules = async (req, res) => {
         await connection.beginTransaction();
 
         // // Check if the rule name exists and is active
-        const isRuleNameExist = "SELECT * FROM professional_tax_rules WHERE rule_name = ? AND pt_rule_id !=?";
-        const isRuleNameResult = await pool.query(isRuleNameExist,[ rule_name, professionalTaxRulesId]);
+        const isRuleNameExist = "SELECT * FROM provident_fund_rules WHERE rule_name = ? AND pf_rule_id !=?";
+        const isRuleNameResult = await pool.query(isRuleNameExist,[ rule_name, providentFundRulesId]);
         if (isRuleNameResult[0].length > 0) {
             return error422("Rule Name is already is exist.", res);
         }
 
-        // Check if professional_tax_rules exists
-        const professionalTaxRulesQuery = "SELECT * FROM professional_tax_rules WHERE pt_rule_id  = ?";
-        const professionalTaxRulesResult = await connection.query(professionalTaxRulesQuery, [professionalTaxRulesId]);
-        if (professionalTaxRulesResult[0].length === 0) {
-            return error422("Professional Tax Rules Not Found.", res);
+        // Check if provident fund rule exists
+        const providentFundRulesQuery = "SELECT * FROM provident_fund_rules WHERE pf_rule_id  = ?";
+        const providentFundRulesResult = await connection.query(providentFundRulesQuery, [providentFundRulesId]);
+        if (providentFundRulesResult[0].length === 0) {
+            return error422("Provident Fund Rules Not Fund.", res);
         }
 
-        // Update the professional_tax_rules Rules record with new data
+        // Update the provident fund Rules record with new data
         const updateQuery = `
-            UPDATE professional_tax_rules
+            UPDATE provident_fund_rules
             SET state_id = ?, rule_name = ?, description = ?, effective_from = ?, effective_to = ?
-            WHERE pt_rule_id = ?
+            WHERE pf_rule_id = ?
         `;
 
-        await connection.query(updateQuery, [ state_id, rule_name, description , effective_from, effective_to, professionalTaxRulesId]);
+        await connection.query(updateQuery, [ state_id, rule_name, description , effective_from, effective_to, providentFundRulesId]);
         // Commit the transaction
         await connection.commit();
 
         return res.status(200).json({
             status: 200,
-            message: "Professional Tax Rules updated successfully.",
+            message: "Provident Fund Rules updated successfully.",
         });
     } catch (error) {
         if (connection) connection.rollback();
@@ -250,9 +249,9 @@ const updateProfessionalTaxRules = async (req, res) => {
     }
 }
 
-//status change of professional Tax Rules...
+//status change of provident fund Rules...
 const onStatusChange = async (req, res) => {
-    const professionalTaxRulesId = parseInt(req.params.id);
+    const providentFundRulesId = parseInt(req.params.id);
     const status = parseInt(req.query.status); // Validate and parse the status parameter
 
 
@@ -264,14 +263,14 @@ const onStatusChange = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        // Check if the professional Tax Rules Id exists
-        const professionalTaxRulesQuery = "SELECT * FROM professional_tax_rules WHERE pt_rule_id = ? ";
-        const professionalTaxRulesResult = await connection.query(professionalTaxRulesQuery, [professionalTaxRulesId]);
+        // Check if the Provident fund Rules Id exists
+        const providentFundRulesQuery = "SELECT * FROM provident_fund_rules WHERE pf_rule_id = ? ";
+        const providentFundRulesResult = await connection.query(providentFundRulesQuery, [providentFundRulesId]);
 
-        if (professionalTaxRulesResult[0].length == 0) {
+        if (providentFundRulesResult[0].length == 0) {
             return res.status(404).json({
                 status: 404,
-                message: "Professional Tax Rules not found.",
+                message: "Provident Fund Rules not fund.",
             });
         }
 
@@ -283,21 +282,21 @@ const onStatusChange = async (req, res) => {
             });
         }
 
-        // Soft update the professional Tax Rules
+        // Soft update the provident fund Rules
         const updateQuery = `
-            UPDATE professional_tax_rules
+            UPDATE provident_fund_rules
             SET status = ?
-            WHERE pt_rule_id = ?
+            WHERE pf_rule_id = ?
         `;
 
-        await connection.query(updateQuery, [status, professionalTaxRulesId]);
+        await connection.query(updateQuery, [status, providentFundRulesId]);
 
         const statusMessage = status === 1 ? "activated" : "deactivated";
         // Commit the transaction
         await connection.commit();
         return res.status(200).json({
             status: 200,
-            message: `Professional Tax Rules ${statusMessage} successfully.`,
+            message: `Provident Fund Rules ${statusMessage} successfully.`,
         });
     } catch (error) {
         return error500(error, res);
@@ -306,8 +305,8 @@ const onStatusChange = async (req, res) => {
     }
 };
 
-//get professional Tax rule active...
-const getProfessionalTaxRulesIdWma = async (req, res) => {
+//get Provident Fund rule active...
+const getProvidentFundRulesIdWma = async (req, res) => {
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -317,21 +316,21 @@ const getProfessionalTaxRulesIdWma = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const professionalTaxRulesIdQuery = `SELECT pr.*, s.state_name FROM professional_tax_rules pr
+        const providentFundRulesIdQuery = `SELECT pf.*, s.state_name FROM provident_fund_rules pf
         LEFT JOIN state s
-        ON s.state_id = pr.state_id
-        WHERE pr.status = 1 `;
+        ON s.state_id = pf.state_id
+        WHERE pf.status = 1 `;
 
-        const professionalTaxRulesIdResult = await connection.query(professionalTaxRulesIdQuery);
-        const professionalTaxRules = professionalTaxRulesIdResult[0];
+        const providentFundRulesIdResult = await connection.query(providentFundRulesIdQuery);
+        const providentFundRules = providentFundRulesIdResult[0];
 
         // Commit the transaction
         await connection.commit();
 
         return res.status(200).json({
             status: 200,
-            message: "Professional Tax Rules retrieved successfully.",
-            data: professionalTaxRules,
+            message: "Provident Fund Rules retrieved successfully.",
+            data: providentFundRules,
         });
     } catch (error) {
         return error500(error, res);
@@ -342,10 +341,10 @@ const getProfessionalTaxRulesIdWma = async (req, res) => {
 }
 
 module.exports = {
-    createProfessionalTaxRules,
-    getAllProfessionalTaxRules,
-    getprofessionalTaxRule,
-    updateProfessionalTaxRules,
+    createProvidentFundRule,
+    getAllProvidentFundRules,
+    getProvidentFundRule,
+    updateProvidentFundRule,
     onStatusChange,
-    getProfessionalTaxRulesIdWma
+    getProvidentFundRulesIdWma
 }

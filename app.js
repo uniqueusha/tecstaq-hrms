@@ -36,7 +36,8 @@ const salaryStructureController = require('./src/routes/master/salary-structure.
 const componentTypeController = require('./src/routes/master/component-type.routes');
 const calculationTypeController = require('./src/routes/master/calculation-type.routes');
 const salaryComponentController = require('./src/routes/master/salary-component.routes');
-
+const esiRuleController = require('./src/routes/master/esi-rules.routes');
+const providentFundRuleController = require('./src/routes/master/provident-fund-rules.route')
 // Middleware
 app.use(bodyParser.json());
 app.use((req,res,next)=>{
@@ -80,6 +81,8 @@ app.use('/salary-structure', salaryStructureController)
 app.use('/component-type', componentTypeController)
 app.use('/calculation-type', calculationTypeController)
 app.use('/salary-component', salaryComponentController)
+app.use('/esi-rule', esiRuleController)
+app.use('/provident-fund-rule', providentFundRuleController)
 
 app.get('/', (req,res)=>{
     res.status(200).json({

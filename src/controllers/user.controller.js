@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const xlsx = require("xlsx");
 const fs = require("fs");
 const nodemailer = require("nodemailer");
+const { body, param, validationResult } = require("express-validator");
 
 
 const path = require('path');
@@ -13,7 +14,7 @@ const transporter = nodemailer.createTransport({
     secure: false,
     auth: {
         user: "support@tecstaq.com",
-        pass: "Homeoffice@2025#$",
+        pass: "HelpMe@1212#$",
     },
     tls: {
         rejectUnauthorized: false,
@@ -372,19 +373,22 @@ const getUserDownload = async (req, res) => {
 
 //change password
 const onChangePassword = async (req, res) => {
+    //run validation
+    await Promise.all([
+        body('email_id').notEmpty().withMessage("Email id is required.").isEmail().withMessage("Invalid email id").run(req),
+        body('password').notEmpty().withMessage("Password is required.").run(req),
+        body('new_password').notEmpty().withMessage("New password is requierd.").isLength({ min: 8 }).withMessage("Password must be at least 8 characters long.")
+        .matches(/[0-9]/).withMessage("Password must contain at least one number.")
+        .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage("Password must contain at least one special character.").run(req)
+    ]);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return error422(errors.array()[0].msg,res);
+    } 
     const email_id = req.body.email_id ? req.body.email_id.trim() : "";
     const password = req.body.password || "";
     const new_password = req.body.new_password || "";
     const new_email = req.body.new_email ? req.body.new_email.trim() : "";
-    if (!email_id) {
-        return error422("Email Id required.", res);
-    }
-    if (!password) {
-        return error422("Password is required.", res);
-    }
-    if (!new_password) {
-        return error422("New password is required.", res);
-    }
 
     let connection = await getConnection();
 
@@ -456,18 +460,22 @@ const onChangePassword = async (req, res) => {
 
 //send otp 
 const sendOtp = async (req, res) => {
-    const email_id = req.body.email_id;
-    if (!email_id) {
-        return error422("Email is  required.", res);
+    await Promise.all([
+        body('email_id').notEmpty().withMessage("Email id is required.").isEmail().withMessage("Invalid email id").run(req)
+    ]);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return error422(errors.array()[0].msg, res)
     }
+    const email_id = req.body.email_id;
     // Check if email_id exists
     const query = 'SELECT * FROM users WHERE TRIM(LOWER(email_id)) = ?';
     const result = await pool.query(query, [email_id.toLowerCase()]);
     if (result[0].length === 0) {
-        return error422('Email id is not found.', res);
+        return error422('If the email is registered, an OTP will be sent.', res);
     }
 
-    let user_name = result[0][0].user_name;
+    let first_name = result[0][0].first_name;
 
     let connection = await getConnection();
     try {
@@ -530,15 +538,18 @@ const sendOtp = async (req, res) => {
             html: message,
         };
 
-        // Send email 
-        await transporter.sendMail(mailOptions);
-
+        try {
+            await transporter.sendMail(mailOptions);
+        } catch (mailError) {
+            // console.error("Error while sending mail:", mailError);
+        }
         return res.status(200).json({
             status: 200,
             message: `OTP sent successfully to ${email_id}.`,
 
         })
     } catch (error) {
+        if (connection) connection.rollback();
         return error500(error, res)
     } finally {
         if (connection) connection.release()
@@ -547,13 +558,16 @@ const sendOtp = async (req, res) => {
 
 //verify otp
 const verifyOtp = async (req, res) => {
+    await Promise.all([
+        body('otp').notEmpty().withMessage("OTP is required.").isInt().withMessage("OTP must be a number.").isLength({min:6,max:6}).withMessage("Invalid OTP").run(req),
+        body('email_id').notEmpty().withMessage("Email id is required.").isEmail().withMessage("Invalid email id").run(req)
+    ]);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return error422(errors.array()[0].msg, res)
+    }
     const otp = req.body.otp ? req.body.otp : null;
     const email_id = req.body.email_id ? req.body.email_id.trim() : null;
-    if (!otp) {
-        return error422("Otp is required.", res);
-    } else if (!email_id) {
-        return error422("Email id is required.", res);
-    }
 
     let connection = await getConnection();
     try {
@@ -601,10 +615,15 @@ const verifyOtp = async (req, res) => {
 
 //check email_id
 const checkEmailId = async (req, res) => {
+    //run validation
+    await Promise.all([
+        body('email_id').notEmpty().withMessage("Email id is required.").isEmail().withMessage("Invalid email id").run(req),
+    ]);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return error422(errors.array()[0].msg,res);
+    } 
     const email_id = req.body.email_id ? req.body.email_id.trim() : ""; // Extract and trim email_id from request body
-    if (!email_id) {
-        return error422("Email Id required.", res);
-    }
 
     let connection = await getConnection();
     try {
@@ -633,16 +652,26 @@ const checkEmailId = async (req, res) => {
 
 //forget password
 const forgotPassword = async (req, res) => {
+    await Promise.all([
+        body('email_id').notEmpty().withMessage("Email id is required.").isEmail().withMessage("Invalid email id").run(req),
+        body('otp').notEmpty().withMessage("OTP is required.").isInt().withMessage("OTP must be a number.").isLength({min:6,max:6}).withMessage("Invalid OTP").run(req),
+        body('newPassword').notEmpty().withMessage("New password is required.").isLength({ min: 8 }).withMessage("Password must be at least 8 characters long.")
+        .matches(/[0-9]/).withMessage("Password must contain at least one number.")
+        .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage("Password must contain at least one special character.").run(req),
+        body('confirmPassword').notEmpty().withMessage("Confirm password is requierd.").isLength({ min: 8 }).withMessage("Password must be at least 8 characters long.")
+        .matches(/[0-9]/).withMessage("Password must contain at least one number.")
+        .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage("Password must contain at least one special character.").run(req)
+        
+    ]);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return error422(errors.array()[0].msg,res);
+    } 
     const email_id = req.body.email_id ? req.body.email_id.trim() : null;
+    const otp = req.body.otp ? req.body.otp : null;
     const newPassword = req.body.newPassword ? req.body.newPassword.trim() : null;
     const confirmPassword = req.body.confirmPassword ? req.body.confirmPassword.trim() : null;
-    if (!email_id) {
-        return error422("Email id is requried", res);
-    } else if (!newPassword) {
-        return error422("New password is required.", res);
-    } else if (!confirmPassword) {
-        return error422("Confirm password is required.", res);
-    } else if (newPassword !== confirmPassword) {
+    if (newPassword !== confirmPassword) {
         return error422("New password and Confirm password do not match.", res);
     }
 
@@ -650,7 +679,16 @@ const forgotPassword = async (req, res) => {
     try {
         //Start the transaction
         await connection.beginTransaction();
+        // Check if OTP is valid and not expired
+        const verifyOtpQuery = `
+        SELECT * FROM otp 
+        WHERE TRIM(LOWER(email_id)) = ? AND otp = ?`;
+        const verifyOtpResult = await connection.query(verifyOtpQuery, [email_id.trim().toLowerCase(), otp]);
 
+        // If no OTP is found, return a failed verification message
+        if (verifyOtpResult[0].length === 0) {
+            return error422("OTP verification failed.", res);
+        }
         // Check if email_id exists
         const query = 'SELECT * FROM users WHERE TRIM(LOWER(email_id)) = ?';
         const result = await connection.query(query, [email_id.toLowerCase()]);
@@ -679,10 +717,15 @@ const forgotPassword = async (req, res) => {
 };
 
 const sendOtpIfEmailIdNotExists = async (req, res) => {
+    //run validation
+    await Promise.all([
+        body('email_id').notEmpty().withMessage("Email id is required.").isEmail().withMessage("Invalid email id").run(req),
+    ]);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return error422(errors.array()[0].msg,res);
+    } 
     const email_id = req.body.email_id;
-    if (!email_id) {
-        return error422("Email is required.", res);
-    }
 
     // Check if email_id exists
     const query = 'SELECT * FROM users WHERE TRIM(LOWER(email_id)) = ?';
@@ -741,14 +784,16 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
             from: "support@tecstaq.com",
             to: email_id,
             // replyTo: "rohitlandage86@gmail.com",
-            bcc: "sushantsjamdade@gmail.com",
-            //bcc: "ushamyadav777@gmail.com"
+            bcc: "ushamyadav777@gmail.com",
             subject: "Your Task Registration OTP",
             html: message,
         };
 
-        // Send the email
-        await transporter.sendMail(mailOptions);
+         try {
+            await transporter.sendMail(mailOptions);
+        } catch (mailError) {
+            // console.error("Error while sending mail:", mailError);
+        } 
         // Return success response
         return res.status(200).json({
             status: 200,

@@ -40,6 +40,7 @@ const esiRuleRoutes = require('./src/routes/master/esi-rules.routes');
 const providentFundRuleRoutes = require('./src/routes/master/provident-fund-rules.route')
 //Employee salary mapping
 const employeeSalaryMappingRoutes = require('./src/routes/employee-salary-mapping.routes')
+const payRollRoutes = require('./src/routes/pay-roll.routes')
 // Middleware
 app.use(bodyParser.json());
 app.use((req,res,next)=>{
@@ -87,6 +88,7 @@ app.use('/esi-rule', esiRuleRoutes)
 app.use('/provident-fund-rule', providentFundRuleRoutes);
 //employee salary mapping
 app.use('/employee-salary-mapping', employeeSalaryMappingRoutes)
+app.use('/pay-roll', payRollRoutes)
 
 app.get('/', (req,res)=>{
     res.status(200).json({

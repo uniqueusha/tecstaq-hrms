@@ -32,7 +32,7 @@ const createGrade = async (req, res) => {
         return error422("Min ctc is required.", res)
     } else if (min_ctc < 0 || max_ctc < 0) {
         return error422("CTC cannot be negative.", res);
-    } else if (max_ctc < min_ctc) {
+    } else if (parseFloat(max_ctc) < parseFloat(min_ctc)) {
         return error422("Max CTC must be greater than or equal to Min CTC.", res);
     }
 
@@ -165,7 +165,7 @@ const updateGrade = async (req, res) => {
         return error422("Min ctc is required.", res)
     } else if (min_ctc < 0 || max_ctc < 0) {
         return error422("CTC cannot be negative.", res);
-    } else if (max_ctc < min_ctc) {
+    } else if (parseFloat(max_ctc) < parseFloat(min_ctc)) {
         return error422("Max CTC must be greater than or equal to Min CTC.", res);
     }
 

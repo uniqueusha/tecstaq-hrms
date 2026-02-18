@@ -1,4 +1,5 @@
 const pool = require('../common/db')
+const { body, param, validationResult } = require('express-validator')
 const error422 = (message, res) => {
     return res.status(422).json({
         status: 422,
@@ -12,70 +13,34 @@ const error500 = (error, res) => {
         error: error
     })
 }
-// create employee salary mapping
-const createEmployeeSalaryMapping = async (req, res) => {
-    let employee_id = req.body.employee_id ? req.body.employee_id : null;
-    let salary_structure_id = req.body.salary_structure_id ? req.body.salary_structure_id : null;
-    let grade_id = req.body.grade_id ? req.body.grade_id : null;
-    let ctc_amount = req.body.ctc_amount ? req.body.ctc_amount : 0;
-    let basic_override = req.body.basic_override ? req.body.basic_override : 0;
-    let effective_from = req.body.effective_from ? req.body.effective_from : null;
-    let effective_to = req.body.effective_to ? req.body.effective_to : null;
-    let pay_cycle = req.body.pay_cycle ? req.body.pay_cycle : null;
-    let user_id = 1
-    if (!employee_id) {
-        return error422("Employee is required.", res);
-    } else if (!salary_structure_id) {
-        return error422("Salary structure is required.", res);
-    } else if (!grade_id) {
-        return error422("Grade is required.", res);
-    } else if (!ctc_amount) {
-        return error422("CTC amount is required.", res);
-    } else if (!basic_override && basic_override != 0) {
-        return error422("Basic override is required.", res);
-    } else if (!effective_from) {
-        return error422("Effective from is required.", res);
-    } else if (!effective_to) {
-        return error422("Effective to is required.", res);
-    } else if (!pay_cycle) {
-        return error422("Pay cycle is required.", res)
+// pay roll initialize
+const payRollInitialize = async (req, res) => {
+    //run validation
+    await Promise.all([
+        body('pay_cycle').notEmpty().withMessage("Pay cycle is required").run(req),
+        body('pay_roll_month').notEmpty().withMessage("Pay roll month is required.").isInt().withMessage("Invalid pay roll month.").run(req),
+        body('pay_roll_year').notEmpty().withMessage("Pay roll year is required.").isInt().withMessage("Invalid pay roll year.").run(req),
+    ])
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return error422(errors.array()[0].msg, res)
     }
-
-    //is employee exist
-    let isEmployeeQuery = "SELECT * FROM employee WHERE employee_id = ?";
-    let isEmployeeResult = await pool.query(isEmployeeQuery, [employee_id]);
-    if (isEmployeeResult[0].length == 0) {
-        return error422("Employee Not Found", res);
-    }
-    //is salary structure
-    let isSalaryStructureQuery = "SELECT * FROM salary_structure WHERE salary_structure_id = ?";
-    let isSalaryStructureResult = await pool.query(isSalaryStructureQuery, [salary_structure_id]);
-    if (isSalaryStructureResult[0].length == 0) {
-        return error422("Salary Structure Not Found", res);
-    }
-    //is grade
-    let isGradeQuery = "SELECT * FROM grades WHERE grade_id = ?";
-    let isGradeResult = await pool.query(isGradeQuery, [grade_id]);
-    if (isGradeResult[0].length == 0) {
-        return error422("Grade Not Found", res);
-    }
-    //is employee already exist
-    let isEmployeeExistQuery = "SELECT * FROM employee_salary_mapping WHERE employee_id = ?";
-    let isEmployeeExistResult = await pool.query(isEmployeeExistQuery, [employee_id]);
-    if (isEmployeeExistResult[0].length > 0) {
-        return error422("The employee already has a salary mapped.", res);
-    }
+    const pay_cycle = req.body.pay_cycle ? req.body.pay_cycle.trim():'';
+    const pay_roll_month = req.body.pay_roll_month ?  req.body.pay_roll_month :null;
+    const pay_roll_year = req.body.pay_roll_year ? req.body.pay_roll_year:null
+    
     let connection = await pool.getConnection();
     try {
         await connection.beginTransaction()
-        //create employee salary mapping
-        let employeeSalaryMappingQuery = `INSERT INTO employee_salary_mapping (employee_id, salary_structure_id, grade_id, ctc_amount, basic_override, effective_from, effective_to, pay_cycle, created_by) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        await connection.query(employeeSalaryMappingQuery, [employee_id, salary_structure_id, grade_id, ctc_amount, basic_override, effective_from, effective_to, pay_cycle, user_id]);
-
+        //get attendace
+        let getAttendanceQuery = `SELECT * FROM attendance_upload WHERE attendance_date = ?`
+        let getAttendanceResult = await connection.query(getAttendanceQuery,[])
+        
+        return error422("Employee is required.", res);
         await connection.commit();
         return res.status(200).json({
             status: 200,
-            message: "Employee salary mapping created successfully."
+            message: "Employee salary component created successfully."
         })
     } catch (error) {
         await connection.rollback();
@@ -84,8 +49,8 @@ const createEmployeeSalaryMapping = async (req, res) => {
         if (connection) await connection.release();
     }
 }
-//get employee salary mapping list
-const getEmployeeSalaryMapping = async (req, res) => {
+//get employee salary component list
+const getEmployeeSalaryComponent = async (req, res) => {
     const { perPage, page, key } = req.query;
     let connection = await pool.getConnection();
     try {
@@ -136,7 +101,7 @@ const getEmployeeSalaryMapping = async (req, res) => {
         await connection.commit();
         const data = {
             status: 200,
-            message: "Employee salary mapping retrieved successfully",
+            message: "Employee salary component retrieved successfully",
             data: employeeSalaryMapping,
         };
         // Add pagination information if provided
@@ -156,8 +121,8 @@ const getEmployeeSalaryMapping = async (req, res) => {
         if (connection) connection.release()
     }
 }
-//get employee salary mapping by id
-const getEmployeeSalaryMappingById = async (req, res) => {
+//get employee salary component by id
+const getEmployeeSalaryComponentById = async (req, res) => {
     const employeeSalaryMappingId = parseInt(req.params.id);
 
     // attempt to obtain a database connection
@@ -177,12 +142,12 @@ const getEmployeeSalaryMappingById = async (req, res) => {
         const employeeSalaryMappingResult = await connection.query(employeeSalaryMappingQuery, [employeeSalaryMappingId]);
 
         if (employeeSalaryMappingResult[0].length == 0) {
-            return error422("Employee salary mapping Not Found.", res);
+            return error422("Employee salary component Not Found.", res);
         }
         const employeeSalaryMapping = employeeSalaryMappingResult[0][0];
         return res.status(200).json({
             status: 200,
-            message: "Employee salary mapping Retrived Successfully",
+            message: "Employee salary component Retrived Successfully",
             data: employeeSalaryMapping
         });
     } catch (error) {
@@ -191,17 +156,16 @@ const getEmployeeSalaryMappingById = async (req, res) => {
         if (connection) connection.release()
     }
 }
-//Update employee salary mapping 
-const updateEmployeeSalaryMapping = async (req, res) => {
+//Update employee salary component 
+const updateEmployeeSalaryComponent = async (req, res) => {
     const employeeSalaryMappingId = parseInt(req.params.id);
     let employee_id = req.body.employee_id ? req.body.employee_id : null;
     let salary_structure_id = req.body.salary_structure_id ? req.body.salary_structure_id : null;
     let grade_id = req.body.grade_id ? req.body.grade_id : null;
-    let ctc_amount = req.body.ctc_amount ? req.body.ctc_amount : 0;
-    let basic_override = req.body.basic_override ? req.body.basic_override : 0;
+    let ctc_amount = req.body.ctc_amount ? req.body.ctc_amount : null;
+    let basic_override = req.body.basic_override ? req.body.basic_override : null;
     let effective_from = req.body.effective_from ? req.body.effective_from : null;
     let effective_to = req.body.effective_to ? req.body.effective_to : null;
-    let pay_cycle = req.body.pay_cycle ? req.body.pay_cycle : null;
     let user_id = 1
 
     if (!employee_id) {
@@ -212,14 +176,12 @@ const updateEmployeeSalaryMapping = async (req, res) => {
         return error422("Grade is required.", res);
     } else if (!ctc_amount) {
         return error422("CTC amount is required.", res);
-    } else if (!basic_override && basic_override !=0) {
+    } else if (!basic_override) {
         return error422("Basic override is required.", res);
     } else if (!effective_from) {
         return error422("Effective from is required.", res);
     } else if (!effective_to) {
         return error422("Effective to is required.", res);
-    } else if (!pay_cycle) {
-        return error422("Pay cycle is required.", res)
     }
 
     //is employee exist
@@ -241,13 +203,13 @@ const updateEmployeeSalaryMapping = async (req, res) => {
         return error422("Grade Not Found", res);
     }
 
-    // Check if employee salary mapping  exists
+    // Check if employee salary component  exists
     const employeeSalaryMappingQuery = "SELECT * FROM employee_salary_mapping WHERE employee_salary_id  = ?";
     const employeeSalaryMappingResult = await pool.query(employeeSalaryMappingQuery, [employeeSalaryMappingId]);
     if (employeeSalaryMappingResult[0].length == 0) {
         return error422("Employee Salary Mapping Not Found.", res);
     }
-    // Check if the provided salary mapping mapping exists
+    // Check if the provided salary component  exists
     const existingEmployeeSalaryMappingQuery = "SELECT * FROM employee_salary_mapping WHERE employee_id = ? AND employee_salary_id !=? ";
     const existingEmployeeSalaryMappingResult = await pool.query(existingEmployeeSalaryMappingQuery, [employee_id, employeeSalaryMappingId]);
     if (existingEmployeeSalaryMappingResult[0].length > 0) {
@@ -259,13 +221,13 @@ const updateEmployeeSalaryMapping = async (req, res) => {
     try {
         //start a transaction
         await connection.beginTransaction();
-        // Update the employee salary mapping record with new data
+        // Update the employee salary component record with new data
         const updateQuery = `
             UPDATE employee_salary_mapping
-            SET employee_id = ?, salary_structure_id = ?, grade_id = ?, ctc_amount = ?, basic_override = ?, effective_from = ?, effective_to = ?, pay_cycle = ?, created_by = ?
+            SET employee_id = ?, salary_structure_id = ?, grade_id = ?, ctc_amount = ?, basic_override = ?, effective_from = ?, effective_to = ?, created_by = ?
             WHERE employee_salary_id = ?
         `;
-        await connection.query(updateQuery, [employee_id, salary_structure_id, grade_id, ctc_amount, basic_override, effective_from, effective_to, pay_cycle, user_id, employeeSalaryMappingId]);
+        await connection.query(updateQuery, [employee_id, salary_structure_id, grade_id, ctc_amount, basic_override, effective_from, effective_to, user_id, employeeSalaryMappingId]);
 
         // Commit the transaction
         await connection.commit();
@@ -280,7 +242,7 @@ const updateEmployeeSalaryMapping = async (req, res) => {
         if (connection) connection.release()
     }
 }
-//status change of employee salary mapping...
+//status change of employee salary component...
 const onStatusChange = async (req, res) => {
     const employeeSalaryMappingId = parseInt(req.params.id);
     const status = parseInt(req.query.status); // Validate and parse the status parameter
@@ -292,7 +254,7 @@ const onStatusChange = async (req, res) => {
     try {
         //start a transaction
         await connection.beginTransaction();
-        // Check if the employee salary mapping exists
+        // Check if the employee salary component exists
         const employeeSalaryMappingQuery = "SELECT * FROM employee_salary_mapping WHERE employee_salary_id = ? ";
         const employeeSalaryMappingResult = await connection.query(employeeSalaryMappingQuery, [employeeSalaryMappingId]);
 
@@ -310,7 +272,7 @@ const onStatusChange = async (req, res) => {
                 message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
             });
         }
-        // Soft update the employee salary mapping status
+        // Soft update the employee salary component status
         const updateQuery = `
             UPDATE employee_salary_mapping
             SET status = ?
@@ -329,8 +291,8 @@ const onStatusChange = async (req, res) => {
         if (connection) connection.release()
     }
 };
-//get employee salary mapping active...
-const getEmployeeSalaryMappingWma = async (req, res) => {
+//get employee salary component active...
+const getEmployeeSalaryComponentWma = async (req, res) => {
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
     try {
@@ -350,7 +312,7 @@ const getEmployeeSalaryMappingWma = async (req, res) => {
 
         // Commit the transaction
         await connection.commit();
-            
+
         return res.status(200).json({
             status: 200,
             message: "Employee Salary Mapping retrieved successfully.",
@@ -365,10 +327,10 @@ const getEmployeeSalaryMappingWma = async (req, res) => {
 }
 
 module.exports = {
-    createEmployeeSalaryMapping,
-    getEmployeeSalaryMapping,
-    getEmployeeSalaryMappingById,
-    updateEmployeeSalaryMapping,
+    payRollInitialize,
+    getEmployeeSalaryComponent,
+    getEmployeeSalaryComponentById,
+    updateEmployeeSalaryComponent,
     onStatusChange,
-    getEmployeeSalaryMappingWma
+    getEmployeeSalaryComponentWma
 }

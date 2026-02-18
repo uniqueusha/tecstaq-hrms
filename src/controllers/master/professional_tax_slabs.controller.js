@@ -31,17 +31,17 @@ error500 = (error, res)=>{
 //create Professional Tax slabs
 const createProfessionalTaxSlabs = async (req, res)=>{
     const pt_rule_id = req.body.pt_rule_id ? req.body.pt_rule_id :'';
-    const salary_from = req.body.salary_from ? req.body.salary_from :'';
-    const salary_to  = req.body.salary_to  ? req.body.salary_to : null;
+    const salary_from = req.body.salary_from ? req.body.salary_from :0;
+    const salary_to  = req.body.salary_to  ? req.body.salary_to : 0;
     const tax_amount = req.body.tax_amount ? req.body.tax_amount :'';
     const applicable_month = req.body.applicable_month ? req.body.applicable_month.trim() : null;
     const user_id = req.user?.user_id;
 
     if (!pt_rule_id) {
         return error422("Pt rule id is required.", res);
-    } else if (!salary_from) {
+    } else if (!salary_from&& salary_from != 0) {
         return error422("Salary from is required.", res);
-    } else if (!tax_amount) {
+    } else if (!tax_amount && tax_amount != 0) {
         return error422("Tax amount is required.", res);
     } 
 
@@ -183,17 +183,17 @@ const getprofessionalTaxSlab = async (req, res) => {
 const updateProfessionalTaxSlabs = async (req, res) => {
     const professionalTaxSlabsId = parseInt(req.params.id);
     const pt_rule_id = req.body.pt_rule_id ? req.body.pt_rule_id :'';
-    const salary_from = req.body.salary_from ? req.body.salary_from :'';
-    const salary_to  = req.body.salary_to  ? req.body.salary_to : null;
+    const salary_from = req.body.salary_from ? req.body.salary_from :0;
+    const salary_to  = req.body.salary_to  ? req.body.salary_to : 0;
     const tax_amount = req.body.tax_amount ? req.body.tax_amount :'';
     const applicable_month = req.body.applicable_month ? req.body.applicable_month.trim() : null;
     const user_id = req.user?.user_id;
 
     if (!pt_rule_id) {
         return error422("Pt rule id is required.", res);
-    } else if (!salary_from) {
+    } else if (!salary_from && salary_from != 0) {
         return error422("Salary from is required.", res);
-    } else if (!tax_amount) {
+    } else if (!tax_amount && tax_amount != 0) {
         return error422("Tax amount is required.", res);
     } 
 

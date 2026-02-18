@@ -1,7 +1,6 @@
 const XLSX = require("xlsx");
 const moment = require("moment");
 const pool = require('../common/db');
-const { body, param, validationResult } = require('express-validator');
 const error422 = (message, res) => {
     return res.status(422).json({
         status: 422,
@@ -17,145 +16,130 @@ const error500 = (error, res) => {
     })
 }
 const importAttendanceFromBase64 = async (req, res) => {
-    // validation run
-    await Promise.all([
-        body('file_base64').notEmpty().withMessage("File Base 64 is required.").run(req),
-        body('file_name').notEmpty().withMessage("File Name is required").run(req),
-        body('attendance_cycle').notEmpty().withMessage("Attendance cycle is required").run(req),
-        body('attendance_month').notEmpty().withMessage("Attendance month is required.").isInt().withMessage("Invalid Attendance month.").run(req),
-        body('attendance_year').notEmpty().withMessage("Attendance year is required.").isInt().withMessage("Invalid Attendance year.").run(req)
-    ]);
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return error422(errors.array()[0].msg, res)
-    }
-
-    const file_base64 = req.body.file_base64 ? req.body.file_base64.trim() : '';
-    const file_name = req.body.file_name ? req.body.file_name.trim() : '';
-    const attendance_cycle = req.body.attendance_cycle ? req.body.attendance_cycle.trim() : '';
-    const attendance_month = req.body.attendance_month ? req.body.attendance_month : null;
-    const attendance_year = req.body.attendance_year ? req.body.attendance_year : null;
-    const remarks = req.body.remarks ? req.body.remarks : null;
-    const user_id = req.user.user_id
-
-
     // Attempt to obtain a database connection
     let connection = await pool.getConnection();
     try {
         //Start the transaction
         await connection.beginTransaction();
-        //check file already exists or not
-        const isExistFileQuery = `SELECT * FROM attendance_upload WHERE file_name = ? `;
-        const isExistFileResult = await pool.query(isExistFileQuery, [file_name]);
-        if (isExistFileResult[0].length > 0) {
-            return error422("File is already uploaded.", res);
-        }
-        const buffer = Buffer.from(file_base64, "base64");
-        const workbook = XLSX.read(buffer, { type: "buffer" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const { file_base64,file_name } = req.body;
+      const user_id = req.user.user_id
+    if (!file_base64) {
+      return error422("Excel file required", res)
+    }else if (!file_name) {
+      return error422("Excel file name required", res)
+    }
+    //check file already exists or not
+    const isExistFileQuery = `SELECT * FROM attendance_upload WHERE file_name = ? `;
+    const isExistFileResult = await pool.query(isExistFileQuery, [file_name]);
+    if (isExistFileResult[0].length > 0) {
+        return error422("File is already uploaded.", res);
+    }
+    const buffer = Buffer.from(file_base64, "base64");
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        /* FIND DAYS ROW */
-        const daysRowIndex = rows.findIndex(
-            r => String(r[0]).trim().toLowerCase() === "days"
-        );
+    /* FIND DAYS ROW */
+    const daysRowIndex = rows.findIndex(
+      r => String(r[0]).trim().toLowerCase() === "days"
+    );
 
-        if (daysRowIndex === -1) {
-            return res.status(422).json({ message: "Days row not found" });
-        }
+    if (daysRowIndex === -1) {
+      return res.status(422).json({ message: "Days row not found" });
+    }
 
-        const daysRow = rows[daysRowIndex];
+    const daysRow = rows[daysRowIndex];
 
-        /* EXTRACT DAY NUMBERS */
-        const days = [];
-        for (let i = 1; i < daysRow.length; i++) {
-            const match = String(daysRow[i]).match(/\d+/);
-            if (match) days.push({ index: i, day: parseInt(match[0]) });
-        }
+    /* EXTRACT DAY NUMBERS */
+    const days = [];
+    for (let i = 1; i < daysRow.length; i++) {
+      const match = String(daysRow[i]).match(/\d+/);
+      if (match) days.push({ index: i, day: parseInt(match[0]) });
+    }
 
-        const result = [];
+    const result = [];
 
-        /* LOOP THROUGH ROWS */
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
+    /* LOOP THROUGH ROWS */
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
 
-            if (String(row[0]).trim().startsWith("Employee")) {
-                const employeeRaw = row[2] || "";
-                const employeeId = employeeRaw.split(":")[0].trim();
-                const employeeName = employeeRaw.split(":")[1]?.trim() || "";
-                // console.log('employeeRaw,',row);
+      if (String(row[0]).trim().startsWith("Employee")) {
+        const employeeRaw = row[2] || "";
+        const employeeId = employeeRaw.split(":")[0].trim();
+        const employeeName = employeeRaw.split(":")[1]?.trim() || "";
+        // console.log('employeeRaw,',row);
+        
+        const statusRow = rows[i + 1];
+        const inTimeRow = rows[i + 2];
+        const outTimeRow = rows[i + 3];
+        const durationRow = rows[i + 4];
+        const lateByRow = rows[i + 5];
+        const earlyByRow = rows[i + 6];
+        const otRow = rows[i + 7];
+        const shiftRow = rows[i + 8];
 
-                const statusRow = rows[i + 1];
-                const inTimeRow = rows[i + 2];
-                const outTimeRow = rows[i + 3];
-                const durationRow = rows[i + 4];
-                const lateByRow = rows[i + 5];
-                const earlyByRow = rows[i + 6];
-                const otRow = rows[i + 7];
-                const shiftRow = rows[i + 8];
+        const records = [];
 
-                const records = [];
-
-                for (const d of days) {
-
-                    let attendance_date = moment(`2025-01-${d.day}`, "YYYY-MM-DD").format("YYYY-MM-DD")
-                    let status = statusRow?.[d.index] || null
-                    let in_time = inTimeRow?.[d.index] || null
-                    let out_time = outTimeRow?.[d.index] || null
-                    let duration = durationRow?.[d.index] || null
-                    let late_by = lateByRow?.[d.index] || null
-                    let early_by = earlyByRow?.[d.index] || null
-                    let ot = otRow?.[d.index] || null
-                    let shift = shiftRow?.[d.index] || null
-                    records.push({
-                        attendance_date: attendance_date,
-                        status: status,
-                        in_time: in_time,
-                        out_time: out_time,
-                        duration: duration,
-                        late_by: late_by,
-                        early_by: early_by,
-                        ot: ot,
-                        shift: shift,
-                    });
-                    const isExistAttendanceQuery = "SELECT * FROM attendance_master WHERE employee_code = ? AND attendance_date = ?"
-                    const [rows] = await connection.query(isExistAttendanceQuery, [employeeId, attendance_date]);
-                    if (rows.length === 0) {
-                        // Insert into DB  
-                        const sql = "INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, shift, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )";
-                        await connection.query(sql, [employeeId, employeeName, attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, shift, 'excel-sheet'])
-                    } else {
-                        const updateSql = `
+        for (const d of days) {
+ 
+           let attendance_date =   moment(`2025-01-${d.day}`, "YYYY-MM-DD").format("YYYY-MM-DD")
+           let status =   statusRow?.[d.index] || null
+           let in_time =   inTimeRow?.[d.index] || null
+           let out_time =   outTimeRow?.[d.index] || null
+           let duration =   durationRow?.[d.index] || null
+           let late_by =   lateByRow?.[d.index] || null
+           let early_by =   earlyByRow?.[d.index] || null
+           let ot =   otRow?.[d.index] || null
+           let shift =   shiftRow?.[d.index] || null
+          records.push({
+            attendance_date:attendance_date,
+            status:status,
+            in_time:in_time,
+            out_time:out_time,
+            duration:duration,
+            late_by:late_by,
+            early_by:early_by,
+            ot:ot,
+            shift:shift,
+          });
+          const isExistAttendanceQuery = "SELECT * FROM attendance_master WHERE employee_code = ? AND attendance_date = ?"
+          const [rows] = await connection.query(isExistAttendanceQuery, [employeeId,attendance_date]);
+          if (rows.length === 0) {
+          // Insert into DB  
+          const sql = "INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, shift, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )";
+          await connection.query(sql, [employeeId, employeeName,attendance_date,  status, in_time, out_time, duration, late_by, early_by, ot, shift, 'excel-sheet'])
+          }else{
+            const updateSql = `
               UPDATE attendance_master
               SET employee_name = ?, status = ?, in_time = ?, out_time = ?, duration = ?, late_by = ?, early_by = ?, ot = ?, shift = ?, medium = ?
               WHERE employee_code = ?
                 AND attendance_date = ?
               `;
-                        await connection.query(updateSql, [employeeName, status, in_time, out_time, duration, late_by, early_by, ot, shift, 'excel-sheet', employeeId, attendance_date]);
-                    }
+              await connection.query(updateSql, [ employeeName, status, in_time, out_time, duration, late_by, early_by, ot, shift, 'excel-sheet', employeeId, attendance_date]);
+          }
+         
 
-
-                }
-                result.push({
-                    employee_code: employeeId,
-                    employee_name: employeeName,
-                    records
-                });
-            }
         }
-
-        // Insert into attendance upload 
-        const insertAttendanceUploadQuery = "INSERT INTO attendance_upload ( file_name, records, attendance_cycle, attendance_month, attendance_year, remarks, created_by) VALUES ( ?, ?, ?, ?, ?, ?, ? )";
-        const insertAttendanceUploadValues = [file_name, result.length, attendance_cycle, attendance_month, attendance_year,remarks, user_id];
-        await connection.query(insertAttendanceUploadQuery, insertAttendanceUploadValues)
-
-        //commit the transation
-        await connection.commit();
-        return res.json({
-            status: 200,
-            employees: result.length,
-            // attendanceData: insertAttendanceUploadValues
+        result.push({
+          employee_code: employeeId,
+          employee_name: employeeName,
+          records
         });
+      }
+    }
+
+    // Insert into attendance upload 
+    const insertAttendanceUploadQuery = "INSERT INTO attendance_upload ( file_name, records, created_by) VALUES ( ?, ?, ? )";
+    const insertAttendanceUploadValues = [file_name, result.length, user_id];
+    await connection.query(insertAttendanceUploadQuery,insertAttendanceUploadValues)
+
+    //commit the transation
+    await connection.commit();
+    return res.json({
+      status: 200,
+      employees: result.length,
+      // attendanceData: insertAttendanceUploadValues
+    });
 
     } catch (error) {
         await connection.rollback();
@@ -163,7 +147,7 @@ const importAttendanceFromBase64 = async (req, res) => {
     } finally {
         if (connection) connection.release();
     }
-}
+  }
 const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
     const { page, perPage, key, fromDate, toDate, employee_code } = req.query;
     // attempt to obtain a database connection
@@ -193,7 +177,7 @@ const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
             countQuery += `  AND a.employee_code = '${employee_code}'`;
         }
         getQuery += " ORDER BY a.attendance_date DESC";
-
+        
         // Apply pagination if both page and perPage are provided
         let total = 0;
         if (page && perPage) {
@@ -213,26 +197,26 @@ const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
         ON e.employee_id = eww.employee_id
 
         WHERE e.employee_code = ?`
-        //LEFT JOIN work_week_pattern wwp
+                //LEFT JOIN work_week_pattern wwp
         //ON eww.work_week_pattern_id = wwp.work_week_pattern_id
-        let getEmployeeResult = await connection.query(getEmployeeQuery, [employee_code]);
-        if (getEmployeeResult[0].length == 0) {
-            return error422("Employee Not Found", res);
+        let getEmployeeResult = await connection.query(getEmployeeQuery,[employee_code]);
+        if (getEmployeeResult[0].length==0) {
+          return error422("Employee Not Found", res);
         }
         let getCalendarDetailsQuery = "SELECT * FROM holiday_calendar_details WHERE holiday_calendar_id = ?"
-        let getCalendarDetails = await connection.query(getCalendarDetailsQuery, [getEmployeeResult[0][0].holiday_calendar_id])
+        let getCalendarDetails = await connection.query(getCalendarDetailsQuery,[getEmployeeResult[0][0].holiday_calendar_id])
 
         let getWorkWeekPatternQuery = 'SELECT * FROM work_week_pattern WHERE work_week_pattern_id =? '
-        let [workWeekPatternResult] = await connection.query(getWorkWeekPatternQuery, [getEmployeeResult[0][0].work_week_pattern_id])
-
+        let [workWeekPatternResult] = await connection.query(getWorkWeekPatternQuery,[getEmployeeResult[0][0].work_week_pattern_id])
+        
         // Commit the transaction
         await connection.commit();
         const data = {
             status: 200,
             message: "Employee Attendance retrieved successfully",
             data: employee_attendance,
-            calendarDetails: getCalendarDetails[0],
-            workWeekPatternDetails: workWeekPatternResult[0]
+            calendarDetails:getCalendarDetails[0],
+            workWeekPatternDetails : workWeekPatternResult[0]
         };
         // Add pagination information if provided
         if (page && perPage) {
@@ -285,7 +269,7 @@ const getAttendanceUploadList = async (req, res) => {
             countQuery += `  AND a.created_by = '${employee_id}'`;
         }
         getQuery += " ORDER BY a.created_at DESC";
-
+        
         // Apply pagination if both page and perPage are provided
         let total = 0;
         if (page && perPage) {
@@ -297,7 +281,7 @@ const getAttendanceUploadList = async (req, res) => {
 
         const result = await connection.query(getQuery);
         const employee_attendance = result[0];
-
+        
         // Commit the transaction
         await connection.commit();
         const data = {
@@ -323,26 +307,26 @@ const getAttendanceUploadList = async (req, res) => {
         if (connection) connection.release()
     }
 }
-const checkIn = async (req, res) => {
-    let employee_code = req.body.employee_code ? req.body.employee_code : '';
-    let attendance_date = req.body.attendance_date ? req.body.attendance_date : '';
-    let in_time = req.body.in_time ? req.body.in_time : '';
-
+const checkIn = async (req, res)=>{
+    let employee_code = req.body.employee_code ? req.body.employee_code :'';
+    let attendance_date = req.body.attendance_date ? req.body.attendance_date :'';
+    let in_time = req.body.in_time ? req.body.in_time :'';
+    
     if (!employee_code) {
         return error422("Employee code is required.", res)
-    } else if (!attendance_date) {
+    } else if(!attendance_date) {
         return error422("Attendance date is required.", res)
-    } else if (!in_time) {
+    } else if(!in_time) {
         return error422("In time is required.", res);
     }
     let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name FROM employee WHERE employee_code = '${employee_code}' `;
     let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
-    if (isExistEmployeeResult[0].length == 0) {
+    if (isExistEmployeeResult[0].length==0) {
         return error422("Employee Not Found.", res)
     }
     const employee_name = isExistEmployeeResult[0][0].employee_name;
     let isExistAttendanceQuery = `SELECT in_time FROM attendance_master WHERE employee_code = ? AND attendance_date = ?`;
-    let isExistAttendanceResult = await pool.query(isExistAttendanceQuery, [employee_code, attendance_date]);
+    let isExistAttendanceResult = await pool.query(isExistAttendanceQuery,[employee_code, attendance_date]);
     if (isExistAttendanceResult[0].length > 0) {
         return error422("Employee already checked in.", res);
     }
@@ -351,40 +335,40 @@ const checkIn = async (req, res) => {
     try {
         connection = await pool.getConnection()
         const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, medium) VALUES ( ?, ?, ?, ?, ?, ?)`;
-        await connection.query(insertAttendanceQuery, [employee_code, employee_name, attendance_date, 'P', in_time, 'manual']);
+        await connection.query(insertAttendanceQuery,[employee_code, employee_name, attendance_date, 'P', in_time, 'manual']);
 
         await connection.commit()
         return res.status(200).json({
-            status: 200,
-            message: "Check In successfully."
+            status:200,
+            message:"Check In successfully."
         })
     } catch (error) {
-        if (connection) await connection.rollback()
+        if(connection) await connection.rollback()
         return error500(error, res)
     } finally {
-        if (connection) await connection.release()
+        if(connection) await connection.release()
     }
 }
 const checkOut = async (req, res) => {
     let employee_code = req.body.employee_code ? req.body.employee_code : '';
     let attendance_date = req.body.attendance_date ? req.body.attendance_date : '';
-    let out_time = req.body.out_time ? req.body.out_time : '';
-
+    let out_time = req.body.out_time ? req.body.out_time :'';
+    
     if (!employee_code) {
         return error422("Employee code is required.", res)
-    } else if (!attendance_date) {
+    } else if(!attendance_date) {
         return error422("Attendance date is required.", res);
-    } else if (!out_time) {
+    } else if(!out_time) {
         return error422("Out time is required.", res)
     }
     let isExistEmployeeQuery = ` SELECT employee_code, CONCAT(first_name,'',last_name) AS employee_name FROM employee WHERE employee_code = '${employee_code}' `;
     let isExistEmployeeResult = await pool.query(isExistEmployeeQuery)
-    if (isExistEmployeeResult[0].length == 0) {
+    if (isExistEmployeeResult[0].length==0) {
         return error422("Employee Not Found.", res)
     }
     const employee_name = isExistEmployeeResult[0][0].employee_name;
     let isExistAttendanceQuery = `SELECT in_time, out_time FROM attendance_master WHERE employee_code = ? AND attendance_date = ?`;
-    let isExistAttendanceResult = await pool.query(isExistAttendanceQuery, [employee_code, attendance_date])
+    let isExistAttendanceResult = await pool.query(isExistAttendanceQuery,[employee_code, attendance_date])
     if (isExistAttendanceResult[0].length === 0) {
         return error422("Check-in not found. Please check in first.", res)
     }
@@ -392,11 +376,11 @@ const checkOut = async (req, res) => {
 
     //  Validation
     if (!in_time || in_time === '00:00:00') {
-        return error422("Employee has not checked in yet.", res);
+      return error422("Employee has not checked in yet.", res);
     }
 
     if (existingOutTime && existingOutTime !== '00:00:00') {
-        return error422("Employee already checked out.", res);
+      return error422("Employee already checked out.", res);
     }
 
     // Validate time order
@@ -404,44 +388,44 @@ const checkOut = async (req, res) => {
     const outMoment = moment(out_time, "HH:mm:ss");
 
     if (outMoment.isSameOrBefore(inMoment)) {
-        return error422("Out time must be after in time.", res);
+      return error422("Out time must be after in time.", res);
     }
 
     //Calculate duration
     const durationMinutes = outMoment.diff(inMoment, "minutes");
     const duration = moment.utc(durationMinutes * 60 * 1000).format("HH:mm:ss");
-    let connection
+    let connection 
     try {
         connection = await pool.getConnection();
         await connection.beginTransaction();
 
         //  Update attendance
-        await connection.query(
-            `UPDATE attendance_master
+    await connection.query(
+      `UPDATE attendance_master
        SET out_time = ?, duration = ?, status = 'P', medium = 'manual'
        WHERE employee_code = ?
          AND attendance_date = ?`,
-            [out_time, duration, employee_code, attendance_date]
-        );
+      [out_time, duration, employee_code, attendance_date]
+    );
 
-        await connection.commit();
+    await connection.commit();
 
-        return res.status(200).json({
-            status: 200,
-            message: "Check-out successfully.",
-        });
+    return res.status(200).json({
+      status: 200,
+      message: "Check-out successfully.",
+    });
     } catch (error) {
-        if (connection) await connection.rollback();
+        if(connection) await connection.rollback();
         return error422(error, res)
     } finally {
-        if (connection) await connection.release();
+        if(connection) await connection.release();
     }
 }
 
-module.exports = {
-    importAttendanceFromBase64,
-    getEmployeeAttendanceByEmployeeCode,
-    getAttendanceUploadList,
-    checkIn,
-    checkOut
+module.exports = { 
+  importAttendanceFromBase64,
+  getEmployeeAttendanceByEmployeeCode,
+  getAttendanceUploadList,
+  checkIn,
+  checkOut
 };

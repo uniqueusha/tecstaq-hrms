@@ -61,11 +61,11 @@ const createSalaryStructureComponent = async (req, res) => {
         return error422("Salary Component Not Found.", res);
     }
     // Check if the percentage of exists and is active
-    const isPercentageOfExist = "SELECT * FROM salary_structure_components WHERE percentage_of = ?";
-    const isPercentageOfResult = await pool.query(isPercentageOfExist, [percentage_of]);
-    if (isPercentageOfResult[0].length > 0) {
-        return error422("Percentage of is already is exist.", res);
-    }
+    // const isPercentageOfExist = "SELECT * FROM salary_structure_components WHERE percentage_of = ?";
+    // const isPercentageOfResult = await pool.query(isPercentageOfExist, [percentage_of]);
+    // if (isPercentageOfResult[0].length > 0) {
+    //     return error422("Percentage of is already is exist.", res);
+    // }
     let connection = await getConnection();
 
     try {

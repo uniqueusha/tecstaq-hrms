@@ -31,13 +31,16 @@ const attendanceRoutes = require('./src/routes/attendance.routes');
 const settingsRoutes = require('./src/routes/settings.routes')
 
 // master 
-const gradeController = require('./src/routes/master/grade.routes');
-const salaryStructureController = require('./src/routes/master/salary-structure.routes');
-const componentTypeController = require('./src/routes/master/component-type.routes');
-const calculationTypeController = require('./src/routes/master/calculation-type.routes');
-const salaryComponentController = require('./src/routes/master/salary-component.routes');
-const esiRuleController = require('./src/routes/master/esi-rules.routes');
-const providentFundRuleController = require('./src/routes/master/provident-fund-rules.route')
+const gradeRoutes = require('./src/routes/master/grade.routes');
+const salaryStructureRoutes = require('./src/routes/master/salary-structure.routes');
+const componentTypeRoutes = require('./src/routes/master/component-type.routes');
+const calculationTypeRoutes = require('./src/routes/master/calculation-type.routes');
+const salaryComponentRoutes = require('./src/routes/master/salary-component.routes');
+const esiRuleRoutes = require('./src/routes/master/esi-rules.routes');
+const providentFundRuleRoutes = require('./src/routes/master/provident-fund-rules.route')
+//Employee salary mapping
+const employeeSalaryMappingRoutes = require('./src/routes/employee-salary-mapping.routes')
+const payRollRoutes = require('./src/routes/pay-roll.routes')
 // Middleware
 app.use(bodyParser.json());
 app.use((req,res,next)=>{
@@ -76,13 +79,16 @@ app.use('/professional-tax-slabs', professionalTaxSlabRoute);
 app.use('/attendance', attendanceRoutes);
 app.use('/settings', settingsRoutes);
 // master
-app.use('/grade', gradeController)
-app.use('/salary-structure', salaryStructureController)
-app.use('/component-type', componentTypeController)
-app.use('/calculation-type', calculationTypeController)
-app.use('/salary-component', salaryComponentController)
-app.use('/esi-rule', esiRuleController)
-app.use('/provident-fund-rule', providentFundRuleController)
+app.use('/grade', gradeRoutes)
+app.use('/salary-structure', salaryStructureRoutes)
+app.use('/component-type', componentTypeRoutes)
+app.use('/calculation-type', calculationTypeRoutes)
+app.use('/salary-component', salaryComponentRoutes)
+app.use('/esi-rule', esiRuleRoutes)
+app.use('/provident-fund-rule', providentFundRuleRoutes);
+//employee salary mapping
+app.use('/employee-salary-mapping', employeeSalaryMappingRoutes)
+app.use('/pay-roll', payRollRoutes)
 
 app.get('/', (req,res)=>{
     res.status(200).json({

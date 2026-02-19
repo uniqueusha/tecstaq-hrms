@@ -6,7 +6,7 @@ router.post('/', salaryStructureController.createSalaryStructure);
 //get all salary structure
 router.get('/', salaryStructureController.getSalaryStructures);
 //download salary structure
-// router.get('/download', salaryStructureController.getSalaryStructureDownload);
+router.get('/download', salaryStructureController.getSalaryStructureDownload);
 //Active salary structure
 router.get('/wma', salaryStructureController.getSalaryStructureWma);
 // by id salary structure

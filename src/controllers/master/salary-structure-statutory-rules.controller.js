@@ -458,6 +458,81 @@ const getSalaryStructureStatutoryRulesIdWma = async (req, res) => {
     }
 
 }
+//download salary Structure Statutory Rules
+const getSalaryStructureStatutoryRulesDownload = async (req, res) => {
+
+    let { key} = req.query;
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+    let getSalaryStructureStatutoryRulesQuery = `SELECT sssr.*, ss.structure_name, pf.rule_name AS provident_fund_rule_name, esi.rule_name AS esi_rule_name, pt.rule_name AS professional_tax_rule_name  FROM salary_structure_statutory_rules sssr
+        LEFT JOIN salary_structure ss 
+        ON ss.salary_structure_id = sssr.salary_structure_id
+        LEFT JOIN provident_fund_rules pf 
+        ON pf.pf_rule_id = sssr.pf_rule_id
+        LEFT JOIN esi_rules esi
+        ON esi.esi_rule_id = sssr.esi_rule_id
+        LEFT JOIN professional_tax_rules pt 
+        ON pt.pt_rule_id = sssr.pt_rule_id
+        WHERE 1 `;
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+                getSalaryStructureStatutoryRulesQuery += ` AND (LOWER(ss.structure_name) LIKE '%${lowercaseKey}%')`;
+            }
+        getSalaryStructureStatutoryRulesQuery += " ORDER BY sssr.cts DESC";
+
+        let result = await connection.query(getSalaryStructureStatutoryRulesQuery);
+        let salaryStructureStatutoryRules = result[0];
+
+        if (salaryStructureStatutoryRules.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        salaryStructureStatutoryRules = salaryStructureStatutoryRules.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.cts,
+            "Structure name": item.structure_name,
+            "PF": item.pf_applicable === 1 ? "Yes" : "No",
+            "ESI": item.esi_applicable === 1 ? "Yes" : "No",
+            "PT": item.pt_applicable === 1 ? "Yes" : "No",
+            "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(salaryStructureStatutoryRules);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "salaryStatutoryRulesInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        console.log(error);
+        
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 
 module.exports = {
     createSalaryStructureStatutoryRules,
@@ -465,5 +540,6 @@ module.exports = {
     getSalaryStructureStatutoryRule,
     updateSalaryStructureStatutoryRules,
     onStatusChange,
-    getSalaryStructureStatutoryRulesIdWma
+    getSalaryStructureStatutoryRulesIdWma,
+    getSalaryStructureStatutoryRulesDownload
 }

@@ -7,6 +7,7 @@ const { verifyToken } = require('../../middleware/authMiddleware');
 router.post('/', verifyToken,ProfessionalTaxSlabController.createProfessionalTaxSlabs);
 router.get('/', ProfessionalTaxSlabController.getAllProfessionalTaxSlabs);
 router.get('/wma', ProfessionalTaxSlabController.getProfessionalTaxSlabsIdWma);
+router.get('/download', ProfessionalTaxSlabController.getProfessionalTaxSlabsDownload)
 router.get('/:id', ProfessionalTaxSlabController.getprofessionalTaxSlab);
 router.put('/:id', ProfessionalTaxSlabController.updateProfessionalTaxSlabs);
 router.patch('/:id',ProfessionalTaxSlabController.onStatusChange);

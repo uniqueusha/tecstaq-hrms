@@ -276,6 +276,74 @@ const getSalaryStructureWma = async (req, res) => {
 
 }
 
+//download salary structure
+const getSalaryStructureDownload = async (req, res) => {
+
+    let { key } = req.query;
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getStructureQuery = ` SELECT s.*, et.employment_type 
+        FROM salary_structure s 
+        LEFT JOIN employment_type et 
+        ON et.employment_type_id = s.employment_type_id  WHERE 1  `;
+        
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+                getStructureQuery += ` AND (LOWER(s.structure_name) LIKE '%${lowercaseKey}%' || et.employment_type LIKE '%${lowercaseKey}%')`;
+            }
+        getStructureQuery += ` ORDER BY s.cts DESC `;
+
+        let result = await connection.query(getStructureQuery);
+        let salaryStructure = result[0];
+
+        if (salaryStructure.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        salaryStructure = salaryStructure.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.cts,
+            "Employment Type": item.employment_type,
+            "Name": item.structure_name,
+            "Description": item.description,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(salaryStructure);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "salaryStructureInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
     createSalaryStructure,
     getSalaryStructures,
@@ -283,4 +351,5 @@ module.exports = {
     updateSalaryStructure,
     onStatusChange,
     getSalaryStructureWma,
+    getSalaryStructureDownload
 }

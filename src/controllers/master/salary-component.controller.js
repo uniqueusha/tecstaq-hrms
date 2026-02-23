@@ -302,6 +302,75 @@ const getSalaryComponentWma = async (req, res) => {
     }
 
 }
+//download salary component
+const getSalaryComponentDownload = async (req, res) => {
+
+    let { key } = req.query;
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+         let getSalaryComponentQuery = `SELECT sc.*, ct.component_type, cat.calculation_type FROM salary_component sc 
+        LEFT JOIN component_type ct
+        ON ct.component_type_id = sc.component_type_id
+        LEFT JOIN calculation_type cat
+        ON cat.calculation_type_id = sc.calculation_type_id
+        WHERE 1 `
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+                getSalaryComponentQuery += ` AND (LOWER(sc.salary_component_name) LIKE '%${lowercaseKey}%' || LOWER(ct.component_type) LIKE '%${lowercaseKey}%' || LOWER(cat.calculation_type) LIKE '%${lowercaseKey}%' ) `;
+            }
+        getSalaryComponentQuery += ` ORDER BY sc.cts DESC `;
+
+        let result = await connection.query(getSalaryComponentQuery);
+        let salaryComponent = result[0];
+
+        if (salaryComponent.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        salaryComponent = salaryComponent.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.cts,
+            "Salary Component": item.salary_component_name,
+            "Component": item.component_type,
+            "Calculation": item.calculation_type,
+            "Statutory": item.is_statutory === 1 ? "Yes" : "No",
+            "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(salaryComponent);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "salaryComponentInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 
 module.exports = {
     createSalaryComponent,
@@ -310,4 +379,5 @@ module.exports = {
     updateSalaryComponent,
     onStatusChange,
     getSalaryComponentWma,
+    getSalaryComponentDownload
 }

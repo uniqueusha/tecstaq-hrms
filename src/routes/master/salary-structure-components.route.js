@@ -7,6 +7,7 @@ const { verifyToken } = require('../../middleware/authMiddleware');
 router.post('/', verifyToken, salaryStructureComponentsController.createSalaryStructureComponent);
 router.get('/', salaryStructureComponentsController.getAllSalaryStructureComponents);
 router.get('/wma', salaryStructureComponentsController.getSalaryStructureComponentsIdWma);
+router.get('/download', salaryStructureComponentsController.getSalaryStructureComponentsDownload)
 router.get('/:id', salaryStructureComponentsController.getSalaryStructureComponents);
 router.put('/:id', salaryStructureComponentsController.updatesalaryStructureComponents);
 router.patch('/:id',salaryStructureComponentsController.onStatusChange);

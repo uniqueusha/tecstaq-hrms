@@ -6,7 +6,7 @@ router.post('/', componentTypeController.createComponentType);
 //get all component type
 router.get('/', componentTypeController.getComponentTypes);
 //download list
-// router.get('/download', componentTypeController.getGradeDownload);
+router.get('/download', componentTypeController.getComponentTypeDownload);
 //Active component type
 router.get('/wma', componentTypeController.getComponentTypeWma);
 // by id component type

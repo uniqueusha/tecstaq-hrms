@@ -330,7 +330,7 @@ const getSalaryStructureComponentsIdWma = async (req, res) => {
         const salaryStructureComponentsIdQuery = `SELECT ssc.*, sc.salary_component_name FROM salary_structure_components ssc
         LEFT JOIN salary_component sc
         ON sc.salary_component_id = ssc.salary_component_id
-        WHERE ssc.status = 1  ORDER BY ssc.percentage_of`;
+        WHERE ssc.status = 1  ORDER BY ssc.calculation_order`;
 
         const salaryStructureComponentsIdResult = await connection.query(salaryStructureComponentsIdQuery);
         const salaryStructureComponents = salaryStructureComponentsIdResult[0];
@@ -350,6 +350,75 @@ const getSalaryStructureComponentsIdWma = async (req, res) => {
     }
 
 }
+//download salary Structure Components
+const getSalaryStructureComponentsDownload = async (req, res) => {
+
+    let { key } = req.query;
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getSalaryStructureComponentsQuery = `SELECT ssc.*, sc.salary_component_name FROM salary_structure_components ssc
+        LEFT JOIN salary_component sc
+        ON sc.salary_component_id = ssc.salary_component_id
+        WHERE 1 `;
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+                getSalaryStructureComponentsQuery += ` AND (LOWER(ssc.percentage_of) LIKE '%${lowercaseKey}%' || LOWER(ssc.value) LIKE '%${lowercaseKey}%' || LOWER(ssc.min_limit) LIKE '%${lowercaseKey}%' || LOWER(ssc.max_limit) LIKE '%${lowercaseKey}%')`;
+            }
+        getSalaryStructureComponentsQuery += " ORDER BY ssc.cts DESC";
+
+        let result = await connection.query(getSalaryStructureComponentsQuery);
+        let salaryStructureComponents = result[0];
+
+        if (salaryStructureComponents.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        salaryStructureComponents = salaryStructureComponents.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.cts,
+            "Salary Structure Component": item.salary_component_name,
+            "% Of": item.percentage_of,
+            "Value": item.value,
+            "Min": item.min_limit,
+            "Max": item.max_limit,
+            "Order": item.calculation_order,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(salaryStructureComponents);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "salaryStructureComponentsInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 
 module.exports = {
     createSalaryStructureComponent,
@@ -357,5 +426,6 @@ module.exports = {
     getSalaryStructureComponents,
     updatesalaryStructureComponents,
     onStatusChange,
-    getSalaryStructureComponentsIdWma
+    getSalaryStructureComponentsIdWma,
+    getSalaryStructureComponentsDownload
 }

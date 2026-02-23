@@ -22,6 +22,7 @@ const createEmployeeSalaryMapping = async (req, res) => {
     let effective_from = req.body.effective_from ? req.body.effective_from : null;
     let effective_to = req.body.effective_to ? req.body.effective_to : null;
     let pay_cycle = req.body.pay_cycle ? req.body.pay_cycle : null;
+    const employeeSalaryMappingDetails  = req.body.employeeSalaryMappingDetails ? req.body.employeeSalaryMappingDetails : [];
     let user_id = 1
     if (!employee_id) {
         return error422("Employee is required.", res);
@@ -40,7 +41,6 @@ const createEmployeeSalaryMapping = async (req, res) => {
     } else if (!pay_cycle) {
         return error422("Pay cycle is required.", res)
     }
-
     //is employee exist
     let isEmployeeQuery = "SELECT * FROM employee WHERE employee_id = ?";
     let isEmployeeResult = await pool.query(isEmployeeQuery, [employee_id]);
@@ -70,7 +70,17 @@ const createEmployeeSalaryMapping = async (req, res) => {
         await connection.beginTransaction()
         //create employee salary mapping
         let employeeSalaryMappingQuery = `INSERT INTO employee_salary_mapping (employee_id, salary_structure_id, grade_id, ctc_amount, basic_override, effective_from, effective_to, pay_cycle, created_by) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        await connection.query(employeeSalaryMappingQuery, [employee_id, salary_structure_id, grade_id, ctc_amount, basic_override, effective_from, effective_to, pay_cycle, user_id]);
+        let salaryMappingResult = await connection.query(employeeSalaryMappingQuery, [employee_id, salary_structure_id, grade_id, ctc_amount, basic_override, effective_from, effective_to, pay_cycle, user_id]);
+        let employee_salary_id = salaryMappingResult[0].insertId
+        let salaryMappingArray = employeeSalaryMappingDetails
+        for (let i = 0; i < salaryMappingArray.length; i++) {
+            const element = salaryMappingArray[i];
+            const salary_structure_component_id = element.salary_structure_component_id ? element.salary_structure_component_id : '';
+            // Upload employee salary mapping footer if provided
+            let insertSalaryMappingFooterQuery = 'INSERT INTO employee_salary_mapping_footer (employee_salary_id, salary_structure_component_id) VALUES (?, ?)';
+            let insertSalaryMappingFooterValues = [employee_salary_id, salary_structure_component_id];
+            let insertSalaryMappingFooterResult = await connection.query(insertSalaryMappingFooterQuery, insertSalaryMappingFooterValues);
+        }
 
         await connection.commit();
         return res.status(200).json({
@@ -179,7 +189,21 @@ const getEmployeeSalaryMappingById = async (req, res) => {
         if (employeeSalaryMappingResult[0].length == 0) {
             return error422("Employee salary mapping Not Found.", res);
         }
-        const employeeSalaryMapping = employeeSalaryMappingResult[0][0];
+        let employeeSalaryMapping = employeeSalaryMappingResult[0][0];
+        let getSalaryMappingFooterQuery = `SELECT esmf.*, ssc.salary_component_id, ssc.percentage_of, ssc.value, ssc.min_limit, ssc.max_limit, ssc.calculation_order,
+        sc.salary_component_name, sc.component_type_id, sc.calculation_type_id, sc.is_statutory,
+        ct.component_type, cat.calculation_type FROM employee_salary_mapping_footer esmf
+        LEFT JOIN salary_structure_components ssc
+        ON ssc.salary_structure_component_id = esmf.salary_structure_component_id
+        LEFT JOIN salary_component sc
+        ON ssc.salary_component_id = sc.salary_component_id
+        LEFT JOIN component_type ct
+        ON ct.component_type_id = sc.component_type_id
+        LEFT JOIN calculation_type cat
+        ON cat.calculation_type_id = sc.calculation_type_id
+        WHERE esmf.employee_salary_id = ? ORDER BY ssc.calculation_order ASC`
+        let getSalaryMappingFooterResult = await connection.query(getSalaryMappingFooterQuery,[employeeSalaryMapping.employee_salary_id]);
+        employeeSalaryMapping['employeeSalaryMappingDetails']=getSalaryMappingFooterResult[0]
         return res.status(200).json({
             status: 200,
             message: "Employee salary mapping Retrived Successfully",

@@ -6,7 +6,7 @@ router.post('/', salaryComponentController.createSalaryComponent);
 //get all salary component
 router.get('/', salaryComponentController.getSalaryComponents);
 //download list
-// router.get('/download', SalaryComponentController.getGradeDownload);
+router.get('/download', salaryComponentController.getSalaryComponentDownload);
 //Active salary component
 router.get('/wma', salaryComponentController.getSalaryComponentWma);
 // by id salary component

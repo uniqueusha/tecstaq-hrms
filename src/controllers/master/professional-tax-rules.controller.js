@@ -341,11 +341,80 @@ const getProfessionalTaxRulesIdWma = async (req, res) => {
 
 }
 
+//download Provident Fund rule
+const getProvidentFundRulesDownload = async (req, res) => {
+
+    let { key } = req.query;
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getProfessionalTaxRulesQuery = `SELECT pr.*, s.state_name FROM professional_tax_rules pr
+        LEFT JOIN state s
+        ON s.state_id = pr.state_id
+        WHERE 1 `;
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+                getProfessionalTaxRulesQuery += ` AND (LOWER(pr.rule_name) LIKE '%${lowercaseKey}%')`;
+            }
+        getProfessionalTaxRulesQuery += " ORDER BY pr.cts DESC";
+
+        let result = await connection.query(getProfessionalTaxRulesQuery);
+        let professionalTaxRules = result[0];
+
+        if (professionalTaxRules.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        professionalTaxRules = professionalTaxRules.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.cts,
+            "Rule": item.rule_name,
+            "State": item.state_name,
+            "From": item.effective_from,
+            "To": item.effective_to,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(professionalTaxRules);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "professionalTaxRulesInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
     createProfessionalTaxRules,
     getAllProfessionalTaxRules,
     getprofessionalTaxRule,
     updateProfessionalTaxRules,
     onStatusChange,
-    getProfessionalTaxRulesIdWma
+    getProfessionalTaxRulesIdWma,
+    getProvidentFundRulesDownload
 }

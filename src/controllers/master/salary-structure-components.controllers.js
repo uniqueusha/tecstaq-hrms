@@ -330,7 +330,7 @@ const getSalaryStructureComponentsIdWma = async (req, res) => {
         const salaryStructureComponentsIdQuery = `SELECT ssc.*, sc.salary_component_name FROM salary_structure_components ssc
         LEFT JOIN salary_component sc
         ON sc.salary_component_id = ssc.salary_component_id
-        WHERE ssc.status = 1  ORDER BY ssc.percentage_of`;
+        WHERE ssc.status = 1  ORDER BY ssc.calculation_order`;
 
         const salaryStructureComponentsIdResult = await connection.query(salaryStructureComponentsIdQuery);
         const salaryStructureComponents = salaryStructureComponentsIdResult[0];

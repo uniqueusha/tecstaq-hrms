@@ -260,6 +260,70 @@ const getCalculationTypeWma = async (req, res) => {
     }
 
 }
+//download Calculation Type
+const getCalculationTypeDownload = async (req, res) => {
+
+    let { key} = req.query;
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getCalculationTypeQuery = " SELECT * FROM calculation_type WHERE 1  ";
+
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+                getCalculationTypeQuery += ` AND (LOWER(calculation_type) LIKE '%${lowercaseKey}%' || LOWER(description) LIKE '%${lowercaseKey}%') `;
+            }
+        getCalculationTypeQuery += ` ORDER BY cts DESC `;
+
+        let result = await connection.query(getCalculationTypeQuery);
+        let calculationType = result[0];
+
+        if (calculationType.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        calculationType = calculationType.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.cts,
+            "Name": item.calculation_type,
+            "Description": item.description,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(calculationType);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "calculationTypeInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 
 module.exports = {
     createCalculationType,
@@ -268,4 +332,5 @@ module.exports = {
     updateCalculationType,
     onStatusChange,
     getCalculationTypeWma,
+    getCalculationTypeDownload
 }

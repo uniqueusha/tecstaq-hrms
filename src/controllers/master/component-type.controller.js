@@ -260,6 +260,69 @@ const getComponentTypeWma = async (req, res) => {
     }
 
 }
+//download component type
+const getComponentTypeDownload = async (req, res) => {
+
+    let { key} = req.query;
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+                let getComponentTypeQuery = " SELECT * FROM component_type WHERE 1 ";
+
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+                getComponentTypeQuery += ` AND (LOWER(component_type) LIKE '%${lowercaseKey}%' || LOWER(description) LIKE '%${lowercaseKey}%') `;
+            }
+        getComponentTypeQuery += ` ORDER BY cts DESC `;
+
+        let result = await connection.query(getComponentTypeQuery);
+        let componentType = result[0];
+
+        if (componentType.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        componentType = componentType.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.cts,
+            "Name": item.component_type,
+            "Description": item.description,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(componentType);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "componentTypeInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 
 module.exports = {
     createComponentType,
@@ -268,4 +331,5 @@ module.exports = {
     updateComponentType,
     onStatusChange,
     getComponentTypeWma,
+    getComponentTypeDownload
 }

@@ -6,7 +6,7 @@ router.post('/', esiRuleController.createEsiRule);
 //get all esi rule
 router.get('/', esiRuleController.getEsiRules);
 //download list
-// router.get('/download', componentTypeController.getGradeDownload);
+router.get('/download', esiRuleController.getEsiRuleDownload);
 //Active esi rule
 router.get('/wma', esiRuleController.getEsiRuleWma);
 // by id esi rule

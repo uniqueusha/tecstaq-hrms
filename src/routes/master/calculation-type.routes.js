@@ -6,7 +6,7 @@ router.post('/', calculationTypeController.createCalculationType);
 //get all calculation-type
 router.get('/', calculationTypeController.getCalculationTypes);
 //download list
-// router.get('/download', calculationTypeController.getGradeDownload);
+router.get('/download', calculationTypeController.getCalculationTypeDownload);
 //Active calculation-type
 router.get('/wma', calculationTypeController.getCalculationTypeWma);
 // by id calculation-type

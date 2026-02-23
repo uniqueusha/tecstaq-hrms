@@ -326,6 +326,73 @@ const getProfessionalTaxSlabsIdWma = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//download professional Tax Slab
+const getProfessionalTaxSlabsDownload = async (req, res) => {
+
+    let { key } = req.query;
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getProfessionalTaxSlabsQuery = `SELECT ps.*, pr.rule_name FROM professional_tax_slabs ps
+        LEFT JOIN professional_tax_rules pr ON pr.pt_rule_id = ps.pt_rule_id
+        WHERE 1 `;
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+                getProfessionalTaxSlabsQuery += ` AND (LOWER(pr.rule_name) LIKE '%${lowercaseKey}%' || LOWER(ps.salary_from) LIKE '%${lowercaseKey}%' || LOWER(ps.salary_to) LIKE '%${lowercaseKey}%' || LOWER(ps.tax_amount) LIKE '%${lowercaseKey}%' || LOWER(ps.applicable_month) LIKE '%${lowercaseKey}%')`;
+            }
+        getProfessionalTaxSlabsQuery += " ORDER BY ps.cts DESC";
+
+        let result = await connection.query(getProfessionalTaxSlabsQuery);
+        let professionalTaxSlabs = result[0];
+
+        if (professionalTaxSlabs.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        professionalTaxSlabs = professionalTaxSlabs.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.cts,
+            "Rule": item.rule_name,
+            "From": item.salary_from,
+            "To": item.salary_to,
+            "Tax": item.tax_amount,
+            "Month": item.applicable_month,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(professionalTaxSlabs);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "professionalTaxSlabsInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 
 module.exports = {
     createProfessionalTaxSlabs,
@@ -333,5 +400,6 @@ module.exports = {
     getprofessionalTaxSlab,
     updateProfessionalTaxSlabs,
     onStatusChange,
-    getProfessionalTaxSlabsIdWma
+    getProfessionalTaxSlabsIdWma,
+    getProfessionalTaxSlabsDownload
 }

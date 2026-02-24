@@ -298,12 +298,12 @@ const updateEmployeeSalaryMapping = async (req, res) => {
             const mployee_salary_mapping_footer = element.mployee_salary_mapping_footer ? element.mployee_salary_mapping_footer : '';
             if (mployee_salary_mapping_footer){
                 let updateSalaryMappingFooterQuery = 'UPDATE employee_salary_mapping_footer SET employee_salary_id = ? salary_structure_component_id = ?';
-                let updateSalaryMappingFooterValues = [employee_salary_id, salary_structure_component_id];
+                let updateSalaryMappingFooterValues = [employeeSalaryMappingId, salary_structure_component_id];
                 let updateSalaryMappingFooterResult = await connection.query(updateSalaryMappingFooterQuery, updateSalaryMappingFooterValues);
             } else {
             // Upload employee salary mapping footer if provided
                 let insertSalaryMappingFooterQuery = 'INSERT INTO employee_salary_mapping_footer (employee_salary_id, salary_structure_component_id) VALUES (?, ?)';
-                let insertSalaryMappingFooterValues = [employee_salary_id, salary_structure_component_id];
+                let insertSalaryMappingFooterValues = [employeeSalaryMappingId, salary_structure_component_id];
                 let insertSalaryMappingFooterResult = await connection.query(insertSalaryMappingFooterQuery, insertSalaryMappingFooterValues);
             }
         }

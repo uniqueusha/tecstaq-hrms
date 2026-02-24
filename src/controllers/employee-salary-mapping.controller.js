@@ -226,6 +226,7 @@ const updateEmployeeSalaryMapping = async (req, res) => {
     let effective_from = req.body.effective_from ? req.body.effective_from : null;
     let effective_to = req.body.effective_to ? req.body.effective_to : null;
     let pay_cycle = req.body.pay_cycle ? req.body.pay_cycle : null;
+    const employeeSalaryMappingDetails  = req.body.employeeSalaryMappingDetails ? req.body.employeeSalaryMappingDetails : [];
     let user_id = 1
 
     if (!employee_id) {
@@ -290,6 +291,22 @@ const updateEmployeeSalaryMapping = async (req, res) => {
             WHERE employee_salary_id = ?
         `;
         await connection.query(updateQuery, [employee_id, salary_structure_id, grade_id, ctc_amount, basic_override, effective_from, effective_to, pay_cycle, user_id, employeeSalaryMappingId]);
+        let salaryMappingArray = employeeSalaryMappingDetails
+        for (let i = 0; i < salaryMappingArray.length; i++) {
+            const element = salaryMappingArray[i];
+            const salary_structure_component_id = element.salary_structure_component_id ? element.salary_structure_component_id : '';
+            const mployee_salary_mapping_footer = element.mployee_salary_mapping_footer ? element.mployee_salary_mapping_footer : '';
+            if (mployee_salary_mapping_footer){
+                let updateSalaryMappingFooterQuery = 'UPDATE employee_salary_mapping_footer SET employee_salary_id = ? salary_structure_component_id = ?';
+                let updateSalaryMappingFooterValues = [employee_salary_id, salary_structure_component_id];
+                let updateSalaryMappingFooterResult = await connection.query(updateSalaryMappingFooterQuery, updateSalaryMappingFooterValues);
+            } else {
+            // Upload employee salary mapping footer if provided
+                let insertSalaryMappingFooterQuery = 'INSERT INTO employee_salary_mapping_footer (employee_salary_id, salary_structure_component_id) VALUES (?, ?)';
+                let insertSalaryMappingFooterValues = [employee_salary_id, salary_structure_component_id];
+                let insertSalaryMappingFooterResult = await connection.query(insertSalaryMappingFooterQuery, insertSalaryMappingFooterValues);
+            }
+        }
 
         // Commit the transaction
         await connection.commit();

@@ -272,12 +272,12 @@ const updateEmployeeSalaryMapping = async (req, res) => {
     if (employeeSalaryMappingResult[0].length == 0) {
         return error422("Employee Salary Mapping Not Found.", res);
     }
-    // Check if the provided salary mapping mapping exists
-    const existingEmployeeSalaryMappingQuery = "SELECT * FROM employee_salary_mapping WHERE employee_id = ? AND employee_salary_id !=? ";
-    const existingEmployeeSalaryMappingResult = await pool.query(existingEmployeeSalaryMappingQuery, [employee_id, employeeSalaryMappingId]);
-    if (existingEmployeeSalaryMappingResult[0].length > 0) {
-        return error422("The employee already has a salary mapped.", res);
-    }
+    // // Check if the provided salary mapping mapping exists
+    // const existingEmployeeSalaryMappingQuery = "SELECT * FROM employee_salary_mapping WHERE employee_id = ? AND employee_salary_id !=? ";
+    // const existingEmployeeSalaryMappingResult = await pool.query(existingEmployeeSalaryMappingQuery, [employee_id, employeeSalaryMappingId]);
+    // if (existingEmployeeSalaryMappingResult[0].length > 0) {
+    //     return error422("The employee already has a salary mapped.", res);
+    // }
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
 
@@ -295,10 +295,10 @@ const updateEmployeeSalaryMapping = async (req, res) => {
         for (let i = 0; i < salaryMappingArray.length; i++) {
             const element = salaryMappingArray[i];
             const salary_structure_component_id = element.salary_structure_component_id ? element.salary_structure_component_id : '';
-            const mployee_salary_mapping_footer = element.mployee_salary_mapping_footer ? element.mployee_salary_mapping_footer : '';
-            if (mployee_salary_mapping_footer){
-                let updateSalaryMappingFooterQuery = 'UPDATE employee_salary_mapping_footer SET employee_salary_id = ? salary_structure_component_id = ?';
-                let updateSalaryMappingFooterValues = [employeeSalaryMappingId, salary_structure_component_id];
+            const employee_salary_mapping_footer_id = element.employee_salary_mapping_footer_id ? element.employee_salary_mapping_footer_id : '';
+            if (employee_salary_mapping_footer_id){
+                let updateSalaryMappingFooterQuery = 'UPDATE employee_salary_mapping_footer SET employee_salary_id = ?, salary_structure_component_id = ? WHERE employee_salary_mapping_footer_id = ? AND employee_salary_id = ? ';
+                let updateSalaryMappingFooterValues = [employeeSalaryMappingId, salary_structure_component_id, employee_salary_mapping_footer_id, employeeSalaryMappingId];
                 let updateSalaryMappingFooterResult = await connection.query(updateSalaryMappingFooterQuery, updateSalaryMappingFooterValues);
             } else {
             // Upload employee salary mapping footer if provided

@@ -126,8 +126,8 @@ const getEmployeeSalaryMapping = async (req, res) => {
                 getEmployeeSalaryMappingQuery += ` AND sm.status = 0`;
                 countQuery += ` AND sm.status = 0`;
             } else {
-                getEmployeeSalaryMappingQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' )`;
-                countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' )`;
+                getEmployeeSalaryMappingQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(ss.structure_name) LIKE '%${lowercaseKey}%' || LOWER(g.grade_code) LIKE '%${lowercaseKey}%' || LOWER(sm.pay_cycle) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(ss.structure_name) LIKE '%${lowercaseKey}%' || LOWER(g.grade_code) LIKE '%${lowercaseKey}%' || LOWER(sm.pay_cycle) LIKE '%${lowercaseKey}%')`;
             }
         }
         getEmployeeSalaryMappingQuery += " ORDER BY sm.cts DESC";
@@ -470,7 +470,7 @@ const getSalaryEmployeeMappingDownload = async (req, res) => {
         WHERE 1 `
         if (key) {
                 const lowercaseKey = key.toLowerCase().trim();
-                getEmployeeSalaryMappingQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' )`;
+                getEmployeeSalaryMappingQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(ss.structure_name) LIKE '%${lowercaseKey}%' || LOWER(g.grade_code) LIKE '%${lowercaseKey}%' || LOWER(sm.pay_cycle) LIKE '%${lowercaseKey}%')`;
             }
         getEmployeeSalaryMappingQuery += " ORDER BY sm.cts DESC";
 
@@ -519,8 +519,6 @@ const getSalaryEmployeeMappingDownload = async (req, res) => {
 
         await connection.commit();
     } catch (error) {
-        console.log(error);
-        
         return error500(error, res);
     } finally {
         if (connection) connection.release();

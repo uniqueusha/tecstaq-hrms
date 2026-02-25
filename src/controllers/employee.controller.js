@@ -436,8 +436,8 @@ const getEmployees = async (req, res) => {
                 // getEmployeesQuery += ` AND e.status = 0`;
                 // countQuery += ` AND e.status = 0`;
             } else {
-                getEmployeesQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(e.email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
-                countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(e.email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
+                getEmployeesQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_code) LIKE '%${lowercaseKey}%' || LOWER(e.email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_code) LIKE '%${lowercaseKey}%' || LOWER(e.email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
             }
         }
 
@@ -1360,7 +1360,7 @@ const getEmployeeDownload = async (req, res) => {
         WHERE 1 AND e.reporting_manager_id !=0 `;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getEmployeeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_code) LIKE '%${lowercaseKey}%')`;
+            getEmployeeQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_code) LIKE '%${lowercaseKey}%' || LOWER(e.email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
         }
         getEmployeeQuery += " ORDER BY e.cts DESC";
 

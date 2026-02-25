@@ -419,6 +419,8 @@ const getEmployees = async (req, res) => {
         
         let countQuery = `SELECT COUNT(*) AS total FROM employee e
         LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
+        LEFT JOIN company c ON c.company_id = e.company_id
+        LEFT JOIN designation d ON d.designation_id = e.designation_id
         LEFT JOIN employee_family ef ON ef.employee_id = e.employee_id
         LEFT JOIN employee_previous_company empc ON empc.employee_id = e.employee_id
         LEFT JOIN employee_probation ep ON ep.employee_id = e.employee_id

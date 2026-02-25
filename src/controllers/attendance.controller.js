@@ -146,7 +146,7 @@ const importAttendanceFromBase64 = async (req, res) => {
 
         // Insert into attendance upload 
         const insertAttendanceUploadQuery = "INSERT INTO attendance_upload ( file_name, records, attendance_cycle, attendance_month, attendance_year, remarks, created_by) VALUES ( ?, ?, ?, ?, ?, ?, ? )";
-        const insertAttendanceUploadValues = [file_name, result.length, attendance_cycle, attendance_month, attendance_year,remarks, user_id];
+        const insertAttendanceUploadValues = [file_name, result.length, attendance_cycle, attendance_month, attendance_year, remarks, user_id];
         await connection.query(insertAttendanceUploadQuery, insertAttendanceUploadValues)
 
         //commit the transation
@@ -437,11 +437,165 @@ const checkOut = async (req, res) => {
         if (connection) await connection.release();
     }
 }
+const importAttendanceManual = async (req, res) => {
+    // validation run
+    await Promise.all([
+        body('file_base64').notEmpty().withMessage("File Base 64 is required.").run(req),
+        body('file_name').notEmpty().withMessage("File Name is required").run(req),
+        body('month').notEmpty().withMessage("Month is required.").isInt().withMessage("Invalid month.").run(req),
+        body('year').notEmpty().withMessage("Year is required.").isInt().withMessage("Invalid year.").run(req)
+    ]);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return error422(errors.array()[0].msg, res)
+    }
+
+    const file_base64 = req.body.file_base64 ? req.body.file_base64.trim() : '';
+    const file_name = req.body.file_name ? req.body.file_name.trim() : '';
+    const month = req.body.month ? req.body.month : null;
+    const year = req.body.year ? req.body.year : null;
+    const remarks = req.body.remarks ? req.body.remarks : null;
+    const user_id = req.user.user_id
+
+
+    // Attempt to obtain a database connection
+    let connection = await pool.getConnection();
+    try {
+        //Start the transaction
+        await connection.beginTransaction();
+        //check file already exists or not
+        const isExistFileQuery = `SELECT * FROM attendance_upload_manual WHERE file_name = ? `;
+        const isExistFileResult = await pool.query(isExistFileQuery, [file_name]);
+        if (isExistFileResult[0].length > 0) {
+            return error422("File is already uploaded.", res);
+        }
+        const buffer = Buffer.from(file_base64, "base64");
+        const workbook = XLSX.read(buffer, { type: "buffer" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        /* FIND DAYS ROW */
+        const daysRowIndex = rows.findIndex(
+            r => String(r[0]).trim().toLowerCase() === "days"
+        );
+
+        if (daysRowIndex === -1) {
+            return res.status(422).json({ message: "Days row not found" });
+        }
+
+        const daysRow = rows[daysRowIndex];
+
+        /* EXTRACT DAY NUMBERS */
+        const days = [];
+        for (let i = 1; i < daysRow.length; i++) {
+            const match = String(daysRow[i]).match(/\d+/);
+            if (match) days.push({ index: i, day: parseInt(match[0]) });
+        }
+
+        let records = [];
+
+        for (let i = 0; i < rows.length; i++) {
+
+            // detect employee start
+            if (rows[i][0] === 'employee_code:') {
+
+                const employee_code = rows[i][1];
+
+                const statusRow = rows[i + 1];
+                const inTimeRow = rows[i + 2];
+                const outTimeRow = rows[i + 3];
+                const durationRow = rows[i + 4] || [];
+                const lateByRow = rows[i + 5] || [];
+                const earlyByRow = rows[i + 6] || [];
+                const otRow = rows[i + 7] || [];
+                
+                // loop days
+                for (let d = 0; d < days.length; d++) {
+                    
+                    const attendance_date = moment(
+                        `${year}-${month}-${days[d].day}`,
+                        "YYYY-MM-DD"
+                    ).format("YYYY-MM-DD");
+                    
+                    const status = statusRow?.[d + 1] || null;
+                    const in_time = excelTimeToHHMM(inTimeRow?.[d + 1]);
+                    const out_time = excelTimeToHHMM(outTimeRow?.[d + 1]);
+                    const duration = durationRow?.[d + 1] || null;
+                    const late_by = lateByRow?.[d + 1] || null;
+                    const early_by = earlyByRow?.[d + 1] || null;
+                    const ot = otRow?.[d + 1] || null;
+                    if (attendance_date != 'Invalid date') {
+                        records.push({
+                            employee_code,
+                            attendance_date,
+                            status: status,
+                            in_time: in_time,
+                            out_time: out_time,
+                            duration: duration,
+                            late_by: late_by,
+                            early_by: early_by,
+                            ot: ot,
+                        });
+                    }
+                    
+                    const isExistAttendanceQuery = "SELECT * FROM attendance_master WHERE employee_code = ? AND attendance_date = ?"
+                    const [rows] = await connection.query(isExistAttendanceQuery, [employee_code, attendance_date]);
+                    if (rows.length === 0) {
+                        // Insert into DB  
+                        const sql = "INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, shift, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )";
+                        await connection.query(sql, [employee_code, '', attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, '', 'excel-sheet-manual'])
+                    } else {
+                        const updateSql = `
+                    UPDATE attendance_master
+                    SET employee_name = ?, status = ?, in_time = ?, out_time = ?, duration = ?, late_by = ?, early_by = ?, ot = ?, shift = ?, medium = ?
+                    WHERE employee_code = ?
+                      AND attendance_date = ?
+                    `;
+                        await connection.query(updateSql, ['', status, in_time, out_time, duration, late_by, early_by, ot, '', 'excel-sheet-manual', employee_code, attendance_date]);
+                    }
+
+                
+
+                }
+            }
+        }
+        function excelTimeToHHMM(value) {
+            if (!value && value !== 0) return null;
+
+            const totalSeconds = Math.round(value * 24 * 60 * 60);
+
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        }
+        // Insert into attendance upload manual 
+        const insertAttendanceUploadQuery = "INSERT INTO attendance_upload_manual ( file_name, records, month, year, remarks, created_by) VALUES ( ?, ?, ?, ?, ?, ? )";
+        const insertAttendanceUploadValues = [file_name, records.length, month, year, remarks, user_id];
+        await connection.query(insertAttendanceUploadQuery, insertAttendanceUploadValues) 
+
+        //commit the transation
+        await connection.commit();
+        return res.json({
+            status: 200,
+            // employees: result.length,
+            // attendanceData: insertAttendanceUploadValues,
+            rows: records
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+}
 
 module.exports = {
     importAttendanceFromBase64,
     getEmployeeAttendanceByEmployeeCode,
     getAttendanceUploadList,
     checkIn,
-    checkOut
+    checkOut,
+    importAttendanceManual
 };

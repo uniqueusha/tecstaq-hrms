@@ -427,5 +427,7 @@ module.exports = {
     updatesalaryStructureComponents,
     onStatusChange,
     getSalaryStructureComponentsIdWma,
-    getSalaryStructureComponentsDownload
+    getSalaryStructureComponentsDownload,
+    
+
 }

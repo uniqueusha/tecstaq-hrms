@@ -7,10 +7,14 @@ router.post('',employeeSalaryMappingController.createEmployeeSalaryMapping)
 router.get('',employeeSalaryMappingController.getEmployeeSalaryMapping)
 //Active employee salary mapping
 router.get('/wma', employeeSalaryMappingController.getEmployeeSalaryMappingWma);
+//download
+router.get('/download', employeeSalaryMappingController.getSalaryEmployeeMappingDownload);
 // by id employee salary mapping
 router.get('/:id', employeeSalaryMappingController.getEmployeeSalaryMappingById);
 // update employee salary mapping
 router.put('/:id', employeeSalaryMappingController.updateEmployeeSalaryMapping);
 // change status employee salary mapping
 router.patch('/:id', employeeSalaryMappingController.onStatusChange);
+//delete employee salary mapping footer
+router.delete('/:id', employeeSalaryMappingController.deleteSalaryMappingFooter);
 module.exports= router

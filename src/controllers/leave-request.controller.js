@@ -1,4 +1,8 @@
-const pool = require('../common/db')
+const pool = require('../common/db');
+const fs = require('fs');
+const path = require('path');
+const nodemailer = require("nodemailer");
+const xlsx = require("xlsx");
 const error422 = (message, res) => {
     return res.status(422).json({
         status: 422,
@@ -13,8 +17,20 @@ const error500 = (error, res) => {
         error: error
     })
 }
-const createLeaveRequest = async (req, res) => {
 
+const transporter = nodemailer.createTransport({
+    host: "smtp-mail.outlook.com",
+    port: 587,
+    secure: false,
+    auth: {
+        user: "support@tecstaq.com",
+        pass: "HelpMe@1212#$",
+    },
+    tls: {
+        rejectUnauthorized: false,
+    },
+ });
+const createLeaveRequest = async (req, res) => {
     const employee_id = req.body.employee_id ? req.body.employee_id : null;
     const leave_type_id = req.body.leave_type_id ? req.body.leave_type_id : null;
     const start_date = req.body.start_date ? req.body.start_date : null;
@@ -84,7 +100,101 @@ const createLeaveRequest = async (req, res) => {
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, approver_id, "Pending", reason])
 
         await connection.commit();
+        const leaveType = isLeaveTypeResult[0].leave_type;
 
+        let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code FROM employee WHERE employee_id = ?";
+        let [nameResult] = await connection.query(nameQuery, [employee_id])
+        let full_name = nameResult[0].full_name;
+        let email_id = nameResult[0].email;
+        let employee_code = nameResult[0].employee_code;
+
+        // let emailIDQuery = "SELECT status FROM leave_request WHERE employee_id = ?";
+        // let [emailIDResult] = await connection.query(emailIDQuery, [employee_id])
+        // let status = nameResult[0].status;
+
+        const employeeMessage  = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to HRMS</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+        <h2 style="text-transform: capitalize;">Dear ${full_name},</h2>
+        </p>A new leave request has been submitted and is pending for approval.</p>
+        </p>Employee Details:</p>
+        <p>Employee ID : ${employee_code}</p>
+        <p>Leave Type : ${leaveType}</p>
+        <p>Start Date: ${start_date}</P>
+        <p>End Date: ${end_date}</p>
+        <p>Total Days: ${total_days}</p>
+        <p>Reason: ${reason}</p>
+        <p>Status: Pending</p>
+        <p>Kindly review the leave request and take the necessary action at your earliest convenience.</p>
+        <p>Please log in to the system to approve or reject the request.</p>
+        <p>Thank you.</p>
+          <p>Best regards,</p>
+          <p><strong>Tecstaq HRMS</strong></p>
+        </div>
+        </body>
+        </html>`;
+
+        const hrMessage  = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to HRMS</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+        <h2 style="text-transform: capitalize;">Dear HR,</h2>
+        </p>A leave request from Employee ID ${employee_code} for ${start_date} to ${end_date} (${total_days} days) has been submitted and is awaiting your approval.</p>
+        <p>Please review and take the necessary action.</p>
+        <p>Thank you.</p>
+        </div>
+        </body>
+        </html>`;
+
+        // Prepare the email message options.
+        const employeeMailOptions  = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: email_id,
+            // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
+            // cc : technicianEmails,
+            bcc: ["usha.yadav@tecstaq.com"],
+            subject: `Leave Request created Successfully`,
+            html: employeeMessage,
+        };
+        const hrMailOptions  = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: ["ushamyadav777@gmail.com"],
+            // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
+            // cc : technicianEmails,
+            bcc: ["usha.yadav@tecstaq.com"],
+            subject: `Leave Request created Successfully`,
+            html: hrMessage,
+        };
+
+        await transporter.sendMail(employeeMailOptions);
+        await transporter.sendMail(hrMailOptions);
         return res.status(200).json({
             status: 200,
             message: "Leave Request created Successfully"

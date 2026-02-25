@@ -1,4 +1,6 @@
-const pool = require('../common/db')
+const pool = require('../common/db');
+const xlsx = require("xlsx");
+const fs = require("fs");
 const error422 = (message, res) => {
     return res.status(422).json({
         status: 422,
@@ -124,8 +126,8 @@ const getEmployeeSalaryMapping = async (req, res) => {
                 getEmployeeSalaryMappingQuery += ` AND sm.status = 0`;
                 countQuery += ` AND sm.status = 0`;
             } else {
-                getEmployeeSalaryMappingQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' )`;
-                countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' )`;
+                getEmployeeSalaryMappingQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(ss.structure_name) LIKE '%${lowercaseKey}%' || LOWER(g.grade_code) LIKE '%${lowercaseKey}%' || LOWER(sm.pay_cycle) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(ss.structure_name) LIKE '%${lowercaseKey}%' || LOWER(g.grade_code) LIKE '%${lowercaseKey}%' || LOWER(sm.pay_cycle) LIKE '%${lowercaseKey}%')`;
             }
         }
         getEmployeeSalaryMappingQuery += " ORDER BY sm.cts DESC";
@@ -226,6 +228,7 @@ const updateEmployeeSalaryMapping = async (req, res) => {
     let effective_from = req.body.effective_from ? req.body.effective_from : null;
     let effective_to = req.body.effective_to ? req.body.effective_to : null;
     let pay_cycle = req.body.pay_cycle ? req.body.pay_cycle : null;
+    const employeeSalaryMappingDetails  = req.body.employeeSalaryMappingDetails ? req.body.employeeSalaryMappingDetails : [];
     let user_id = 1
 
     if (!employee_id) {
@@ -271,12 +274,12 @@ const updateEmployeeSalaryMapping = async (req, res) => {
     if (employeeSalaryMappingResult[0].length == 0) {
         return error422("Employee Salary Mapping Not Found.", res);
     }
-    // Check if the provided salary mapping mapping exists
-    const existingEmployeeSalaryMappingQuery = "SELECT * FROM employee_salary_mapping WHERE employee_id = ? AND employee_salary_id !=? ";
-    const existingEmployeeSalaryMappingResult = await pool.query(existingEmployeeSalaryMappingQuery, [employee_id, employeeSalaryMappingId]);
-    if (existingEmployeeSalaryMappingResult[0].length > 0) {
-        return error422("The employee already has a salary mapped.", res);
-    }
+    // // Check if the provided salary mapping mapping exists
+    // const existingEmployeeSalaryMappingQuery = "SELECT * FROM employee_salary_mapping WHERE employee_id = ? AND employee_salary_id !=? ";
+    // const existingEmployeeSalaryMappingResult = await pool.query(existingEmployeeSalaryMappingQuery, [employee_id, employeeSalaryMappingId]);
+    // if (existingEmployeeSalaryMappingResult[0].length > 0) {
+    //     return error422("The employee already has a salary mapped.", res);
+    // }
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
 
@@ -290,10 +293,25 @@ const updateEmployeeSalaryMapping = async (req, res) => {
             WHERE employee_salary_id = ?
         `;
         await connection.query(updateQuery, [employee_id, salary_structure_id, grade_id, ctc_amount, basic_override, effective_from, effective_to, pay_cycle, user_id, employeeSalaryMappingId]);
+        let salaryMappingArray = employeeSalaryMappingDetails
+        for (let i = 0; i < salaryMappingArray.length; i++) {
+            const element = salaryMappingArray[i];
+            const salary_structure_component_id = element.salary_structure_component_id ? element.salary_structure_component_id : '';
+            const employee_salary_mapping_footer_id = element.employee_salary_mapping_footer_id ? element.employee_salary_mapping_footer_id : '';
+            if (employee_salary_mapping_footer_id){
+                let updateSalaryMappingFooterQuery = 'UPDATE employee_salary_mapping_footer SET employee_salary_id = ?, salary_structure_component_id = ? WHERE employee_salary_mapping_footer_id = ? AND employee_salary_id = ? ';
+                let updateSalaryMappingFooterValues = [employeeSalaryMappingId, salary_structure_component_id, employee_salary_mapping_footer_id, employeeSalaryMappingId];
+                let updateSalaryMappingFooterResult = await connection.query(updateSalaryMappingFooterQuery, updateSalaryMappingFooterValues);
+            } else {
+            // Upload employee salary mapping footer if provided
+                let insertSalaryMappingFooterQuery = 'INSERT INTO employee_salary_mapping_footer (employee_salary_id, salary_structure_component_id) VALUES (?, ?)';
+                let insertSalaryMappingFooterValues = [employeeSalaryMappingId, salary_structure_component_id];
+                let insertSalaryMappingFooterResult = await connection.query(insertSalaryMappingFooterQuery, insertSalaryMappingFooterValues);
+            }
+        }
 
         // Commit the transaction
         await connection.commit();
-
         return res.status(200).json({
             status: 200,
             message: "Employee Salary Mapping updated successfully.",
@@ -388,11 +406,132 @@ const getEmployeeSalaryMappingWma = async (req, res) => {
 
 }
 
+// delete Employee Salary Mapping footer
+const deleteSalaryMappingFooter = async (req, res) => {
+    const salaryMappingFooterId = parseInt(req.params.id);
+    // const lead_attach_id = parseInt(req.query.lead_attach_id); // Validate and parse the status parameter
+
+    // attempt to obtain a database connection
+     let connection = await pool.getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the Employee Salary Mapping footer exists
+        const salaryMappingFooterQuery = "SELECT * FROM employee_salary_mapping_footer WHERE employee_salary_mapping_footer_id = ? ";
+        const salaryMappingFooterResult = await connection.query(salaryMappingFooterQuery, [salaryMappingFooterId]);
+
+        if (salaryMappingFooterResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Salary Mapping Footer not found.",
+            });
+        }
+
+        // Soft update the Employee Salary Mapping footer
+        const updateQuery = `
+            DELETE FROM employee_salary_mapping_footer
+            WHERE employee_salary_mapping_footer_id = ?
+        `;
+
+        await connection.query(updateQuery, [salaryMappingFooterId]);
+
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Employee Salary Mapping Footer Deleted successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
+
+//download employee salary mapping
+const getSalaryEmployeeMappingDownload = async (req, res) => {
+
+    let { key } = req.query;
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getEmployeeSalaryMappingQuery = ` SELECT sm.*, e.first_name, e.last_name, ss.structure_name, g.grade_code, g.grade_name FROM employee_salary_mapping sm
+        LEFT JOIN employee e
+        ON e.employee_id = sm.employee_id
+        LEFT JOIN salary_structure ss
+        ON ss.salary_structure_id = sm.salary_structure_id 
+        LEFT JOIN grades g
+        ON g.grade_id = sm.grade_id
+        WHERE 1 `
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+                getEmployeeSalaryMappingQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(ss.structure_name) LIKE '%${lowercaseKey}%' || LOWER(g.grade_code) LIKE '%${lowercaseKey}%' || LOWER(sm.pay_cycle) LIKE '%${lowercaseKey}%')`;
+            }
+        getEmployeeSalaryMappingQuery += " ORDER BY sm.cts DESC";
+
+        let result = await connection.query(getEmployeeSalaryMappingQuery);
+        let employeeSalaryMappingQuery = result[0];
+
+        if (employeeSalaryMappingQuery.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        employeeSalaryMappingQuery = employeeSalaryMappingQuery.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.cts,
+            "Employee": `${item.first_name} ${item.last_name}`,
+            "Structure name": item.structure_name,
+            "Grade": item.grade_code,
+            "Basic Override": item.basic_override,
+            "CTC Amount": item.ctc_amount,
+            "Pay Cycle": item.pay_cycle,
+            "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(employeeSalaryMappingQuery);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "employeeSalaryMappingQueryInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
     createEmployeeSalaryMapping,
     getEmployeeSalaryMapping,
     getEmployeeSalaryMappingById,
     updateEmployeeSalaryMapping,
     onStatusChange,
-    getEmployeeSalaryMappingWma
+    getEmployeeSalaryMappingWma,
+    deleteSalaryMappingFooter,
+    getSalaryEmployeeMappingDownload
 }

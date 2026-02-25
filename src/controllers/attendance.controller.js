@@ -590,6 +590,77 @@ const importAttendanceManual = async (req, res) => {
         if (connection) connection.release();
     }
 }
+const getAttendanceUploadManualList = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, employee_id } = req.query;
+    // attempt to obtain a database connection
+    let connection = await pool.getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT a.*, e.first_name, e.last_name 
+        FROM attendance_upload_manual a
+        LEFT JOIN employee e
+        ON e.employee_id = a.created_by
+        WHERE 1 `;
+
+        let countQuery = `SELECT COUNT(*) AS total         
+        FROM attendance_upload_manual a
+        LEFT JOIN employee e
+        ON e.employee_id = a.created_by
+        WHERE 1 `;
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (employee_id) {
+            getQuery += ` AND a.created_by = '${employee_id}'`;
+            countQuery += `  AND a.created_by = '${employee_id}'`;
+        }
+        getQuery += " ORDER BY a.created_at DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getQuery);
+        const employee_attendance = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Attendance upload manual retrieved successfully",
+            data: employee_attendance,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 
 module.exports = {
     importAttendanceFromBase64,
@@ -597,5 +668,6 @@ module.exports = {
     getAttendanceUploadList,
     checkIn,
     checkOut,
-    importAttendanceManual
+    importAttendanceManual,
+    getAttendanceUploadManualList
 };

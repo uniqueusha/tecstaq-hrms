@@ -8,6 +8,7 @@ router.post('/upload-manual', verifyToken, attendanceController.importAttendance
 router.post("/check-in", attendanceController.checkIn);
 router.post("/check-out", attendanceController.checkOut);
 router.get("/upload", attendanceController.getAttendanceUploadList);
+router.get('/upload-manual', verifyToken, attendanceController.getAttendanceUploadManualList)
 router.get("/", attendanceController.getEmployeeAttendanceByEmployeeCode);
 
 module.exports = router;

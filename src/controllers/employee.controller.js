@@ -357,6 +357,7 @@ const createEmployee = async (req, res) => {
             const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
             const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
             if (isExistDocumentTypeResult[0].length === 0) {
+                if (connection) connection.rollback();
                 return error422("Document type not found.", res);
             }
 

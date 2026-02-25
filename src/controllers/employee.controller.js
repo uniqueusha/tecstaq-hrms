@@ -234,6 +234,7 @@ const createEmployee = async (req, res) => {
             const document_type_id = element.document_type_id ? element.document_type_id : '';
             const document_name = element.document_name ? element.document_name.trim() : '';
             const file_path = element.file_path ? element.file_path.trim() : '';
+            if (document_type_id) {
             const allowedMimeTypes = [
                 'application/pdf',
                 'application/msword',
@@ -287,6 +288,7 @@ const createEmployee = async (req, res) => {
             let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
             let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
         }
+    }
 
         let educationArray = employeeEducation
         for (let i = 0; i < educationArray.length; i++) {
@@ -310,27 +312,31 @@ const createEmployee = async (req, res) => {
             const document_type_id = element.document_type_id ? element.document_type_id : '';
             const document_name = element.document_name ? element.document_name.trim() : '';
             const file_path = element.file_path ? element.file_path.trim() : '';
-            // Upload previous company files if provided
-            const filePath = await uploadFile(file_path, 'previous_company'); 
+            if (document_type_id) {
+                // Upload previous company files if provided
+                const filePath = await uploadFile(file_path, 'previous_company'); 
 
-            //check document_type is exists or not
-            const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
-            const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
-            if (isExistDocumentTypeResult[0].length === 0) {
-                return error422("Document type not found.", res);
+                //check document_type is exists or not
+                const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
+                const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
+                if (isExistDocumentTypeResult[0].length === 0) {
+                    return error422("Document type not found.", res);
+                }
+
+                let insertEmployeeDocumentsQuery = 'INSERT INTO employee_previous_company_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
+                let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
+                let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
+        
             }
-
-            let insertEmployeeDocumentsQuery = 'INSERT INTO employee_previous_company_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
-            let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
-            let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
-        }
+           }
         let bankDocumentArray = employeeBankDocuments
         for (let i = 0; i < bankDocumentArray.length; i++) {
             const element = bankDocumentArray[i];
             const document_type_id = element.document_type_id ? element.document_type_id : '';
             const document_name = element.document_name ? element.document_name.trim() : '';
             const file_path = element.file_path ? element.file_path.trim() : '';
-            // Upload previous company files if provided
+            if (document_type_id) {
+                // Upload previous company files if provided
             const filePath = await uploadFile(file_path, 'bank_document');
 
             //check document_type is exists or not
@@ -343,6 +349,8 @@ const createEmployee = async (req, res) => {
             let insertEmployeeDocumentsQuery = 'INSERT INTO employee_bank_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
             let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
             let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
+      
+            }
         }
         let statutoryDocumentArray = employeeStatutoryDocuments
         for (let i = 0; i < statutoryDocumentArray.length; i++) {
@@ -350,7 +358,8 @@ const createEmployee = async (req, res) => {
             const document_type_id = element.document_type_id ? element.document_type_id : '';
             const document_name = element.document_name ? element.document_name.trim() : '';
             const file_path = element.file_path ? element.file_path.trim() : '';
-            // Upload statutory files if provided
+            if (document_type_id) {
+               // Upload statutory files if provided
             const filePath = await uploadFile(file_path, 'statutory_document');
 
             //check document_type is exists or not
@@ -363,7 +372,9 @@ const createEmployee = async (req, res) => {
 
             let insertEmployeeDocumentsQuery = 'INSERT INTO employee_statutory_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
             let insertEmployeeDocumentsValues = [employeeId, document_type_id, document_name, filePath];
-            let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues);
+            let insertEmployeeDocumentsResult = await connection.query(insertEmployeeDocumentsQuery, insertEmployeeDocumentsValues); 
+            }
+            
         }
         if (reporting_manager_id == 0) {
             //insert into user

@@ -59,9 +59,9 @@ const payRollInitialize = async (req, res) => {
             }
             //get attendace
             let getAttendanceQuery = `SELECT * FROM attendance_master WHERE (attendance_date BETWEEN ? AND ?) AND employee_code = ?`;//AND employee_code = 'E4'
-            let getAttendanceResult = await connection.query(getAttendanceQuery, [fromDate, toDate, element.employee_code]);
+            let getAttendanceResult = await connection.query(getAttendanceQuery, [fromDate, toDate, getEmployeeResult[0][0].employee_code]);
             if (getAttendanceResult[0].length == 0) {
-                return error422("Attendance Not Found", res)
+                return error422(" Attendance Not Found", res)
             }
             //salary mapping footer
             let getSalaryMappingFooterQuery = `SELECT esmf.*, ssc.salary_component_id, ssc.percentage_of, ssc.value, ssc.min_limit, ssc.max_limit, ssc.calculation_order,
@@ -126,14 +126,50 @@ const payRollInitialize = async (req, res) => {
             });
 
             const netSalary = totalEarnings - totalDeductions;
+            //testing 
+            // 1. Get total days in the month (based on fromDate/toDate)
+            const start = new Date(fromDate);
+            const end = new Date(toDate);
+            const totalMonthDays = (end - start) / (1000 * 60 * 60 * 24) + 1;
+
+            // 2. Count Present Days from attendance details
+            // Assuming 'P' is Present. You can also handle 'HD' (Half Day) as 0.5
+            const presentDays = getAttendanceResult[0].filter(att => att.status === 'P').length;
+
+            // 3. Per Day Calculations (Based on Fixed CTC)
+            const perDayGross = totalEarnings / totalMonthDays;
+            const perDayNet = netSalary / totalMonthDays;
+
+            // 4. Attendance-Adjusted (Prorated) Salary
+            const actualPayableGross = perDayGross * presentDays;
+            const actualPayableNet = perDayNet * presentDays;
 
             // Resulting Data Object
+            // let payrollData = {
+            //     monthlyCTC: ctcMonthly.toFixed(2),
+            //     breakdown: calculatedBreakdown,
+            //     totalEarnings: totalEarnings.toFixed(2),
+            //     totalDeductions: totalDeductions.toFixed(2),
+            //     netTakeHome: netSalary.toFixed(2),
+            //     attendanceDetails:getAttendanceResult[0]
+            // };
+            // Update your payrollData object
             let payrollData = {
                 monthlyCTC: ctcMonthly.toFixed(2),
+                totalDaysInPeriod: totalMonthDays,
+                presentDays: presentDays,
+                perDaySalary: perDayNet.toFixed(2), // Net per day
+                
+                // Original Potentials (Full Month)
+                potentialGross: totalEarnings.toFixed(2),
+                potentialNet: netSalary.toFixed(2),
+                
+                // Actual Payout (Based on Attendance)
+                actualEarnings: actualPayableGross.toFixed(2),
+                actualNetTakeHome: actualPayableNet.toFixed(2),
+                
                 breakdown: calculatedBreakdown,
-                totalEarnings: totalEarnings.toFixed(2),
-                totalDeductions: totalDeductions.toFixed(2),
-                netTakeHome: netSalary.toFixed(2)
+                attendanceDetails: getAttendanceResult[0]
             };
             payrollEmployeeData.push(payrollData)
             // return error422(payrollData, res)

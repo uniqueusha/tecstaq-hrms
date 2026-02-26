@@ -5,6 +5,7 @@ const leaveRequestController = require('../controllers/leave-request.controller'
 router.post('/',leaveRequestController.createLeaveRequest)
 router.get('/',leaveRequestController.getLeaveRequests)
 router.get('/employe-leave-balance',leaveRequestController.getLeaveBalances)
+router.get('/download', leaveRequestController.getLeaveRequestsDownload)
 router.get('/employee-leave-type/:id',leaveRequestController.getEmployeeLeaveTypes)
 router.get('/:id',leaveRequestController.getLeaveRequest)
 router.put('/:id',leaveRequestController.updateLeaveRequest)

@@ -62,7 +62,9 @@ const createLeaveRequest = async (req, res) => {
     try {
         //is leave type
         let isLeaveTypeQuery = "SELECT * FROM leave_type_master WHERE leave_type_master_id = ?";
-        let [isLeaveTypeResult] = await connection.query(isLeaveTypeQuery, [leave_type_id])
+        let [isLeaveTypeResult] = await connection.query(isLeaveTypeQuery, [leave_type_id]);
+        let leaveType = isLeaveTypeResult[0].leave_type_name;
+
         let leave_type = isLeaveTypeResult[0];
         if (!leave_type) {
             return error422("Leave Type not found.", res)
@@ -100,7 +102,6 @@ const createLeaveRequest = async (req, res) => {
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, approver_id, "Pending", reason])
 
         await connection.commit();
-        const leaveType = isLeaveTypeResult[0].leave_type;
 
         let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
@@ -381,7 +382,7 @@ const updateLeaveRequest = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name FROM leave_request lq 
-       LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
+        LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE  lq.leave_request_id = ?`;
         const [result] = await connection.query(getQuery, [leave_request_id]);
         const leaveRequest = result[0];
@@ -394,6 +395,8 @@ const updateLeaveRequest = async (req, res) => {
         //is leave type
         let isLeaveTypeQuery = "SELECT * FROM leave_type_master WHERE leave_type_master_id = ?";
         let [isLeaveTypeResult] = await connection.query(isLeaveTypeQuery, [leave_type_id])
+        let leaveType = isLeaveTypeResult[0].leave_type_name;
+
         let leave_type = isLeaveTypeResult[0];
         if (!leave_type) {
             return error422("Leave Type not found.", res)
@@ -438,6 +441,99 @@ const updateLeaveRequest = async (req, res) => {
 
         // Commit the transaction
         await connection.commit();
+
+        let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
+        let [nameResult] = await connection.query(nameQuery, [employee_id])
+        let full_name = nameResult[0].full_name;
+        let email_id = nameResult[0].email;
+        let employee_code = nameResult[0].employee_code;
+        let reporting_manager_id = nameResult[0].reporting_manager_id;
+        
+        let reportManagerEmailQuery = `SELECT * FROM users WHERE user_id = ?`;
+        let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
+        let email = reportManagerEmailValue[0].email_id;
+
+        const employeeMessage  = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to HRMS</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+        <h2 style="text-transform: capitalize;">Dear ${full_name},</h2>
+        </p>A new leave request has been submitted and is pending for approval.</p>
+        </p>Employee Details:</p>
+        <p>Employee ID : ${employee_code}</p>
+        <p>Leave Type : ${leaveType}</p>
+        <p>Start Date: ${start_date}</P>
+        <p>End Date: ${end_date}</p>
+        <p>Total Days: ${total_days}</p>
+        <p>Reason: ${reason}</p>
+        <p>Status: Pending</p>
+        <p>Kindly review the leave request and take the necessary action at your earliest convenience.</p>
+        <p>Please log in to the system to approve or reject the request.</p>
+        <p>Thank you.</p>
+          <p>Best regards,</p>
+          <p><strong>Tecstaq HRMS</strong></p>
+        </div>
+        </body>
+        </html>`;
+
+         let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
+        let [hrResult] = await connection.query(hrQuery);
+
+        const hrMessage  = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to HRMS</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+        <h2 style="text-transform: capitalize;">Dear HR,</h2>
+        </p>A leave request from Employee ID ${employee_code} for ${start_date} to ${end_date} (${total_days} days) has been submitted and is awaiting your approval.</p>
+        <p>Please review and take the necessary action.</p>
+        <p>Thank you.</p>
+        </div>
+        </body>
+        </html>`;
+
+         // Prepare the email message options.
+        const employeeMailOptions  = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: email_id,
+            cc : reportManagerEmailValue.map(item => item.email_id),
+            subject: `Leave Request created Successfully`,
+            html: employeeMessage,
+        };
+        const hrMailOptions  = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: hrResult.map(item => item.email_id),
+            subject: `Leave Request created Successfully`,
+            html: hrMessage,
+        };
+        
+        await transporter.sendMail(employeeMailOptions);
+        await transporter.sendMail(hrMailOptions);
         return res.status(200).json({
             status: 200,
             message: "Leave Request Updated successfully",
@@ -676,6 +772,117 @@ const getLeaveBalances = async (req, res )=>{
     }
 }
 
+//download leave requests
+const getLeaveRequestsDownload = async (req, res) => {
+
+    let { key, fromDate, toDate, employee_id, approver_id, leave_type_id,status } = req.query;
+
+    if (status) {
+        if (status!="Pending"&&status!="Approved"&&status!="Rejected"&&status!="Cancelled") {
+        return error422("Leave status is Invalid.", res);
+    } 
+    }
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
+        lt.leave_type_name 
+        FROM leave_request lq
+        LEFT JOIN employee e ON e.employee_id = lq.employee_id
+        LEFT JOIN employee em ON em.employee_id = lq.approver_id
+        LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
+        WHERE 1`;
+        if (key) {
+                const lowercaseKey = key.toLowerCase().trim();
+            getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.reason) LIKE '%${lowercaseKey}%') )`;
+            }
+
+        // from date and to date
+        if (fromDate && toDate) {
+            getQuery += ` AND DATE(lq.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (employee_id) {
+            getQuery += ` AND lq.employee_id = ${employee_id}`;
+        }
+        if (approver_id) {
+            getQuery += ` AND lq.approver_id = ${approver_id}`;
+        }
+        if (leave_type_id) {
+            getQuery += ` AND lq.leave_type_id = ${leave_type_id}`;
+        }
+        if (status) {
+            getQuery += ` AND lq.status = '${status}'`;
+        }
+        getQuery += " ORDER BY lq.applied_date DESC";
+
+        let result = await connection.query(getQuery);
+        let leaveRequests = result[0];
+
+        if (leaveRequests.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        leaveRequests = leaveRequests.map((item, index) => {
+            if (employee_id) {
+                return {
+                    "Sr No": index + 1,
+                    "Leave Type": item.leave_type_name,
+                    "Start Date": item.start_date,
+                    "End Date": item.end_date,
+                    "Days": item.total_days,
+                    "Approver": `${item.approver_first_name} ${item.approver_last_name}`,
+                    "Status": item.status
+                };
+            }
+            return {
+            "Sr No": index + 1,
+            "Name": `${item.first_name} ${item.last_name}`,
+            "Leave Type": item.leave_type_name,
+            "Start Date": item.start_date,
+            "End Date": item.end_date,
+            "Days": item.total_days,
+            "Status": item.status,
+            };   
+        });
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(leaveRequests);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "leaveRequestsInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        console.log(error);
+        
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+
 module.exports = {
     createLeaveRequest,
     getLeaveRequests,
@@ -684,5 +891,6 @@ module.exports = {
     approveLeaveRequest,
     deleteLeaveRequestFooter,
     getEmployeeLeaveTypes,
-    getLeaveBalances
+    getLeaveBalances,
+    getLeaveRequestsDownload
 }

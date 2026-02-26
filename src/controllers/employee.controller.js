@@ -151,7 +151,7 @@ const createEmployee = async (req, res) => {
     const isExistEmployeeQuery = `SELECT * FROM employee WHERE email = ? `;
     const isExistEmployeeResult = await pool.query(isExistEmployeeQuery, [email]);
     if (isExistEmployeeResult[0].length > 0) {
-        // return error422("Employee is already exists.", res);
+        return error422("Employee is already exists.", res);
     }
 
     let connection = await getConnection();
@@ -378,8 +378,8 @@ const createEmployee = async (req, res) => {
         }
         if (reporting_manager_id == 0) {
             //insert into user
-            const insertUserQuery = `INSERT INTO users (first_name, last_name, email_id, mobile_number, role) VALUES (?, ?, ?, ?, ?)`;
-            const insertUserValues = [first_name, last_name, email, mobile_number, 'Management'];
+            const insertUserQuery = `INSERT INTO users (first_name, last_name, email_id, mobile_number, role,employee_id) VALUES (?, ?, ?, ?, ?, ?)`;
+            const insertUserValues = [first_name, last_name, email, mobile_number, 'Management',employeeId];
             const insertUserResult = await connection.query(insertUserQuery, insertUserValues);
             const user_id = insertUserResult[0].insertId;
 

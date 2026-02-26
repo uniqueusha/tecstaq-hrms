@@ -176,11 +176,11 @@ const createEmployee = async (req, res) => {
             const fileTypeResult = await fileType.fileTypeFromBuffer(pdfBuffer);
 
             if (!fileTypeResult || !allowedMimeTypes.includes(fileTypeResult.mime)) {
-                throw new Error("Only JPG, JPEG, PNG files are allowed");
+                 return error422("Only JPG, JPEG, PNG files are allowed",res);
             }
 
             if (pdfBuffer.length > 10 * 1024 * 1024) {
-                throw new Error("File size must be under 10MB");
+                return error422("File size must be under 10MB", res);
             }
 
             const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;
@@ -366,7 +366,7 @@ const createEmployee = async (req, res) => {
             const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
             const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
             if (isExistDocumentTypeResult[0].length === 0) {
-                if (connection) connection.rollback();
+                if (connection) await connection.rollback();
                 return error422("Document type not found.", res);
             }
 
@@ -396,7 +396,7 @@ const createEmployee = async (req, res) => {
             message: "Employee created successfully."
         })
     } catch (error) {
-        if (connection) connection.rollback();
+        if (connection) await connection.rollback();
         return error500(error, res);
     } finally {
         if (connection) connection.release();
@@ -863,11 +863,11 @@ const updateEmployee = async (req, res) => {
             const fileTypeResult = await fileType.fileTypeFromBuffer(pdfBuffer);
 
             if (!fileTypeResult || !allowedMimeTypes.includes(fileTypeResult.mime)) {
-                throw new Error("Only JPG, JPEG, PNG files are allowed");
+                return error422("Only JPG, JPEG, PNG files are allowed", res);
             }
 
             if (pdfBuffer.length > 10 * 1024 * 1024) {
-                throw new Error("File size must be under 10MB");
+                return error422("File size must be under 10MB", res);
             }
 
             const fileName = `${prefix}_${Date.now()}.${fileTypeResult.ext}`;

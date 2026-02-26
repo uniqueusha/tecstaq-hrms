@@ -102,16 +102,17 @@ const createLeaveRequest = async (req, res) => {
         await connection.commit();
         const leaveType = isLeaveTypeResult[0].leave_type;
 
-        let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code FROM employee WHERE employee_id = ?";
+        let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
         let full_name = nameResult[0].full_name;
         let email_id = nameResult[0].email;
         let employee_code = nameResult[0].employee_code;
-
-        // let emailIDQuery = "SELECT status FROM leave_request WHERE employee_id = ?";
-        // let [emailIDResult] = await connection.query(emailIDQuery, [employee_id])
-        // let status = nameResult[0].status;
-
+        let reporting_manager_id = nameResult[0].reporting_manager_id;
+        
+        let reportManagerEmailQuery = `SELECT * FROM users WHERE user_id = ?`;
+        let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
+        let email = reportManagerEmailValue[0].email_id;
+        
         const employeeMessage  = `
         <!DOCTYPE html>
         <html lang="en">
@@ -148,6 +149,9 @@ const createLeaveRequest = async (req, res) => {
         </body>
         </html>`;
 
+        let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
+        let [hrResult] = await connection.query(hrQuery);
+        
         const hrMessage  = `
         <!DOCTYPE html>
         <html lang="en">
@@ -173,22 +177,21 @@ const createLeaveRequest = async (req, res) => {
         </body>
         </html>`;
 
-        // Prepare the email message options.
+         // Prepare the email message options.
         const employeeMailOptions  = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: email_id,
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
-            // cc : technicianEmails,
-            bcc: ["usha.yadav@tecstaq.com"],
+            cc : reportManagerEmailValue.map(item => item.email_id),
             subject: `Leave Request created Successfully`,
             html: employeeMessage,
         };
         const hrMailOptions  = {
             from: "support@tecstaq.com", // Sender address from environment variables.
-            to: ["ushamyadav777@gmail.com"],
+            to: hrResult.map(item => item.email_id),
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
             // cc : technicianEmails,
-            bcc: ["usha.yadav@tecstaq.com"],
+            
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };

@@ -1147,9 +1147,19 @@ const updateEmployee = async (req, res) => {
                         let updateDocumentQuery = `UPDATE employee_statutory_document_details SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_statutory_documents_id = ?`;
                         let updateDocumentValue = [document_type_id, document_name, filePath, employeeId, employee_statutory_documents_id]
                         let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
-                        let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
-                        if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
-                            fs.unlinkSync(oldImageFilePath);
+                        // let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
+                        // if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                        //     fs.unlinkSync(oldImageFilePath);
+                        // }
+                        // delete old file safely
+                        const oldFile = uploadResult?.[0]?.[0]?.file_path;
+                        const oldPath = path.join(__dirname, "..", "..", "images", oldFile);
+                        if (oldFile && oldFile !== filePath &&fs.existsSync(oldPath)) {
+                          try {
+                            await fs.promises.unlink(oldPath);
+                          } catch (e) {
+                            return error422("File delete skipped:"+ e.message,res);
+                          }
                         }
                     }
 
@@ -1187,9 +1197,19 @@ const updateEmployee = async (req, res) => {
                         let updateDocumentQuery = `UPDATE employee_bank_document_details SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_bank_documents_id = ?`;
                         let updateDocumentValue = [document_type_id, document_name, filePath, employeeId, employee_bank_documents_id]
                         let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
-                        let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
-                        if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
-                            fs.unlinkSync(oldImageFilePath);
+                        // let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
+                        // if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                        //     fs.unlinkSync(oldImageFilePath);
+                        // }
+                        // delete old file safely
+                        const oldFile = uploadResult?.[0]?.[0]?.file_path;
+                        const oldPath = path.join(__dirname, "..", "..", "images", oldFile);
+                        if (oldFile && oldFile !== filePath &&fs.existsSync(oldPath)) {
+                          try {
+                            await fs.promises.unlink(oldPath);
+                          } catch (e) {
+                            return error422("File delete skipped:"+ e.message,res);
+                          }
                         }
                     }
 

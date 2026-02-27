@@ -1042,9 +1042,9 @@ const updateEmployee = async (req, res) => {
             const document_name = element.document_name ? element.document_name.trim() : null;
             const file_path = element.file_path ? element.file_path.trim() : null;
 
+            const filePath = await uploadFile(file_path, 'education_document');
             if (employee_education_id) {
                 // Upload education document if provided
-                const filePath = await uploadFile(file_path, 'education_document');
                 // get employee document upload
                 let getUploadQuery = `SELECT * FROM employee_education WHERE employee_education_id = ${employee_education_id}`
                 let uploadResult = await connection.query(getUploadQuery)
@@ -1056,9 +1056,9 @@ const updateEmployee = async (req, res) => {
                     // delete old file safely
                     const oldFile = uploadResult?.[0]?.[0]?.file_path;
 
-                    if (oldFile && oldFile !== filePath) {
+                    const oldPath = path.join(__dirname, "..", "..", "images", oldFile);
+                    if (oldFile && oldFile !== filePath &&fs.existsSync(oldPath)) {
                       try {
-                        const oldPath = path.join(__dirname, "..", "..", "images", oldFile);
                         await fs.promises.unlink(oldPath);
                       } catch (e) {
                         return error422("File delete skipped:"+ e.message,res);

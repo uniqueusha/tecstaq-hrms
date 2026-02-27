@@ -10,7 +10,7 @@ const token = req.headers.authorization?.split(' ')[1];
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, "1f7d5d6e0b0c0e3123f4d65f4e12c6bde56232");
         req.user = decoded; // ✅ set decoded payload here
         next();
     } catch (err) {

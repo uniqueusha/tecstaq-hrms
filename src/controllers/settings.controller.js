@@ -1,4 +1,4 @@
-const pool  = require("../common/db");
+const pool  = require("../../db");
 const error422 = (message, res) => {
     return res.status(422).json({
         status: 422,

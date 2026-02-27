@@ -1,4 +1,4 @@
-const pool = require('../../common/db');
+const pool = require('../../../db');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require("xlsx");

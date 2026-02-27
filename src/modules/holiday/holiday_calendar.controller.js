@@ -4,7 +4,7 @@
  const { updateWithDetails } = require('../../common/updateHelper');
  const { deleteHelper } = require('../../common/deleteHelper');
  const { dropdownHelper } = require('../../common/dropdownHelper');
- const pool = require('../../common/db');
+ const pool = require('../../../db');
  const xlsx = require("xlsx");
  const fs = require("fs");
 

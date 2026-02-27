@@ -1,4 +1,4 @@
-const pool = require('./db');
+const pool = require('../../db');
 /**
  * Update a row in any table by ID.
  * @param {string} table - The table name

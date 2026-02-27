@@ -1,4 +1,4 @@
- const db = require('./db');
+ const db = require('../../db');
 /**
  * Insert into table after checking duplicates for multiple columns.
  * Returns which column(s) already exist in the DB in the error.

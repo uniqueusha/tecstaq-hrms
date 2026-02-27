@@ -1,4 +1,4 @@
-const pool = require('./db');
+const pool = require('../../db');
 
 /**
  * Soft delete a row by changing status to 0

@@ -1,4 +1,4 @@
-const pool = require('./db'); // adjust path if needed
+const pool = require('../../db'); // adjust path if needed
 
 /**
  * Generic List Helper

@@ -1006,7 +1006,7 @@ const updateEmployee = async (req, res) => {
                 if (isExistDocumentTypeResult[0].length === 0) {
                     return error422("Document type not found.", res);
                 }
-                            if (employee_documents_id) {
+                if (employee_documents_id) {
                 // get document upload
                 let getUploadQuery = `SELECT * FROM employee_documents WHERE employee_documents_id = ${employee_documents_id}`
                 let uploadResult = await connection.query(getUploadQuery)
@@ -1588,7 +1588,131 @@ const getUpcomingLeaves = async (req, res) => {
     }
 
 }
-
+//delete employee document 
+const deleteEmployeeDocumentById = async (req, res) => {
+    let employee_documents_id = parseInt(req.params.id);
+    let isEmployeeDocumentQuery = 'SELECT * FROM employee_documents WHERE employee_documents_id = ?';
+    let [isEmployeeDocumentResult] = await pool.query(isEmployeeDocumentQuery, [employee_documents_id])
+    if (!isEmployeeDocumentResult.length > 0) {
+        return error422("Employee Document is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_documents WHERE employee_documents_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_documents_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee document delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+//delete employee education document
+const deleteEmployeeEductionDocumentById = async (req, res) => {
+    let employee_education_id = parseInt(req.params.id);
+    let isEmployeeEducationQuery = 'SELECT * FROM employee_education WHERE employee_education_id = ?';
+    let [isEmployeeEducationResult] = await pool.query(isEmployeeEducationQuery, [employee_education_id])
+    if (!isEmployeeEducationResult.length > 0) {
+        return error422("Employee Education is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee education document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_documents WHERE employee_documents_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_documents_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee education delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+//employee previous company document
+const deleteEmployeePreviousCompanyDocumentById = async (req, res) => {
+    let employee_previous_company_documents_id = parseInt(req.params.id);
+    let isEmployeePreviousCompanyDocumentQuery = 'SELECT * FROM employee_previous_company_document_details WHERE employee_previous_company_documents_id = ?';
+    let [isEmployeePreviousCompanyDocumentResult] = await pool.query(isEmployeePreviousCompanyDocumentQuery, [employee_previous_company_documents_id])
+    if (!isEmployeePreviousCompanyDocumentResult.length > 0) {
+        return error422("Employee previous company document is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee previous company document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_previous_company_document_details WHERE employee_previous_company_documents_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_previous_company_documents_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee previous company document delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+//employee Statutory document
+const deleteEmployeeStatutoryDocumentById = async (req, res) => {
+    let employee_statutory_documents_id = parseInt(req.params.id);
+    let isEmployeeDocumentQuery = 'SELECT * FROM employee_statutory_document_details WHERE employee_statutory_documents_id = ?';
+    let [isEmployeeDocumentResult] = await pool.query(isEmployeeDocumentQuery, [employee_statutory_documents_id])
+    if (!isEmployeeDocumentResult.length > 0) {
+        return error422("Employee Statutory document is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee statutory document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_statutory_document_details WHERE employee_statutory_documents_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_statutory_documents_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee statutory document delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+//employee bank document
+const deleteEmployeeBankDocumentById = async (req, res) => {
+    let employee_bank_documents_id = parseInt(req.params.id);
+    let isEmployeeDocumentQuery = 'SELECT * FROM employee_bank_document_details WHERE employee_bank_documents_id = ?';
+    let [isEmployeeDocumentResult] = await pool.query(isEmployeeDocumentQuery, [employee_bank_documents_id])
+    if (!isEmployeeDocumentResult.length > 0) {
+        return error422("Employee Bank document is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee bank document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_bank_document_details WHERE employee_bank_documents_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_bank_documents_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee bank document delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 module.exports = {
     createEmployee,
     getEmployees,
@@ -1598,6 +1722,11 @@ module.exports = {
     getEmployeeWma,
     getEmployeeAdminWma,
     getEmployeeDownload,
-    getUpcomingLeaves
+    getUpcomingLeaves,
+    deleteEmployeeDocumentById,
+    deleteEmployeeEductionDocumentById,
+    deleteEmployeePreviousCompanyDocumentById,
+    deleteEmployeeStatutoryDocumentById,
+    deleteEmployeeBankDocumentById
 
 }

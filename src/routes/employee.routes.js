@@ -29,5 +29,15 @@ router.put('/:id', employeeController.updateEmployee);
 // change status employee
 router.patch('/:id', employeeController.onStatusChange);
 
+//delete  employee document
+router.delete('/employee-document/:id', employeeController.deleteEmployeeDocumentById)
+//delete  employee education document
+router.delete('/employee-education-document/:id', employeeController.deleteEmployeeEductionDocumentById)
+//delete  employee previous company document
+router.delete('/employee-previous-company-document/:id', employeeController.deleteEmployeePreviousCompanyDocumentById)
+//delete  employee statutory document
+router.delete('/employee-statutory-document/:id', employeeController.deleteEmployeeStatutoryDocumentById)
+//delete  employee bank document
+router.delete('/employee-bank-document/:id', employeeController.deleteEmployeeBankDocumentById)
 
 module.exports = router

@@ -59,7 +59,7 @@ const createEmployee = async (req, res) => {
     const work_location = req.body.work_location ? req.body.work_location.trim() : null;
     const employee_status = req.body.employee_status ? 'Inactive' : 'Inactive';
     const holiday_calendar_id = req.body.holiday_calendar_id ? req.body.holiday_calendar_id : null;
-    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : null;
+    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : 0;
     const uan_number = req.body.uan_number ? req.body.uan_number : null;
     const esic_number = req.body.esic_number ? req.body.esic_number : null;
     const pf_number = req.body.pf_number ? req.body.pf_number : null;
@@ -743,7 +743,7 @@ const updateEmployee = async (req, res) => {
     const work_location = req.body.work_location ? req.body.work_location.trim() : null;
     const employee_status = req.body.employee_status ? req.body.employee_status : null;
     const holiday_calendar_id = req.body.holiday_calendar_id ? req.body.holiday_calendar_id : null;
-    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : null;
+    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : 0;
     const uan_number = req.body.uan_number ? req.body.uan_number : null;
     const esic_number = req.body.esic_number ? req.body.esic_number : null;
     const pf_number = req.body.pf_number ? req.body.pf_number : null;
@@ -1006,7 +1006,7 @@ const updateEmployee = async (req, res) => {
                 if (isExistDocumentTypeResult[0].length === 0) {
                     return error422("Document type not found.", res);
                 }
-                            if (employee_documents_id) {
+                if (employee_documents_id) {
                 // get document upload
                 let getUploadQuery = `SELECT * FROM employee_documents WHERE employee_documents_id = ${employee_documents_id}`
                 let uploadResult = await connection.query(getUploadQuery)
@@ -1042,9 +1042,9 @@ const updateEmployee = async (req, res) => {
             const document_name = element.document_name ? element.document_name.trim() : null;
             const file_path = element.file_path ? element.file_path.trim() : null;
 
+            const filePath = await uploadFile(file_path, 'education_document');
             if (employee_education_id) {
                 // Upload education document if provided
-                const filePath = await uploadFile(file_path, 'education_document');
                 // get employee document upload
                 let getUploadQuery = `SELECT * FROM employee_education WHERE employee_education_id = ${employee_education_id}`
                 let uploadResult = await connection.query(getUploadQuery)
@@ -1055,19 +1055,14 @@ const updateEmployee = async (req, res) => {
                     let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
                     // delete old file safely
                     const oldFile = uploadResult?.[0]?.[0]?.file_path;
-
-                    if (oldFile && oldFile !== filePath) {
+                    const oldPath = path.join(__dirname, "..", "..", "images", oldFile);
+                    if (oldFile && oldFile !== filePath &&fs.existsSync(oldPath)) {
                       try {
-                        const oldPath = path.join(__dirname, "..", "..", "images", oldFile);
                         await fs.promises.unlink(oldPath);
                       } catch (e) {
                         return error422("File delete skipped:"+ e.message,res);
                       }
                     }
-                    // let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
-                    // if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
-                    //      fs.unlinkSync(oldImageFilePath);
-                    // }
                 }
 
             } else {
@@ -1084,9 +1079,9 @@ const updateEmployee = async (req, res) => {
             const document_type_id = element.document_type_id ? element.document_type_id : null;
             const document_name = element.document_name ? element.document_name.trim() : null;
             const file_path = element.file_path ? element.file_path.trim() : null;
+            const filePath = await uploadFile(file_path, 'file_path');
             // Upload files if provided
             if (document_type_id) {
-                const filePath = await uploadFile(file_path, 'file_path');
                 //check document_type is exists or not
                 const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
                 const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);
@@ -1103,11 +1098,18 @@ const updateEmployee = async (req, res) => {
                         let updateDocumentQuery = `UPDATE employee_previous_company_document_details SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_previous_company_documents_id = ?`;
                         let updateDocumentValue = [document_type_id, document_name, filePath, employeeId, employee_previous_company_documents_id]
                         let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
-                        let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
-                        if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
-                            fs.unlinkSync(oldImageFilePath);
+                        // delete old file safely
+                        const oldFile = uploadResult?.[0]?.[0]?.file_path;
+                        const oldPath = path.join(__dirname, "..", "..", "images", oldFile);
+                        if (oldFile && oldFile !== filePath &&fs.existsSync(oldPath)) {
+                          try {
+                            await fs.promises.unlink(oldPath);
+                          } catch (e) {
+                            return error422("File delete skipped:"+ e.message,res);
+                          }
                         }
                     }
+                    
 
                 } else {
                     let insertEmployeeDocumentsQuery = 'INSERT INTO employee_previous_company_document_details (employee_id, document_type_id, document_name, file_path) VALUES (?, ?, ?, ?)';
@@ -1145,9 +1147,19 @@ const updateEmployee = async (req, res) => {
                         let updateDocumentQuery = `UPDATE employee_statutory_document_details SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_statutory_documents_id = ?`;
                         let updateDocumentValue = [document_type_id, document_name, filePath, employeeId, employee_statutory_documents_id]
                         let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
-                        let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
-                        if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
-                            fs.unlinkSync(oldImageFilePath);
+                        // let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
+                        // if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                        //     fs.unlinkSync(oldImageFilePath);
+                        // }
+                        // delete old file safely
+                        const oldFile = uploadResult?.[0]?.[0]?.file_path;
+                        const oldPath = path.join(__dirname, "..", "..", "images", oldFile);
+                        if (oldFile && oldFile !== filePath &&fs.existsSync(oldPath)) {
+                          try {
+                            await fs.promises.unlink(oldPath);
+                          } catch (e) {
+                            return error422("File delete skipped:"+ e.message,res);
+                          }
                         }
                     }
 
@@ -1185,9 +1197,19 @@ const updateEmployee = async (req, res) => {
                         let updateDocumentQuery = `UPDATE employee_bank_document_details SET document_type_id = ?, document_name = ?, file_path = ? WHERE employee_id = ? AND employee_bank_documents_id = ?`;
                         let updateDocumentValue = [document_type_id, document_name, filePath, employeeId, employee_bank_documents_id]
                         let updateDocumentResult = await connection.query(updateDocumentQuery, updateDocumentValue);
-                        let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
-                        if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
-                            fs.unlinkSync(oldImageFilePath);
+                        // let oldImageFilePath = path.join(__dirname, "..", "..", "images", uploadResult[0][0].file_path);
+                        // if ((oldImageFilePath && fs.existsSync(oldImageFilePath))) {
+                        //     fs.unlinkSync(oldImageFilePath);
+                        // }
+                        // delete old file safely
+                        const oldFile = uploadResult?.[0]?.[0]?.file_path;
+                        const oldPath = path.join(__dirname, "..", "..", "images", oldFile);
+                        if (oldFile && oldFile !== filePath &&fs.existsSync(oldPath)) {
+                          try {
+                            await fs.promises.unlink(oldPath);
+                          } catch (e) {
+                            return error422("File delete skipped:"+ e.message,res);
+                          }
                         }
                     }
 
@@ -1566,7 +1588,131 @@ const getUpcomingLeaves = async (req, res) => {
     }
 
 }
-
+//delete employee document 
+const deleteEmployeeDocumentById = async (req, res) => {
+    let employee_documents_id = parseInt(req.params.id);
+    let isEmployeeDocumentQuery = 'SELECT * FROM employee_documents WHERE employee_documents_id = ?';
+    let [isEmployeeDocumentResult] = await pool.query(isEmployeeDocumentQuery, [employee_documents_id])
+    if (!isEmployeeDocumentResult.length > 0) {
+        return error422("Employee Document is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_documents WHERE employee_documents_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_documents_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee document delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+//delete employee education document
+const deleteEmployeeEductionDocumentById = async (req, res) => {
+    let employee_education_id = parseInt(req.params.id);
+    let isEmployeeEducationQuery = 'SELECT * FROM employee_education WHERE employee_education_id = ?';
+    let [isEmployeeEducationResult] = await pool.query(isEmployeeEducationQuery, [employee_education_id])
+    if (!isEmployeeEducationResult.length > 0) {
+        return error422("Employee Education is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee education document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_education WHERE employee_education_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_education_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee education delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+//employee previous company document
+const deleteEmployeePreviousCompanyDocumentById = async (req, res) => {
+    let employee_previous_company_documents_id = parseInt(req.params.id);
+    let isEmployeePreviousCompanyDocumentQuery = 'SELECT * FROM employee_previous_company_document_details WHERE employee_previous_company_documents_id = ?';
+    let [isEmployeePreviousCompanyDocumentResult] = await pool.query(isEmployeePreviousCompanyDocumentQuery, [employee_previous_company_documents_id])
+    if (!isEmployeePreviousCompanyDocumentResult.length > 0) {
+        return error422("Employee previous company document is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee previous company document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_previous_company_document_details WHERE employee_previous_company_documents_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_previous_company_documents_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee previous company document delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+//employee Statutory document
+const deleteEmployeeStatutoryDocumentById = async (req, res) => {
+    let employee_statutory_documents_id = parseInt(req.params.id);
+    let isEmployeeDocumentQuery = 'SELECT * FROM employee_statutory_document_details WHERE employee_statutory_documents_id = ?';
+    let [isEmployeeDocumentResult] = await pool.query(isEmployeeDocumentQuery, [employee_statutory_documents_id])
+    if (!isEmployeeDocumentResult.length > 0) {
+        return error422("Employee Statutory document is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee statutory document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_statutory_document_details WHERE employee_statutory_documents_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_statutory_documents_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee statutory document delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+//employee bank document
+const deleteEmployeeBankDocumentById = async (req, res) => {
+    let employee_bank_documents_id = parseInt(req.params.id);
+    let isEmployeeDocumentQuery = 'SELECT * FROM employee_bank_document_details WHERE employee_bank_documents_id = ?';
+    let [isEmployeeDocumentResult] = await pool.query(isEmployeeDocumentQuery, [employee_bank_documents_id])
+    if (!isEmployeeDocumentResult.length > 0) {
+        return error422("Employee Bank document is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete employee bank document 
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_bank_document_details WHERE employee_bank_documents_id = ?'
+        await connection.query(deleteEmployeeDocumentQuery, [employee_bank_documents_id]);
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Employee bank document delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 module.exports = {
     createEmployee,
     getEmployees,
@@ -1576,6 +1722,11 @@ module.exports = {
     getEmployeeWma,
     getEmployeeAdminWma,
     getEmployeeDownload,
-    getUpcomingLeaves
+    getUpcomingLeaves,
+    deleteEmployeeDocumentById,
+    deleteEmployeeEductionDocumentById,
+    deleteEmployeePreviousCompanyDocumentById,
+    deleteEmployeeStatutoryDocumentById,
+    deleteEmployeeBankDocumentById
 
 }

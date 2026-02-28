@@ -1625,7 +1625,7 @@ const deleteEmployeeEductionDocumentById = async (req, res) => {
     try {
         //delete employee education document 
         let deleteEmployeeDocumentQuery = 'DELETE FROM employee_documents WHERE employee_documents_id = ?'
-        await connection.query(deleteEmployeeDocumentQuery, [employee_documents_id]);
+        await connection.query(deleteEmployeeDocumentQuery, [employee_education_id]);
         await connection.commit();
         return res.status(200).json({
             status: 200,

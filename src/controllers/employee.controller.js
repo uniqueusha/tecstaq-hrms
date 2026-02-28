@@ -1624,7 +1624,7 @@ const deleteEmployeeEductionDocumentById = async (req, res) => {
     let connection = await pool.getConnection()
     try {
         //delete employee education document 
-        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_education WHERE employee_documents_id = ?'
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_education WHERE employee_education_id = ?'
         await connection.query(deleteEmployeeDocumentQuery, [employee_education_id]);
         await connection.commit();
         return res.status(200).json({

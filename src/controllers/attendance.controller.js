@@ -537,22 +537,25 @@ const importAttendanceManual = async (req, res) => {
                             ot: ot,
                         });
                     }
-                    
-                    const isExistAttendanceQuery = "SELECT * FROM attendance_master WHERE employee_code = ? AND attendance_date = ?"
-                    const [rows] = await connection.query(isExistAttendanceQuery, [employee_code, attendance_date]);
-                    if (rows.length === 0) {
-                        // Insert into DB  
-                        const sql = "INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, shift, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )";
-                        await connection.query(sql, [employee_code, '', attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, '', 'excel-sheet-manual'])
-                    } else {
-                        const updateSql = `
-                    UPDATE attendance_master
-                    SET employee_name = ?, status = ?, in_time = ?, out_time = ?, duration = ?, late_by = ?, early_by = ?, ot = ?, shift = ?, medium = ?
-                    WHERE employee_code = ?
-                      AND attendance_date = ?
-                    `;
-                        await connection.query(updateSql, ['', status, in_time, out_time, duration, late_by, early_by, ot, '', 'excel-sheet-manual', employee_code, attendance_date]);
+                    if (attendance_date != 'Invalid date') {
+                        const isExistAttendanceQuery = "SELECT * FROM attendance_master WHERE employee_code = ? AND attendance_date = ?"
+                        const [rows] = await connection.query(isExistAttendanceQuery, [employee_code, attendance_date]);
+                        if (rows.length === 0) {
+                            // Insert into DB  
+                            const sql = "INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, shift, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )";
+                            await connection.query(sql, [employee_code, '', attendance_date, status, in_time, out_time, duration, late_by, early_by, ot, '', 'excel-sheet-manual'])
+                        } else {
+                            const updateSql = `
+                        UPDATE attendance_master
+                        SET employee_name = ?, status = ?, in_time = ?, out_time = ?, duration = ?, late_by = ?, early_by = ?, ot = ?, shift = ?, medium = ?
+                        WHERE employee_code = ?
+                          AND attendance_date = ?
+                        `;
+                            await connection.query(updateSql, ['', status, in_time, out_time, duration, late_by, early_by, ot, '', 'excel-sheet-manual', employee_code, attendance_date]);
+                        }
+
                     }
+                    
 
                 
 

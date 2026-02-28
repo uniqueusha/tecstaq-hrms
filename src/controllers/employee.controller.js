@@ -1079,9 +1079,9 @@ const updateEmployee = async (req, res) => {
             const document_type_id = element.document_type_id ? element.document_type_id : null;
             const document_name = element.document_name ? element.document_name.trim() : null;
             const file_path = element.file_path ? element.file_path.trim() : null;
+            const filePath = await uploadFile(file_path, 'file_path');
             // Upload files if provided
             if (document_type_id) {
-                const filePath = await uploadFile(file_path, 'file_path');
                 //check document_type is exists or not
                 const isExistDocumentTypeQuery = `SELECT * FROM document_type WHERE document_type_id = ? `;
                 const isExistDocumentTypeResult = await connection.query(isExistDocumentTypeQuery, [document_type_id]);

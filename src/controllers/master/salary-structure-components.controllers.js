@@ -30,12 +30,12 @@ error500 = (error, res) => {
 
 //create salary structure component
 const createSalaryStructureComponent = async (req, res) => {
-    const salary_component_id = req.body.salary_component_id ? req.body.salary_component_id : '';
-    const percentage_of = req.body.percentage_of ? req.body.percentage_of : '';
-    const value = req.body.value ? req.body.value : '';
-    const min_limit = req.body.min_limit ? req.body.min_limit : '';
-    const max_limit = req.body.max_limit ? req.body.max_limit : '';
-    const calculation_order = req.body.calculation_order ? req.body.calculation_order : '';
+    const salary_component_id = req.body.salary_component_id ? req.body.salary_component_id : null;
+    const percentage_of = req.body.percentage_of ? req.body.percentage_of :'';
+    const value = req.body.value ? req.body.value : 0;
+    const min_limit = req.body.min_limit ? req.body.min_limit :0;
+    const max_limit = req.body.max_limit ? req.body.max_limit : 0;
+    const calculation_order = req.body.calculation_order ? req.body.calculation_order : 0;
     // const user_id = req.companyData.userId;
     const user_id = req.user?.user_id;
 
@@ -199,23 +199,23 @@ const getSalaryStructureComponents = async (req, res) => {
 //Update salary Structure Components
 const updatesalaryStructureComponents = async (req, res) => {
     const salaryStructureComponentsId = parseInt(req.params.id);
-    const salary_component_id = req.body.salary_component_id ? req.body.salary_component_id : '';
+    const salary_component_id = req.body.salary_component_id ? req.body.salary_component_id : null;
     const percentage_of = req.body.percentage_of ? req.body.percentage_of : '';
-    const value = req.body.value ? req.body.value : '';
-    const min_limit = req.body.min_limit ? req.body.min_limit : '';
-    const max_limit = req.body.max_limit ? req.body.max_limit : '';
-    const calculation_order = req.body.calculation_order ? req.body.calculation_order : '';
+    const value = req.body.value ? req.body.value : 0;
+    const min_limit = req.body.min_limit ? req.body.min_limit : 0;
+    const max_limit = req.body.max_limit ? req.body.max_limit : 0;
+    const calculation_order = req.body.calculation_order ? req.body.calculation_order : 0;
     const user_id = req.user?.user_id;
 
     if (!salary_component_id) {
         return error422("Salary component id is required.", res);
-    } else if (!percentage_of) {
+    } else if (!percentage_of && percentage_of != 0) {
         return error422("Percentage of is required.", res);
-    } else if (!value) {
+    } else if (!value && value != 0) {
         return error422("Value is required.", res);
-    } else if (!min_limit) {
+    } else if (!min_limit && min_limit != 0) {
         return error422("Min limit is required.", res);
-    } else if (!max_limit) {
+    } else if (!max_limit && max_limit != 0) {
         return error422("Max limit is required.", res);
     } else if (!calculation_order) {
         return error422("Calculation order is required.", res);

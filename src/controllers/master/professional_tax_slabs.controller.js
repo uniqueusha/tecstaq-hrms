@@ -33,7 +33,7 @@ const createProfessionalTaxSlabs = async (req, res)=>{
     const pt_rule_id = req.body.pt_rule_id ? req.body.pt_rule_id :'';
     const salary_from = req.body.salary_from ? req.body.salary_from :0;
     const salary_to  = req.body.salary_to  ? req.body.salary_to : 0;
-    const tax_amount = req.body.tax_amount ? req.body.tax_amount :'';
+    const tax_amount = req.body.tax_amount ? req.body.tax_amount :0;
     const applicable_month = req.body.applicable_month ? req.body.applicable_month.trim() : null;
     const user_id = req.user?.user_id;
 
@@ -185,7 +185,7 @@ const updateProfessionalTaxSlabs = async (req, res) => {
     const pt_rule_id = req.body.pt_rule_id ? req.body.pt_rule_id :'';
     const salary_from = req.body.salary_from ? req.body.salary_from :0;
     const salary_to  = req.body.salary_to  ? req.body.salary_to : 0;
-    const tax_amount = req.body.tax_amount ? req.body.tax_amount :'';
+    const tax_amount = req.body.tax_amount ? req.body.tax_amount :0;
     const applicable_month = req.body.applicable_month ? req.body.applicable_month.trim() : null;
     const user_id = req.user?.user_id;
 

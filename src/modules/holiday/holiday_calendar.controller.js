@@ -211,17 +211,21 @@ const getHolidayCalendarById = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const holidayCalendarQuery = `SELECT h.*, c.name, u.first_name, u.last_name
+        let holidayCalendarQuery = `SELECT h.*, c.name, u.first_name, u.last_name
         FROM holiday_calendar h
         LEFT JOIN company c ON c.company_id = h.company_id
         LEFT JOIN users u ON u.user_id = h.user_id
         WHERE h.holiday_calendar_id = ?`;
-        const holidayCalendarResult = await connection.query(holidayCalendarQuery, [holidayCalendarId]);
+        let holidayCalendarResult = await connection.query(holidayCalendarQuery, [holidayCalendarId]);
 
         if (holidayCalendarResult[0].length == 0) {
             return error422("Holiday Calendar Not Found.", res);
         }
         const holidayCalendar = holidayCalendarResult[0][0];
+
+        let holidayFooterQuery = `SELECT * FROM holiday_calendar_details WHERE holiday_calendar_id = ?`;
+        let holidayFooterValue = await connection.query(holidayFooterQuery, [holidayCalendarId]);
+        holidayCalendar["details"] = holidayFooterValue[0];
 
         return res.status(200).json({
             status: 200,

@@ -59,7 +59,7 @@ const createEmployee = async (req, res) => {
     const work_location = req.body.work_location ? req.body.work_location.trim() : null;
     const employee_status = req.body.employee_status ? 'Inactive' : 'Inactive';
     const holiday_calendar_id = req.body.holiday_calendar_id ? req.body.holiday_calendar_id : null;
-    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : null;
+    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : 0;
     const uan_number = req.body.uan_number ? req.body.uan_number : null;
     const esic_number = req.body.esic_number ? req.body.esic_number : null;
     const pf_number = req.body.pf_number ? req.body.pf_number : null;
@@ -743,7 +743,7 @@ const updateEmployee = async (req, res) => {
     const work_location = req.body.work_location ? req.body.work_location.trim() : null;
     const employee_status = req.body.employee_status ? req.body.employee_status : null;
     const holiday_calendar_id = req.body.holiday_calendar_id ? req.body.holiday_calendar_id : null;
-    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : null;
+    const reporting_manager_id = req.body.reporting_manager_id ? req.body.reporting_manager_id : 0;
     const uan_number = req.body.uan_number ? req.body.uan_number : null;
     const esic_number = req.body.esic_number ? req.body.esic_number : null;
     const pf_number = req.body.pf_number ? req.body.pf_number : null;
@@ -1624,7 +1624,7 @@ const deleteEmployeeEductionDocumentById = async (req, res) => {
     let connection = await pool.getConnection()
     try {
         //delete employee education document 
-        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_documents WHERE employee_documents_id = ?'
+        let deleteEmployeeDocumentQuery = 'DELETE FROM employee_education WHERE employee_documents_id = ?'
         await connection.query(deleteEmployeeDocumentQuery, [employee_education_id]);
         await connection.commit();
         return res.status(200).json({

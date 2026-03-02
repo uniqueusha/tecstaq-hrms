@@ -93,13 +93,13 @@ const getDesignations = async (req, res) => {
         FROM designation d
         LEFT JOIN company c ON c.company_id = d.company_id
         LEFT JOIN users u ON u.user_id = d.user_id
-        WHERE 1 AND d.status = 1`;
+        WHERE 1 `;
         
         let countQuery = `SELECT COUNT(*) AS total
         FROM designation d
         LEFT JOIN company c ON c.company_id = d.company_id
         LEFT JOIN users u ON u.user_id = d.user_id
-        WHERE 1 AND d.status = 1`;
+        WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -348,7 +348,7 @@ const getDesignationDownload = async (req, res) => {
         FROM designation d
         LEFT JOIN company c ON c.company_id = d.company_id
         LEFT JOIN users u ON u.user_id = d.user_id
-        WHERE 1 AND d.status = 1`;
+        WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();

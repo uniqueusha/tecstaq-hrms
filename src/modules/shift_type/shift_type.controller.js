@@ -96,13 +96,13 @@ const getShiftType = async (req, res) => {
         FROM shift_type_header st
         LEFT JOIN company c ON c.company_id = st.company_id
         LEFT JOIN users u ON u.user_id = st.user_id
-        WHERE 1 AND st.status = 1`;
+        WHERE 1 `;
         
         let countQuery = `SELECT COUNT(*) AS total 
         FROM shift_type_header st
         LEFT JOIN company c ON c.company_id = st.company_id
         LEFT JOIN users u ON u.user_id = st.user_id
-        WHERE 1 AND st.status = 1`;
+        WHERE 1 `;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
                 getShiftTypeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(st.shift_type_name) LIKE '%${lowercaseKey}%')`;
@@ -339,7 +339,7 @@ const getShiftTypeDownload = async (req, res) => {
         FROM shift_type_header st
         LEFT JOIN company c ON c.company_id = st.company_id
         LEFT JOIN users u ON u.user_id = st.user_id
-        WHERE 1 AND st.status = 1`;
+        WHERE 1 `;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
             getShiftTypeQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(st.shift_type_name) LIKE '%${lowercaseKey}%')`;

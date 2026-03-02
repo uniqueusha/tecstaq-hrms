@@ -205,6 +205,7 @@ async function deleteDesignation(req, res) {
 }
 
  const designationDropdown = async (req, res) => {
+    const { departments_id } = req.query;
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
     try {
@@ -216,7 +217,13 @@ async function deleteDesignation(req, res) {
         LEFT JOIN departments dp ON dp.departments_id = d.departments_id
         LEFT JOIN users u ON u.user_id = d.user_id
         WHERE 1 AND d.status = 1 `;
+        if (departments_id) {
+            getQuery += ` AND d.departments_id = ${departments_id}`;
+        }
+        
         getQuery +=" ORDER BY d.designation"
+        
+
         const getResult = await connection.query(getQuery);
         const data = getResult[0];
 

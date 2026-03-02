@@ -92,6 +92,13 @@ const createPolicy = async (req, res)=>{
         
         // start the transaction
         await connection.beginTransaction();
+
+        // Check if policy exists
+        const checkPolicyQuery = "SELECT * FROM policy_master WHERE TRIM(policy_title) = ? ";
+        const checkPolicyResult = await pool.query(checkPolicyQuery, [policy_title.toLowerCase()]);
+        if (checkPolicyResult[0].length > 0) {
+            return error422('Policy is already exists.', res);
+        }
         const insertQuery = "INSERT INTO policy_master (policy_title, policy_subtitle, company_id, issued_on, prepared_by, approved_by, process_head, version, policy_file_path, user_id)VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         const result = await connection.query(insertQuery,[policy_title, policy_subtitle, company_id, issued_on, prepared_by, approved_by, process_head, version, policyFilePath, userId]);
 
@@ -228,6 +235,13 @@ const updatePolicy = async (req, res) => {
 
         //start a transaction
         await connection.beginTransaction();
+
+        // Check if policy exists
+        const checkPolicyQuery = "SELECT * FROM policy_master WHERE TRIM(policy_title) = ? ";
+        const checkPolicyResult = await pool.query(checkPolicyQuery, [policy_title.toLowerCase()]);
+        if (checkPolicyResult[0].length > 0) {
+            return error422('Policy is already exists.', res);
+        }
 
         // Check if policy exists
         const policyQuery = "SELECT * FROM policy_master WHERE policy_master_id  = ?";

@@ -94,13 +94,13 @@ const getDepartments = async (req, res) => {
         FROM departments d
         LEFT JOIN company c ON c.company_id = d.company_id
         LEFT JOIN users u ON u.user_id = d.user_id
-        WHERE 1 AND d.status = 1`;
+        WHERE 1 `;
         
         let countQuery = `SELECT COUNT(*) AS total 
         FROM departments d
         LEFT JOIN company c ON c.company_id = d.company_id
         LEFT JOIN users u ON u.user_id = d.user_id
-        WHERE 1 AND d.status = 1`;
+        WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -330,7 +330,7 @@ const getDepartmentsDownload = async (req, res) => {
         FROM departments d
         LEFT JOIN company c ON c.company_id = d.company_id
         LEFT JOIN users u ON u.user_id = d.user_id
-        WHERE 1 AND d.status = 1`;
+        WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();

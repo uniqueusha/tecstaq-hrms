@@ -10,7 +10,7 @@ const { deleteholiday_calendar } = require('./holiday_calendar.controller');
 const { holiday_calendarDropdown } = require('./holiday_calendar.controller');
 const { onStatusChange } = require('./holiday_calendar.controller');
 const { getHolidayCalendarDownload } = require('./holiday_calendar.controller');
-
+const { deleteHolidayFooter } = require('./holiday_calendar.controller')
 
 // Creare New  holiday_calenda
 router.post('/',verifyToken, createholiday_calendar);
@@ -39,6 +39,9 @@ router.patch('/:id', onStatusChange);
 
 // Delete  holiday_calenda update by id
 router.delete('/:id', verifyToken, deleteholiday_calendar);
+
+//delete footer holiday
+router.delete('/delete-footer/:id', verifyToken, deleteHolidayFooter);
 
 
 

@@ -111,12 +111,12 @@ const getCompanies = async (req, res) => {
         let getCompaniesQuery = `SELECT c.*, u.first_name, u.last_name
         FROM company c
         LEFT JOIN users u ON u.user_id = c.user_id
-        WHERE 1 AND c.status = 1`;
+        WHERE 1 `;
         
         let countQuery = `SELECT COUNT(*) AS total 
         FROM company c
         LEFT JOIN users u ON u.user_id = c.user_id
-        WHERE 1 AND c.status = 1`;
+        WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -341,7 +341,7 @@ const getCompanyDownload = async (req, res) => {
         let getCompanyQuery = `SELECT c.*, u.first_name, u.last_name
         FROM company c
         LEFT JOIN users u ON u.user_id = c.user_id
-        WHERE 1 AND c.status = 1`;
+        WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();

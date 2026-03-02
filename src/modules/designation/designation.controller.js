@@ -26,7 +26,7 @@ async function createDesignation(req, res) {
             return res.status(401).json({ success: false, message: 'User not authenticated' });
         }
         else{
-        const { company_id, designation, description, status } = req.body;
+        const { company_id, designation, departments_id, description, status } = req.body;
 
         const result = await insertHelper(
             'designation',
@@ -34,6 +34,7 @@ async function createDesignation(req, res) {
             {
                 company_id,
                 designation,
+                departments_id,
                 description,
                 status,
                 user_id: userId
@@ -54,30 +55,6 @@ async function createDesignation(req, res) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
-
-// async function listDesignation(req, res) {
-//    try {
-//         const { page, limit, search, status } = req.query;
-
-//         const result = await listHelper(
-//             'designation',
-//             status ? { status } : {}, // Exact match filters
-//             null, // No ID → list mode
-//             {
-//                 page: parseInt(page) || 1,
-//                 limit: parseInt(limit) || 10,
-//                 searchColumns: ['designation'] // ✅ No 'status' here
-//             },
-//             search || null // Search keyword
-//          );
-
-//         res.status(200).json({ success: true, ...result });
-
-//     } catch (err) {
-//         res.status(500).json({ success: false, error: err.message });
-//     }
-// }
-
 const getDesignations = async (req, res) => {
     const { page, perPage, key, fromDate, toDate, company_id, user_id } = req.query;
 
@@ -89,22 +66,24 @@ const getDesignations = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getDesignationsQuery = `SELECT d.*, c.name, u.first_name, u.last_name
+        let getDesignationsQuery = `SELECT d.*, c.name, u.first_name, u.last_name,dp.department_name
         FROM designation d
         LEFT JOIN company c ON c.company_id = d.company_id
+        LEFT JOIN departments dp ON dp.departments_id = d.departments_id
         LEFT JOIN users u ON u.user_id = d.user_id
         WHERE 1 AND d.status = 1`;
         
         let countQuery = `SELECT COUNT(*) AS total
         FROM designation d
         LEFT JOIN company c ON c.company_id = d.company_id
+        LEFT JOIN departments dp ON dp.departments_id = d.departments_id
         LEFT JOIN users u ON u.user_id = d.user_id
         WHERE 1 AND d.status = 1`;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-                getDesignationsQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(d.designation) LIKE '%${lowercaseKey}%')`;
-                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(d.designation) LIKE '%${lowercaseKey}%')`;
+                getDesignationsQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(dp.department_name) LIKE '%${lowercaseKey}%' || LOWER(d.designation) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(dp.department_name) LIKE '%${lowercaseKey}%' || LOWER(d.designation) LIKE '%${lowercaseKey}%')`;
         }
 
         // from date and to date
@@ -161,37 +140,19 @@ const getDesignations = async (req, res) => {
         if (connection) connection.release()
     }
 }
-
-// async function getDesignationById(req, res) {
-//      try {
-//         const { id } = req.params;
-
-//         const result = await listHelper('designation', {}, Number(id));
-
-//         if (!result.data.length) {
-//             return res.status(404).json({ success: false, message: 'Designation not found' });
-//         }
-
-//         res.status(200).json({ success: true, data: result.data[0] });
-//     } catch (err) {
-//         res.status(500).json({ success: false, error: err.message });
-//     }
-// }
-
 const getDesignationById = async (req, res) => {
     const designationId = parseInt(req.params.id);
-
     // attempt to obtain a database connection
     let connection = await getConnection();
-
     try {
 
         //start a transaction
         await connection.beginTransaction();
 
-        const designationQuery = `SELECT d.*, c.name, u.first_name, u.last_name
+        const designationQuery = `SELECT d.*, c.name, u.first_name, u.last_name, dp.department_name
         FROM designation d
         LEFT JOIN company c ON c.company_id = d.company_id
+        LEFT JOIN departments dp ON dp.departments_id = d.departments_id
         LEFT JOIN users u ON u.user_id = d.user_id
         WHERE d.designation_id = ?`;
         const designationResult = await connection.query(designationQuery, [designationId]);
@@ -216,13 +177,13 @@ const getDesignationById = async (req, res) => {
 async function updateDesignation(req, res) {
     try {
         const { id } = req.params;
-        const { company_id, designation, description, status } = req.body;
+        const { company_id, designation, departments_id, description, status } = req.body;
 
         const updatedCompany = await updateHelper(
             'designation',       // table
             'designation_id',    // primary key column
             id,              // primary key value
-            { company_id, designation, description, status } // fields to update
+            { company_id, designation, departments_id, description, status } // fields to update
         );
 
         res.status(200).json({
@@ -234,7 +195,6 @@ async function updateDesignation(req, res) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
-
 async function deleteDesignation(req, res) {
     try {
         const result = await deleteHelper('designation', 'designation_id', req.params.id);
@@ -244,23 +204,36 @@ async function deleteDesignation(req, res) {
     }
 }
 
-async function designationDropdown(req, res) {
-
+ const designationDropdown = async (req, res) => {
+    // attempt to obtain a database connection
+    let connection = await pool.getConnection();
     try {
-        const { search } = req.query;
-        const rows = await dropdownHelper(
-            'designation',      // table name
-            'designation_id',   // primary key column
-            'designation',         // display column
-            { status:  1},  // filters
-            search || null, // search term
-            10              // limit
-        );
+        //start a transaction
+        await connection.beginTransaction();
+        let getQuery = `SELECT d.*, c.name, u.first_name, u.last_name,dp.department_name
+        FROM designation d
+        LEFT JOIN company c ON c.company_id = d.company_id
+        LEFT JOIN departments dp ON dp.departments_id = d.departments_id
+        LEFT JOIN users u ON u.user_id = d.user_id
+        WHERE 1 AND d.status = 1 `;
+        getQuery +=" ORDER BY d.designation"
+        const getResult = await connection.query(getQuery);
+        const data = getResult[0];
 
-        res.status(200).json({ success: true, data: rows });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Designation retrieved successfully.",
+            data: data,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
     }
+
 }
 
 async function document_typeDropdown(req, res) {
@@ -281,7 +254,6 @@ async function document_typeDropdown(req, res) {
         res.status(500).json({ success: false, error: err.message });
     }
 }
-
 //status change of designation...
 const onStatusChange = async (req, res) => {
     const designationId = parseInt(req.params.id);
@@ -334,7 +306,6 @@ const onStatusChange = async (req, res) => {
         if (connection) connection.release()
     }
 };
-
 //download list
 const getDesignationDownload = async (req, res) => {
 
@@ -344,15 +315,16 @@ const getDesignationDownload = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        let getDesignationQuery = `SELECT d.*, c.name, u.first_name, u.last_name
+        let getDesignationQuery = `SELECT d.*, c.name, u.first_name, u.last_name, dp.department_name
         FROM designation d
         LEFT JOIN company c ON c.company_id = d.company_id
+        LEFT JOIN departments dp ON dp.departments_id = d.departments_id
         LEFT JOIN users u ON u.user_id = d.user_id
         WHERE 1 AND d.status = 1`;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getDesignationQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(d.designation) LIKE '%${lowercaseKey}%')`;
+            getDesignationQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(dp.department_name) LIKE '%${lowercaseKey}%'|| LOWER(d.designation) LIKE '%${lowercaseKey}%')`;
         }
         getDesignationQuery += " ORDER BY d.cts DESC";
 
@@ -367,6 +339,7 @@ const getDesignationDownload = async (req, res) => {
         designation = designation.map((item, index) => ({
             "Sr No": index + 1,
             "Designation": item.designation,
+            "Department": item.department_name,
             "Description": item.description,
             "Company Name": item.name,
             "Create By": `${item.first_name} ${item.last_name}`,

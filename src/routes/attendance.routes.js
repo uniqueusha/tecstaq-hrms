@@ -7,6 +7,7 @@ router.post("/upload",verifyToken, attendanceController.importAttendanceFromBase
 router.post('/upload-manual', verifyToken, attendanceController.importAttendanceManual)
 router.post("/check-in", attendanceController.checkIn);
 router.post("/check-out", attendanceController.checkOut);
+router.get("/checkin-status", verifyToken, attendanceController.checkinStatus);
 router.get("/upload", attendanceController.getAttendanceUploadList);
 router.get('/upload-manual', verifyToken, attendanceController.getAttendanceUploadManualList)
 router.get("/", attendanceController.getEmployeeAttendanceByEmployeeCode);

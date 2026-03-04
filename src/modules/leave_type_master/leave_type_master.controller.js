@@ -99,14 +99,14 @@ const getLeaveType = async (req, res) => {
         LEFT JOIN company c ON c.company_id = ltm.company_id
         LEFT JOIN users u ON u.user_id = ltm.user_id
         LEFT JOIN policy_master p ON p.policy_master_id = ltm.policy_id
-        WHERE 1 AND ltm.status = 1`;
+        WHERE 1 `;
         
         let countQuery = `SELECT COUNT(*) AS total 
         FROM leave_type_master ltm
         LEFT JOIN company c ON c.company_id = ltm.company_id
         LEFT JOIN users u ON u.user_id = ltm.user_id
         LEFT JOIN policy_master p ON p.policy_master_id = ltm.policy_id
-        WHERE 1 AND ltm.status = 1`;
+        WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -343,7 +343,7 @@ const getLeaveTypeMasterDownload = async (req, res) => {
         LEFT JOIN company c ON c.company_id = ltm.company_id
         LEFT JOIN users u ON u.user_id = ltm.user_id
         LEFT JOIN policy_master p ON p.policy_master_id = ltm.policy_id
-        WHERE 1 AND ltm.status = 1`;
+        WHERE 1 `;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
             getLeaveTypeMasterQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(ltm.leave_type_name) LIKE '%${lowercaseKey}%')`;

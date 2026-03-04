@@ -26,7 +26,7 @@ async function createshift_type(req, res) {
             return res.status(401).json({ success: false, message: 'User not authenticated' });
         }
         else{
-        const { company_id,	shift_type_name,start_time,end_time,break_minutes,description, status } = req.body;
+        const { company_id,	shift_type_name,start_time,end_time,break_minutes,description, late_mark, status } = req.body;
 
        const result = await insertHelper(
             'shift_type_header',
@@ -38,6 +38,7 @@ async function createshift_type(req, res) {
                 end_time,
                 break_minutes,
                 description,
+                late_mark,
                 status,
                 user_id: userId
             },
@@ -220,7 +221,7 @@ async function updateshift_type(req, res) {
     try {
         const userId = req.user?.user_id;
         const { id } = req.params;
-       const { company_id,	shift_type_name,start_time,end_time,break_minutes,description, status } = req.body;
+       const { company_id,	shift_type_name,start_time,end_time,break_minutes,description, late_mark, status } = req.body;
 
         const updatedshift_type = await updateHelper(
             'shift_type_header',       // table
@@ -232,6 +233,7 @@ async function updateshift_type(req, res) {
                 end_time,
                 break_minutes,
                 description,
+                late_mark,
                 status,
                 user_id: userId } // fields to update
         );

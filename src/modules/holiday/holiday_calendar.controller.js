@@ -429,4 +429,43 @@ const getHolidayCalendarDownload = async (req, res) => {
     }
 };
 
-module.exports = { createholiday_calendar, getHoliday, getHolidayCalendarById, list_with_details_holiday_calendar,updateHolidayCalendar,deleteholiday_calendar,holiday_calendarDropdown, onStatusChange, getHolidayCalendarDownload };
+//Holiday footer delete
+const deleteHolidayFooter = async (req, res) => {
+    let holiday_footer_id = parseInt(req.params.id);
+
+    let isholidayFooterQuery = 'SELECT * FROM holiday_calendar_details WHERE id = ?';
+    let [isholidayFooterResult] = await pool.query(isholidayFooterQuery, [holiday_footer_id])
+    if (!isholidayFooterResult.length > 0) {
+        return error422("Holiday footer is Not Found", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        //delete holiday footer 
+        let deleteHolidayFooterQuery = 'DELETE FROM holiday_calendar_details WHERE id = ?'
+        await connection.query(deleteHolidayFooterQuery, [holiday_footer_id]);
+
+        connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Holiday footer delete successfully."
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
+module.exports = { 
+    createholiday_calendar, 
+    getHoliday, 
+    getHolidayCalendarById, 
+    list_with_details_holiday_calendar,
+    updateHolidayCalendar,
+    deleteholiday_calendar,
+    holiday_calendarDropdown, 
+    onStatusChange, 
+    getHolidayCalendarDownload,
+    deleteHolidayFooter
+};

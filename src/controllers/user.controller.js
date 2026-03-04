@@ -4,8 +4,6 @@ const xlsx = require("xlsx");
 const fs = require("fs");
 const nodemailer = require("nodemailer");
 const { body, param, validationResult } = require("express-validator");
-
-
 const path = require('path');
 
 const transporter = nodemailer.createTransport({
@@ -60,6 +58,8 @@ const createUser = async (req, res) => {
     // Check if employee exists
     const checkEmployeeQuery = "SELECT * FROM employee WHERE employee_id = ? ";
     const [checkEmployeeResult] = await pool.query(checkEmployeeQuery, [employee_id]);
+    let employee_code = checkEmployeeResult[0].employee_code;
+
     if (!checkEmployeeResult[0]) {
         return error422('Employee Not Found.', res);
     }
@@ -97,10 +97,65 @@ const createUser = async (req, res) => {
 
         //commit the transation
         await connection.commit();
+        let user_name = `${checkEmployeeResult[0].first_name} ${checkEmployeeResult[0].last_name}`;
+        let email_id = checkEmployeeResult[0].email;
+        let mobile_number = checkEmployeeResult[0].mobile_number;
+        // try {
+        const message = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to test</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+        <h2 style="text-transform: capitalize;">Dear ${user_name},</h2>
+        <h3>Welcome to HRMS!</h3>
+
+        <p>Your employee profile has been successfully created in our HRMS system. Please find your login credentials below:</p>
+        <p>HRMS Login Details</p>
+        <p>Portal Link:<a href="https://hrms.tecstaq.com/#/auth">https://hrms.tecstaq.com/#/auth</a></P>
+        <p>Employee ID: ${employee_code}</p>
+        <p>Username : ${user_name}</p>
+        <p>Temporary Password:${password}</p>
+        <p>Important Instructions:</p>
+          <p>1.Please change your password on first login.</p>
+          <p>2.Do not share your login credentials with anyone.</p>
+          <p>3.Update your personal details (bank info, address, emergency contact, etc.) after login.</p>
+          <p>4.If you face any issues while logging in, please contact the HR department at ${email_id} / ${mobile_number}.</p>
+        <p>We wish you a successful journey with us.</p>
+          <p>Best Regards,</p>
+          <p>HR Department</p>
+          <p><strong>HRMS</strong></p>
+
+        </div>
+        </body>
+        </html>`;
+
+        // Prepare the email message options.
+        const mailOptions = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: `${email_id}`, // Recipient's name and email address."sushantsjamdade@gmail.com",
+            // bcc: ["sushantsjamdade@gmail.com"],
+            subject: "Welcome to HRMS – Your HRMS Login Details", // Subject line.
+            html: message,
+        };
+
+        await transporter.sendMail(mailOptions);
+
         return res.status(200).json({
             status: 200,
             message: "Created User Successfully.",
-        })
+        });
     } catch (error) {
         await connection.rollback();
         return error500(error, res);
@@ -317,10 +372,7 @@ const getUserDownload = async (req, res) => {
 
         let result = await connection.query(getUserQuery);
         let user = result[0];
-        console.log(user);
         
-
-
         if (user.length === 0) {
             return error422("No data found.", res);
         }

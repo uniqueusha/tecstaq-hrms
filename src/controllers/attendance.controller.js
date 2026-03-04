@@ -335,7 +335,7 @@ const checkIn = async (req, res) => {
     } else if (!in_time) {
         return error422("In time is required.", res);
     }
-    let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name FROM employee WHERE employee_code = '${employee_code}' `;
+    let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id FROM employee WHERE employee_code = '${employee_code}' `;
     let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
     if (isExistEmployeeResult[0].length == 0) {
         return error422("Employee Not Found.", res)
@@ -352,6 +352,9 @@ const checkIn = async (req, res) => {
         connection = await pool.getConnection()
         const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, medium) VALUES ( ?, ?, ?, ?, ?, ?)`;
         await connection.query(insertAttendanceQuery, [employee_code, employee_name, attendance_date, 'P', in_time, 'manual']);
+        //set employee signed_in = 1
+        const updateEmployeeQuery = `UPDATE employee SET signed_in = 1 WHERE employee_id = ?`;
+        await connection.query(updateEmployeeQuery,[isExistEmployeeResult[0][0].employee_id]);
 
         await connection.commit()
         return res.status(200).json({
@@ -418,9 +421,9 @@ const checkOut = async (req, res) => {
         //  Update attendance
         await connection.query(
             `UPDATE attendance_master
-       SET out_time = ?, duration = ?, status = 'P', medium = 'manual'
-       WHERE employee_code = ?
-         AND attendance_date = ?`,
+            SET out_time = ?, duration = ?, status = 'P', medium = 'manual'
+            WHERE employee_code = ?
+            AND attendance_date = ?`,
             [out_time, duration, employee_code, attendance_date]
         );
 
@@ -664,7 +667,78 @@ const getAttendanceUploadManualList = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//checkin status
+const checkinStatus = async (req, res) => {
+    let connection 
+  try {
+    connection = await pool.getConnection();
+    const user_id = req.user.user_id;
+    let attendance_date = req.query.attendance_date;
 
+    if (!user_id) {
+      return error422("User id is required.", res);
+    }
+
+    //get today's IST date if not provided
+    if (!attendance_date) {
+      attendance_date = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Kolkata'
+      });
+    }
+
+    // ---------------- user ----------------
+    const getUserQuery = `
+      SELECT u.*, 
+             CONCAT(u.first_name,' ',u.last_name) AS employee_name,
+             e.employee_code
+      FROM users u
+      LEFT JOIN employee e ON e.employee_id = u.employee_id
+      WHERE u.user_id = ? AND u.status = 1
+    `;
+
+    const [users] = await connection.query(getUserQuery, [user_id]);
+
+    if (users.length === 0) {
+      return error422("Employee Not Found.", res);
+    }
+
+    const user = users[0];
+
+    // ---------------- attendance ----------------
+    const attendanceQuery = `
+      SELECT in_time, out_time
+      FROM attendance_master
+      WHERE employee_code = ? AND attendance_date = ?
+    `;
+
+    const [attendance] = await connection.query(attendanceQuery, [
+      user.employee_code,
+      attendance_date
+    ]);
+
+    //check status
+    let checkin_status = false;
+    let checkout_status = false;
+
+    if (attendance.length > 0) {
+      checkin_status = !!attendance[0].in_time;
+      checkout_status = !!attendance[0].out_time;
+    }
+
+    return res.status(200).json({
+      status: 200,
+      checkin_status,
+      checkout_status,
+      attendance_date
+    });
+
+  } catch (error) {
+    console.error(error);
+    return error500(error, res)
+  } finally {
+    if (connection) await connection.release()
+  }
+};
 module.exports = {
     importAttendanceFromBase64,
     getEmployeeAttendanceByEmployeeCode,
@@ -672,5 +746,6 @@ module.exports = {
     checkIn,
     checkOut,
     importAttendanceManual,
-    getAttendanceUploadManualList
+    getAttendanceUploadManualList,
+    checkinStatus
 };

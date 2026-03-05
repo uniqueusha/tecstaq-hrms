@@ -60,7 +60,7 @@ exports.login = async (req, res) => {
         const token = jwt.sign(
             { user_id: user.user_id, email: user.email_id, session_id },
             "1f7d5d6e0b0c0e3123f4d65f4e12c6bde56232",
-            { expiresIn: '1h' }
+            { expiresIn: '10h' }
             );
             
             // Log login activity
@@ -94,7 +94,7 @@ exports.login = async (req, res) => {
             status: 200,
             message: 'Login successful',
             token,
-            tokenExpiresIn: 3600,
+            tokenExpiresIn: 36000000,
             user:User
             
         });

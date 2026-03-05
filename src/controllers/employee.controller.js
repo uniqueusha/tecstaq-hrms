@@ -141,10 +141,22 @@ const createEmployee = async (req, res) => {
         return error422("Aadhar number is required.", res);
     } else if (!title) {
         return error422("Title is required.", res);
+    } else if (!email) {
+        return error422("Email is required.", res);
+    } else if (!personal_email) {
+        return error422("Personal email is required.", res)
+    } else if (!departments_id) {
+        return error422("Department is required.", res)
+    } else if (!designation_id) {
+        return error422("Designation is required.", res)
+    } else if (!employee_code) {
+        return error422("Employee code is required.", res)
+    } else if (!designation_id) {
+        return error422("Department is required.", res)
+    } else if (!designation_id) {
+        return error422("Department is required.", res)
     } else if (!userId) {
         return error422("User id is required.", res);
-    } else if (!personal_email) {
-        return error422("Personal Email is required.", res)
     }
 
     //check employee already exists or not
@@ -575,7 +587,7 @@ const getEmployee = async (req, res) => {
         }
 
         //get employee_documents
-        let employeeDocumentsQuery = `SELECT ed.*,dt.document_type FROM employee_documents ed
+        let employeeDocumentsQuery = `SELECT ed.*,dt.document_type, dt.document_type FROM employee_documents ed
             LEFT JOIN document_type dt ON dt.document_type_id = ed.document_type_id
             WHERE ed.employee_id = ?`;
         let employeeDocumentsResult = await connection.query(employeeDocumentsQuery, [employeeId]);
@@ -624,7 +636,9 @@ const getEmployee = async (req, res) => {
         employee['employeeEducation'] = employeeEducationResult[0];
 
         //get employee previous company 
-        let employeePreviousCompanyQuery = `SELECT ee.* FROM employee_previous_company_document_details ee
+        let employeePreviousCompanyQuery = `SELECT ee.*, dt.document_type FROM employee_previous_company_document_details ee
+            LEFT JOIN document_type dt
+            ON dt.document_type_id = ee.document_type_id
             WHERE ee.employee_id = ?`;
         let employeePreviousCompanyResult = await connection.query(employeePreviousCompanyQuery, [employeeId]);
         for (let index = 0; index < employeePreviousCompanyResult[0].length; index++) {
@@ -647,7 +661,9 @@ const getEmployee = async (req, res) => {
         employee['employeePreviousCompanyDocuments'] = employeePreviousCompanyResult[0];
 
         //get employee bank details
-        let employeeBankDocumentQuery = `SELECT ee.* FROM employee_bank_document_details ee
+        let employeeBankDocumentQuery = `SELECT ee.*, dt.document_type FROM employee_bank_document_details ee
+            LEFT JOIN document_type dt
+            ON dt.document_type_id = ee.document_type_id
             WHERE ee.employee_id = ?`;
         let employeeBankDocumentResult = await connection.query(employeeBankDocumentQuery, [employeeId]);
         for (let index = 0; index < employeeBankDocumentResult[0].length; index++) {
@@ -670,7 +686,9 @@ const getEmployee = async (req, res) => {
         employee['employeeBankDocuments'] = employeeBankDocumentResult[0];
 
         //get employee statutory document details
-        let employeeStatutoryDocumentQuery = `SELECT ee.* FROM employee_statutory_document_details ee
+        let employeeStatutoryDocumentQuery = `SELECT ee.*, dt.document_type FROM employee_statutory_document_details ee
+            LEFT JOIN document_type dt
+            ON dt.document_type_id = ee.document_type_id
             WHERE ee.employee_id = ?`;
         let employeeStatutoryDocumentResult = await connection.query(employeeStatutoryDocumentQuery, [employeeId]);
         for (let index = 0; index < employeeStatutoryDocumentResult[0].length; index++) {
@@ -828,6 +846,16 @@ const updateEmployee = async (req, res) => {
         return error422("Email is required.", res);
     } else if (!personal_email) {
         return error422("Personal email is required.", res)
+    } else if (!departments_id) {
+        return error422("Department is required.", res)
+    } else if (!designation_id) {
+        return error422("Designation is required.", res)
+    } else if (!employee_code) {
+        return error422("Employee code is required.", res)
+    } else if (!designation_id) {
+        return error422("Department is required.", res)
+    } else if (!designation_id) {
+        return error422("Department is required.", res)
     }
 
     // attempt to obtain a database connection

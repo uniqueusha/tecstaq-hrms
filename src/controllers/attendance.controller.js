@@ -727,9 +727,11 @@ const checkinStatus = async (req, res) => {
 
     return res.status(200).json({
       status: 200,
-      checkin_status,
-      checkout_status,
-      attendance_date
+      checkin_status:checkin_status,
+      checkout_status:checkout_status,
+      attendance_date:attendance_date,
+      in_time:attendance[0]?.in_time||'',
+      out_time:attendance[0]?.out_time||''
     });
 
   } catch (error) {

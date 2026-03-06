@@ -195,20 +195,20 @@ const updateDropdown = async (req, res) => {
         }
 
 
-        // Update the employee record with new data
+        // Update the dropdown record with new data
         const updateQuery = `
-            UPDATE employee
-            SET company_id = ?, departments_id = ?, designation_id = ?, employment_type_id = ?, employee_code = ?, title = ?, first_name = ?, last_name = ?, email = ?, personal_email = ?, dob = ?, gender = ?, father_name = ?, mother_name = ?, blood_group = ?, marital_status = ?, country_code = ?, mobile_number = ?, profile_photo = ?, current_address = ?, permanent_address = ?, alternate_contact_number = ?, doj = ?, office_location = ?, work_location = ?, employee_status = ?, holiday_calendar_id = ?, reporting_manager_id = ?, uan_number = ?, esic_number = ?, pf_number = ?, pan_card_number = ?, aadhar_number = ?, passport_no = ?, passport_expiry = ?
-            WHERE employee_id = ?
+            UPDATE dropdowns
+            SET name = ?, dropdown_type = ?
+            WHERE dropdown_id = ?
         `;
-        await connection.query(updateQuery, [company_id, departments_id, designation_id, employment_type_id, employee_code, title, first_name, last_name, email, personal_email, dob, gender, father_name, mother_name, blood_group, marital_status, country_code, mobile_number, profilePhotoPath, current_address, permanent_address, alternate_contact_number, doj, office_location, work_location, employee_status, holiday_calendar_id, reporting_manager_id, uan_number, esic_number, pf_number, pan_card_number, aadhar_number, passport_no, passport_expiry, employeeId]);
+        await connection.query(updateQuery, [name, dropdown_type, dropdownId]);
 
         // Commit the transaction
         await connection.commit();
 
         return res.status(200).json({
             status: 200,
-            message: "Employee updated successfully.",
+            message: "Dropdown updated successfully.",
         });
     } catch (error) {
         console.log(error);
@@ -220,29 +220,32 @@ const updateDropdown = async (req, res) => {
 
 //status change of dropdown...
 const onStatusChange = async (req, res) => {
-    const employeeId = parseInt(req.params.id);
+    const dropdownId = parseInt(req.params.id);
     const status = parseInt(req.query.status); // Validate and parse the status parameter
 
-
     // attempt to obtain a database connection
-    let connection = await getConnection();
-
+    let connection = await pool.getConnection();
     try {
 
         //start a transaction
         await connection.beginTransaction();
 
-        // Check if the employee exists
-        const employeeQuery = "SELECT * FROM employee WHERE employee_id = ? ";
-        const employeeResult = await connection.query(employeeQuery, [employeeId]);
+        // Check if the dropdown exists
+        const dropdownQuery = "SELECT * FROM dropdowns WHERE dropdown_id = ? ";
+        const dropdownResult = await connection.query(dropdownQuery, [dropdownId]);
 
-        if (employeeResult[0].length == 0) {
+        if (dropdownResult[0].length == 0) {
             return res.status(404).json({
                 status: 404,
-                message: "Employee not found.",
+                message: "Dropdown not found.",
             });
         }
-
+        // Soft update the dropdown status
+        const updateQuery = `
+        UPDATE dropdowns
+        SET status = ?
+        WHERE dropdown_id = ?`;
+        await connection.query(updateQuery, [status, dropdownId]);
         // Validate the status parameter
         if (status !== 0 && status !== 1) {
             return res.status(400).json({
@@ -255,7 +258,7 @@ const onStatusChange = async (req, res) => {
         await connection.commit();
         return res.status(200).json({
             status: 200,
-            message: `Employee ${statusMessage} successfully.`,
+            message: `Dropdown ${statusMessage} successfully.`,
         });
     } catch (error) {
         return error500(error, res);
@@ -266,46 +269,31 @@ const onStatusChange = async (req, res) => {
 
 //get dropdown active...
 const getDropdownActive = async (req, res) => {
-    const { is_upcoming_birthday } = req.query;
+    const { dropdown_type } = req.query;
+    if (!dropdown_type) {
+       return error422("Dropdown is required.", res) 
+    }
     // attempt to obtain a database connection
-    let connection = await getConnection();
-
+    let connection = await pool.getConnection();
     try {
-
         //start a transaction
         await connection.beginTransaction();
-
-        let employeeQuery = `SELECT * FROM employee
+        let dropdownQuery = `SELECT * FROM dropdowns
         WHERE status = 1  `;
 
-        // Upcoming birthdays within next 7 days
-        if (is_upcoming_birthday) {
-            employeeQuery += `
-            AND (
-              DAYOFYEAR(dob) BETWEEN DAYOFYEAR(CURDATE())
-              AND DAYOFYEAR(DATE_ADD(CURDATE(), INTERVAL 7 DAY))
-              OR
-              (
-                DAYOFYEAR(DATE_ADD(CURDATE(), INTERVAL 7 DAY)) < DAYOFYEAR(CURDATE())
-                AND (
-                  DAYOFYEAR(dob) >= DAYOFYEAR(CURDATE())
-                  OR DAYOFYEAR(dob) <= DAYOFYEAR(DATE_ADD(CURDATE(), INTERVAL 7 DAY))
-                )
-              )
-            )
-          `;
+        // dropdown type
+        if (dropdown_type) {
+            dropdownQuery += ` AND dropdown_type = '${dropdown_type}' `;
         }
-        employeeQuery += " ORDER BY first_name"
-        const employeeResult = await connection.query(employeeQuery);
-        const employee = employeeResult[0];
-
+        dropdownQuery += " ORDER BY dropdown_type ASC, name ASC "
+        const dropdownResult = await connection.query(dropdownQuery);
+        const dropdown = dropdownResult[0];
         // Commit the transaction
         await connection.commit();
-
         return res.status(200).json({
             status: 200,
-            message: "Employee retrieved successfully.",
-            data: employee,
+            message: "Dropdown retrieved successfully.",
+            data: dropdown,
         });
     } catch (error) {
         return error500(error, res);

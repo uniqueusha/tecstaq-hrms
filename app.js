@@ -28,7 +28,8 @@ const salaryStructureStatutoryRulesRoute = require('./src/routes/master/salary-s
 const professionalTaxRuleRoute = require('./src/routes/master/professional_tax_rules.route');
 const professionalTaxSlabRoute = require('./src/routes/master/professional-tax-slabs.route')
 const attendanceRoutes = require('./src/routes/attendance.routes');
-const settingsRoutes = require('./src/routes/settings.routes')
+const settingsRoutes = require('./src/routes/settings.routes');
+const dropdownRoutes = require("./src/routes/dropdown.routes")
 
 // master 
 const gradeRoutes = require('./src/routes/master/grade.routes');
@@ -79,6 +80,7 @@ app.use('/professional-tax-rule', professionalTaxRuleRoute);
 app.use('/professional-tax-slabs', professionalTaxSlabRoute);
 app.use('/attendance', attendanceRoutes);
 app.use('/settings', settingsRoutes);
+app.use('/dropdown', dropdownRoutes)
 // master
 app.use('/grade', gradeRoutes)
 app.use('/salary-structure', salaryStructureRoutes)

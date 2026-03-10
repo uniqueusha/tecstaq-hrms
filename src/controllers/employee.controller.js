@@ -421,7 +421,7 @@ const createEmployee = async (req, res) => {
 
 // get employee list...
 const getEmployees = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id, department_id, company_id, reporting_manager_id } = req.query;
+    const { page, perPage, key, fromDate, toDate, employee_id, departments_id, designation_id, company_id, reporting_manager_id, employment_type_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -476,9 +476,19 @@ const getEmployees = async (req, res) => {
             countQuery += ` AND DATE(e.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
         }
 
-        if (department_id) {
-            getEmployeesQuery += ` AND e.department_id = ${department_id}`;
-            countQuery += `  AND e.department_id = ${department_id}`;
+        if (departments_id) {
+            getEmployeesQuery += ` AND e.departments_id = ${departments_id}`;
+            countQuery += `  AND e.departments_id = ${departments_id}`;
+        }
+
+        if (designation_id) {
+            getEmployeesQuery += ` AND e.designation_id = ${designation_id}`;
+            countQuery += `  AND e.designation_id = ${designation_id}`;
+        }
+
+        if (employment_type_id) {
+            getEmployeesQuery += ` AND e.employment_type_id = ${employment_type_id}`;
+            countQuery += `  AND e.employment_type_id = ${employment_type_id}`;
         }
 
         if (company_id) {
@@ -1425,7 +1435,7 @@ const getEmployeeAdminWma = async (req, res) => {
 //download list
 const getEmployeeDownload = async (req, res) => {
 
-    const { key } = req.query;
+    const { key, designation_id, employment_type_id, departments_id, fromDate, toDate} = req.query;
 
     let connection = await getConnection();
     try {
@@ -1447,6 +1457,22 @@ const getEmployeeDownload = async (req, res) => {
             const lowercaseKey = key.toLowerCase().trim();
             getEmployeeQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(e.employee_code) LIKE '%${lowercaseKey}%' || LOWER(e.email) LIKE '%${lowercaseKey}%' || LOWER(e.mobile_number) LIKE '%${lowercaseKey}%')`;
         }
+
+        if (fromDate && toDate) {
+            getEmployeeQuery += ` AND DATE(e.cts) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (departments_id) {
+            getEmployeeQuery += ` AND e.departments_id = ${departments_id}`;
+        }
+        if (designation_id) {
+            getEmployeeQuery += ` AND e.designation_id = ${designation_id}`;
+        }
+
+        if (employment_type_id) {
+            getEmployeeQuery += ` AND e.employment_type_id = ${employment_type_id}`;
+        }
+
         getEmployeeQuery += " ORDER BY e.cts DESC";
 
         let result = await connection.query(getEmployeeQuery);

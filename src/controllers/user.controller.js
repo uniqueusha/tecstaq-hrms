@@ -17,7 +17,7 @@ const transporter = nodemailer.createTransport({
     tls: {
         rejectUnauthorized: false,
     },
- });
+});
 //function to obtain a database connection 
 const getConnection = async () => {
     try {
@@ -101,45 +101,93 @@ const createUser = async (req, res) => {
         let email_id = checkEmployeeResult[0].email;
         let mobile_number = checkEmployeeResult[0].mobile_number;
         // try {
+        // const message = `
+        // <!DOCTYPE html>
+        // <html lang="en">
+        // <head>
+        //   <meta charset="UTF-8">
+        //   <title>Welcome to test</title>
+        //   <style>
+        //       div{
+        //       font-family: Arial, sans-serif; 
+        //        margin: 0px;
+        //         padding: 0px;
+        //         color:black;
+        //       }
+        //   </style>
+        // </head>
+        // <body>
+        // <div>
+        // <h2 style="text-transform: capitalize;">Dear ${user_name},</h2>
+        // <h3>Welcome to HRMS!</h3>
+
+        // <p>Your employee profile has been successfully created in our HRMS system. Please find your login credentials below:</p>
+        // <p>HRMS Login Details</p>
+        // <p>Portal Link:<a href="https://hrms.tecstaq.com/">https://hrms.tecstaq.com/</a></P>
+        // <p>Employee ID: ${employee_code}</p>
+        // <p>Username : ${user_name}</p>
+        // <p>Temporary Password:${password}</p>
+        // <p>Important Instructions:</p>
+        //   <p>1.Please change your password on first login.</p>
+        //   <p>2.Do not share your login credentials with anyone.</p>
+        //   <p>3.Update your personal details (bank info, address, emergency contact, etc.) after login.</p>
+        //   <p>4.If you face any issues while logging in, please contact the HR department at ${email_id} / ${mobile_number}.</p>
+        // <p>We wish you a successful journey with us.</p>
+        //   <p>Best Regards,</p>
+        //   <p>HR Department</p>
+        //   <p><strong>HRMS</strong></p>
+
+        // </div>
+        // </body>
+        // </html>`;
         const message = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <title>Welcome to test</title>
-          <style>
-              div{
-              font-family: Arial, sans-serif; 
-               margin: 0px;
-                padding: 0px;
-                color:black;
-              }
-          </style>
-        </head>
-        <body>
-        <div>
-        <h2 style="text-transform: capitalize;">Dear ${user_name},</h2>
-        <h3>Welcome to HRMS!</h3>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Welcome to HRMS</title>
+</head>
 
-        <p>Your employee profile has been successfully created in our HRMS system. Please find your login credentials below:</p>
-        <p>HRMS Login Details</p>
-        <p>Portal Link:<a href="https://hrms.tecstaq.com/#/auth">https://hrms.tecstaq.com/#/auth</a></P>
-        <p>Employee ID: ${employee_code}</p>
-        <p>Username : ${user_name}</p>
-        <p>Temporary Password:${password}</p>
-        <p>Important Instructions:</p>
-          <p>1.Please change your password on first login.</p>
-          <p>2.Do not share your login credentials with anyone.</p>
-          <p>3.Update your personal details (bank info, address, emergency contact, etc.) after login.</p>
-          <p>4.If you face any issues while logging in, please contact the HR department at ${email_id} / ${mobile_number}.</p>
-        <p>We wish you a successful journey with us.</p>
-          <p>Best Regards,</p>
-          <p>HR Department</p>
-          <p><strong>HRMS</strong></p>
+<body style="font-family: Arial, Helvetica, sans-serif; font-size:14px; color:#333; line-height:1.6;">
 
-        </div>
-        </body>
-        </html>`;
+<p>Dear ${user_name},</p>
+
+<p><strong>Welcome to HRMS!</strong></p>
+
+<p>
+We are pleased to inform you that your employee profile has been successfully created in our 
+Human Resource Management System (HRMS). Please find your login credentials below to access the portal.
+</p>
+
+<p><strong>HRMS Login Details:</strong></p>
+
+<p>
+<strong>Portal Link:</strong> 
+<a href="https://hrms.tecstaq.com/#/auth">https://hrms.tecstaq.com/#/auth</a>
+</p>
+
+<p><strong>Employee ID:</strong> ${employee_code}</p>
+<p><strong>Username:</strong> ${user_name}</p>
+<p><strong>Temporary Password:</strong> ${password}</p>
+
+<p><strong>Important Instructions:</strong></p>
+
+<ul>
+<li>Please change your password upon your first login.</li>
+<li>Do not share your login credentials with anyone.</li>
+<li>After logging in, kindly update your personal details such as bank information, address, and emergency contact details.</li>
+<li>If you experience any issues while accessing the portal, please contact the HR department at <strong>${email_id}</strong> or <strong>${mobile_number}</strong>.</li>
+</ul>
+
+<p>
+We wish you a successful and rewarding journey with our organization.
+</p>
+
+<p>Best Regards,</p>
+<p><strong>Tecstaq HRMS</strong></p>
+</body>
+</html>
+`;
 
         // Prepare the email message options.
         const mailOptions = {
@@ -336,7 +384,7 @@ const updateUser = async (req, res) => {
             WHERE user_id = ?
         `;
         await connection.query(updateQuery, [employee.first_name, employee.last_name, employee.email, employee.mobile_number, employee_id, role, user_id]);
-       
+
         // Commit the transaction
         await connection.commit();
         return res.status(200).json({
@@ -372,7 +420,7 @@ const getUserDownload = async (req, res) => {
 
         let result = await connection.query(getUserQuery);
         let user = result[0];
-        
+
         if (user.length === 0) {
             return error422("No data found.", res);
         }
@@ -430,13 +478,13 @@ const onChangePassword = async (req, res) => {
         body('email_id').notEmpty().withMessage("Email id is required.").isEmail().withMessage("Invalid email id").run(req),
         body('password').notEmpty().withMessage("Password is required.").run(req),
         body('new_password').notEmpty().withMessage("New password is requierd.").isLength({ min: 8 }).withMessage("Password must be at least 8 characters long.")
-        .matches(/[0-9]/).withMessage("Password must contain at least one number.")
-        .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage("Password must contain at least one special character.").run(req)
+            .matches(/[0-9]/).withMessage("Password must contain at least one number.")
+            .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage("Password must contain at least one special character.").run(req)
     ]);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return error422(errors.array()[0].msg,res);
-    } 
+        return error422(errors.array()[0].msg, res);
+    }
     const email_id = req.body.email_id ? req.body.email_id.trim() : "";
     const password = req.body.password || "";
     const new_password = req.body.new_password || "";
@@ -611,7 +659,7 @@ const sendOtp = async (req, res) => {
 //verify otp
 const verifyOtp = async (req, res) => {
     await Promise.all([
-        body('otp').notEmpty().withMessage("OTP is required.").isInt().withMessage("OTP must be a number.").isLength({min:6,max:6}).withMessage("Invalid OTP").run(req),
+        body('otp').notEmpty().withMessage("OTP is required.").isInt().withMessage("OTP must be a number.").isLength({ min: 6, max: 6 }).withMessage("Invalid OTP").run(req),
         body('email_id').notEmpty().withMessage("Email id is required.").isEmail().withMessage("Invalid email id").run(req)
     ]);
     const errors = validationResult(req);
@@ -673,8 +721,8 @@ const checkEmailId = async (req, res) => {
     ]);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return error422(errors.array()[0].msg,res);
-    } 
+        return error422(errors.array()[0].msg, res);
+    }
     const email_id = req.body.email_id ? req.body.email_id.trim() : ""; // Extract and trim email_id from request body
 
     let connection = await getConnection();
@@ -706,19 +754,19 @@ const checkEmailId = async (req, res) => {
 const forgotPassword = async (req, res) => {
     await Promise.all([
         body('email_id').notEmpty().withMessage("Email id is required.").isEmail().withMessage("Invalid email id").run(req),
-        body('otp').notEmpty().withMessage("OTP is required.").isInt().withMessage("OTP must be a number.").isLength({min:6,max:6}).withMessage("Invalid OTP").run(req),
+        body('otp').notEmpty().withMessage("OTP is required.").isInt().withMessage("OTP must be a number.").isLength({ min: 6, max: 6 }).withMessage("Invalid OTP").run(req),
         body('newPassword').notEmpty().withMessage("New password is required.").isLength({ min: 8 }).withMessage("Password must be at least 8 characters long.")
-        .matches(/[0-9]/).withMessage("Password must contain at least one number.")
-        .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage("Password must contain at least one special character.").run(req),
+            .matches(/[0-9]/).withMessage("Password must contain at least one number.")
+            .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage("Password must contain at least one special character.").run(req),
         body('confirmPassword').notEmpty().withMessage("Confirm password is requierd.").isLength({ min: 8 }).withMessage("Password must be at least 8 characters long.")
-        .matches(/[0-9]/).withMessage("Password must contain at least one number.")
-        .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage("Password must contain at least one special character.").run(req)
-        
+            .matches(/[0-9]/).withMessage("Password must contain at least one number.")
+            .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage("Password must contain at least one special character.").run(req)
+
     ]);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return error422(errors.array()[0].msg,res);
-    } 
+        return error422(errors.array()[0].msg, res);
+    }
     const email_id = req.body.email_id ? req.body.email_id.trim() : null;
     const otp = req.body.otp ? req.body.otp : null;
     const newPassword = req.body.newPassword ? req.body.newPassword.trim() : null;
@@ -775,8 +823,8 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
     ]);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return error422(errors.array()[0].msg,res);
-    } 
+        return error422(errors.array()[0].msg, res);
+    }
     const email_id = req.body.email_id;
 
     // Check if email_id exists
@@ -841,11 +889,11 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
             html: message,
         };
 
-         try {
+        try {
             await transporter.sendMail(mailOptions);
         } catch (mailError) {
             // console.error("Error while sending mail:", mailError);
-        } 
+        }
         // Return success response
         return res.status(200).json({
             status: 200,
@@ -858,19 +906,19 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
     }
 };
 // get state list 
-const getStateList = async (req, res) =>{
+const getStateList = async (req, res) => {
     let connection = await pool.getConnection();
     try {
         //get state query
-        let getStateQuery= "SELECT * FROM state WHERE status = 1"
+        let getStateQuery = "SELECT * FROM state WHERE status = 1"
         let stateResult = await connection.query(getStateQuery);
 
         return res.status(200).json({
-            status:200,
-            message:"State retrived successfully.",
-            data:stateResult[0]
+            status: 200,
+            message: "State retrived successfully.",
+            data: stateResult[0]
         })
-        
+
     } catch (error) {
         return error500(error, res);
     } finally {

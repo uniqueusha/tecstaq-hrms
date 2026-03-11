@@ -120,27 +120,22 @@ const createLeaveRequest = async (req, res) => {
         <head>
           <meta charset="UTF-8">
           <title>Welcome to HRMS</title>
-          <style>
-              div{
-              font-family: Arial, sans-serif; 
-               margin: 0px;
-                padding: 0px;
-                color:black;
-              }
-          </style>
         </head>
-        <body>
+        <body style="font-family: Arial, Helvetica, sans-serif; font-size:14px; color:#333; line-height:1.6;">
+
         <div>
         <h2 style="text-transform: capitalize;">Dear ${full_name},</h2>
         </p>A new leave request has been submitted and is pending for approval.</p>
-        </p>Employee Details:</p>
-        <p>Employee ID : ${employee_code}</p>
-        <p>Leave Type : ${leaveType}</p>
-        <p>Start Date: ${start_date}</P>
-        <p>End Date: ${end_date}</p>
-        <p>Total Days: ${total_days}</p>
-        <p>Reason: ${reason}</p>
-        <p>Status: Pending</p>
+        </p><strong>Employee Details:</strong></p>
+        <ul>
+        <li>Employee ID : ${employee_code}</li>
+        <li>Leave Type : ${leaveType}</li>
+        <li>Start Date: ${start_date}</li>
+        <li>End Date: ${end_date}</li>
+        <li>Total Days: ${total_days}</li>
+        <li>Reason: ${reason}</li>
+        <li>Status: Pending</li>
+        </ul>
         <p>Kindly review the leave request and take the necessary action at your earliest convenience.</p>
         <p>Please log in to the system to approve or reject the request.</p>
         <p>Thank you.</p>
@@ -171,7 +166,7 @@ const createLeaveRequest = async (req, res) => {
         <body>
         <div>
         <h2 style="text-transform: capitalize;">Dear HR,</h2>
-        </p>A leave request from Employee ID ${employee_code} for ${start_date} to ${end_date} (${total_days} days) has been submitted and is awaiting your approval.</p>
+        </p>A leave request from Employee ID <strong>${employee_code}</strong> for <strong>${start_date}</strong> to <strong>${end_date}</strong> (<strong>${total_days}</strong> days) has been submitted and is awaiting your approval.</p>
         <p>Please review and take the necessary action.</p>
         <p>Thank you.</p>
         </div>

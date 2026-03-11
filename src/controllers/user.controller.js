@@ -163,7 +163,7 @@ Human Resource Management System (HRMS). Please find your login credentials belo
 
 <p>
 <strong>Portal Link:</strong> 
-<a href="https://hrms.tecstaq.com/#/auth">https://hrms.tecstaq.com/#/auth</a>
+<a href="https://hrms.tecstaq.com/">https://hrms.tecstaq.com/</a>
 </p>
 
 <p><strong>Employee ID:</strong> ${employee_code}</p>

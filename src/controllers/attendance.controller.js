@@ -165,7 +165,7 @@ const importAttendanceFromBase64 = async (req, res) => {
     }
 }
 const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_code } = req.query;
+    const { page, perPage, key, fromDate, toDate, employee_code, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id } = req.query;
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
 
@@ -174,24 +174,64 @@ const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getQuery = `SELECT a.* 
+        let getQuery = `SELECT a.*, e.employee_id, e.first_name, e.last_name, es.shift_type_header_id, st.shift_type_name, eww.work_week_pattern_id, wwp.pattern_name
         FROM attendance_master a
+        LEFT JOIN employee e
+        ON e.employee_code = a.employee_code
+        LEFT JOIN employee_shift es
+        ON es.employee_id = e.employee_id
+        LEFT JOIN shift_type_header st
+        ON st.shift_type_header_id = es.shift_type_header_id
+        LEFT JOIN employee_work_week eww
+        ON eww.employee_id = e.employee_id
+        LEFT JOIN work_week_pattern wwp
+        ON wwp.work_week_pattern_id = eww.work_week_pattern_id
         WHERE 1 `;
 
         let countQuery = `SELECT COUNT(*) AS total         
         FROM attendance_master a
+        LEFT JOIN employee e
+        ON e.employee_code = a.employee_code
+        LEFT JOIN employee_shift es
+        ON es.employee_id = e.employee_id
+        LEFT JOIN shift_type_header st
+        ON st.shift_type_header_id = es.shift_type_header_id
+        LEFT JOIN employee_work_week eww
+        ON eww.employee_id = e.employee_id
+        LEFT JOIN work_week_pattern wwp
+        ON wwp.work_week_pattern_id = eww.work_week_pattern_id
         WHERE 1 `;
 
         // from date and to date
         if (fromDate && toDate) {
-            getQuery += ` AND DATE(lq.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
-            countQuery += ` AND DATE(lq.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+            getQuery += ` AND DATE(a.attendance_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(a.attendance_date) BETWEEN '${fromDate}' AND '${toDate}'`;
         }
-
         if (employee_code) {
             getQuery += ` AND a.employee_code = '${employee_code}'`;
             countQuery += `  AND a.employee_code = '${employee_code}'`;
         }
+        if (status) {
+            getQuery += ` AND a.status = '${status}'`;
+            countQuery += `  AND a.status = '${status}'`;
+        }
+        if (is_late_by == 'true') {
+            getQuery += ` AND a.late_by IS NOT NULL`;
+            countQuery += `  AND a.late_by IS NOT NULL`;
+        }
+        if (is_early_by == 'true') {
+            getQuery += ` AND a.early_by IS NOT NULL`;
+            countQuery += ` AND a.early_by IS NOT NULL`;
+        }
+        if (shift_type_header_id) {
+            getQuery += ` AND st.shift_type_header_id = '${shift_type_header_id}'`;
+            countQuery += `  AND st.shift_type_header_id = '${shift_type_header_id}'`;
+        }
+        if (work_week_pattern_id) {
+            getQuery += ` AND eww.work_week_pattern_id = '${work_week_pattern_id}'`;
+            countQuery += `  AND eww.work_week_pattern_id = '${work_week_pattern_id}'`;
+        }
+
         getQuery += " ORDER BY a.attendance_date DESC";
 
         // Apply pagination if both page and perPage are provided
@@ -205,35 +245,37 @@ const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
 
         const result = await connection.query(getQuery);
         const employee_attendance = result[0];
-        // calendarDetails
-        let getEmployeeQuery = `SELECT e.employee_id, e.company_id, e.departments_id, e.designation_id, e.employment_type_id, e.employee_code, e.title, e.first_name, e.last_name, e.holiday_calendar_id,
+        let data = {
+            status: 200,
+            message: "Employee Attendance retrieved successfully",
+            data: employee_attendance,
+        };
+
+        if (employee_code) {
+            // calendarDetails
+            let getEmployeeQuery = `SELECT e.employee_id, e.company_id, e.departments_id, e.designation_id, e.employment_type_id, e.employee_code, e.title, e.first_name, e.last_name, e.holiday_calendar_id,
         eww.work_week_pattern_id  
         FROM employee e  
         LEFT JOIN employee_work_week eww 
         ON e.employee_id = eww.employee_id
 
         WHERE e.employee_code = ?`
-        //LEFT JOIN work_week_pattern wwp
-        //ON eww.work_week_pattern_id = wwp.work_week_pattern_id
-        let getEmployeeResult = await connection.query(getEmployeeQuery, [employee_code]);
-        if (getEmployeeResult[0].length == 0) {
-            return error422("Employee Not Found", res);
+            //LEFT JOIN work_week_pattern wwp
+            //ON eww.work_week_pattern_id = wwp.work_week_pattern_id
+            let getEmployeeResult = await connection.query(getEmployeeQuery, [employee_code]);
+            if (getEmployeeResult[0].length == 0) {
+                return error422("Employee Not Found", res);
+            }
+            let getCalendarDetailsQuery = "SELECT * FROM holiday_calendar_details WHERE holiday_calendar_id = ?"
+            let getCalendarDetails = await connection.query(getCalendarDetailsQuery, [getEmployeeResult[0][0].holiday_calendar_id])
+
+            let getWorkWeekPatternQuery = 'SELECT * FROM work_week_pattern WHERE work_week_pattern_id =? '
+            let [workWeekPatternResult] = await connection.query(getWorkWeekPatternQuery, [getEmployeeResult[0][0].work_week_pattern_id])
+            data['calendarDetails'] = getCalendarDetails[0]
+            data['workWeekPatternDetails'] = workWeekPatternResult[0]
         }
-        let getCalendarDetailsQuery = "SELECT * FROM holiday_calendar_details WHERE holiday_calendar_id = ?"
-        let getCalendarDetails = await connection.query(getCalendarDetailsQuery, [getEmployeeResult[0][0].holiday_calendar_id])
-
-        let getWorkWeekPatternQuery = 'SELECT * FROM work_week_pattern WHERE work_week_pattern_id =? '
-        let [workWeekPatternResult] = await connection.query(getWorkWeekPatternQuery, [getEmployeeResult[0][0].work_week_pattern_id])
-
         // Commit the transaction
         await connection.commit();
-        const data = {
-            status: 200,
-            message: "Employee Attendance retrieved successfully",
-            data: employee_attendance,
-            calendarDetails: getCalendarDetails[0],
-            workWeekPatternDetails: workWeekPatternResult[0]
-        };
         // Add pagination information if provided
         if (page && perPage) {
             data.pagination = {
@@ -354,7 +396,7 @@ const checkIn = async (req, res) => {
         await connection.query(insertAttendanceQuery, [employee_code, employee_name, attendance_date, 'P', in_time, 'manual']);
         //set employee signed_in = 1
         const updateEmployeeQuery = `UPDATE employee SET signed_in = 1 WHERE employee_id = ?`;
-        await connection.query(updateEmployeeQuery,[isExistEmployeeResult[0][0].employee_id]);
+        await connection.query(updateEmployeeQuery, [isExistEmployeeResult[0][0].employee_id]);
 
         await connection.commit()
         return res.status(200).json({
@@ -511,15 +553,15 @@ const importAttendanceManual = async (req, res) => {
                 const lateByRow = rows[i + 5] || [];
                 const earlyByRow = rows[i + 6] || [];
                 const otRow = rows[i + 7] || [];
-                
+
                 // loop days
                 for (let d = 0; d < days.length; d++) {
-                    
+
                     const attendance_date = moment(
                         `${year}-${month}-${days[d].day}`,
                         "YYYY-MM-DD"
                     ).format("YYYY-MM-DD");
-                    
+
                     const status = statusRow?.[d + 1] || null;
                     const in_time = excelTimeToHHMM(inTimeRow?.[d + 1]);
                     const out_time = excelTimeToHHMM(outTimeRow?.[d + 1]);
@@ -558,9 +600,9 @@ const importAttendanceManual = async (req, res) => {
                         }
 
                     }
-                    
 
-                
+
+
 
                 }
             }
@@ -578,7 +620,7 @@ const importAttendanceManual = async (req, res) => {
         // Insert into attendance upload manual 
         const insertAttendanceUploadQuery = "INSERT INTO attendance_upload_manual ( file_name, records, month, year, remarks, created_by) VALUES ( ?, ?, ?, ?, ?, ? )";
         const insertAttendanceUploadValues = [file_name, records.length, month, year, remarks, user_id];
-        await connection.query(insertAttendanceUploadQuery, insertAttendanceUploadValues) 
+        await connection.query(insertAttendanceUploadQuery, insertAttendanceUploadValues)
 
         //commit the transation
         await connection.commit();
@@ -669,25 +711,25 @@ const getAttendanceUploadManualList = async (req, res) => {
 }
 //checkin status
 const checkinStatus = async (req, res) => {
-    let connection 
-  try {
-    connection = await pool.getConnection();
-    const user_id = req.user.user_id;
-    let attendance_date = req.query.attendance_date;
+    let connection
+    try {
+        connection = await pool.getConnection();
+        const user_id = req.user.user_id;
+        let attendance_date = req.query.attendance_date;
 
-    if (!user_id) {
-      return error422("User id is required.", res);
-    }
+        if (!user_id) {
+            return error422("User id is required.", res);
+        }
 
-    //get today's IST date if not provided
-    if (!attendance_date) {
-      attendance_date = new Date().toLocaleDateString('en-CA', {
-        timeZone: 'Asia/Kolkata'
-      });
-    }
+        //get today's IST date if not provided
+        if (!attendance_date) {
+            attendance_date = new Date().toLocaleDateString('en-CA', {
+                timeZone: 'Asia/Kolkata'
+            });
+        }
 
-    // ---------------- user ----------------
-    const getUserQuery = `
+        // ---------------- user ----------------
+        const getUserQuery = `
       SELECT u.*, 
              CONCAT(u.first_name,' ',u.last_name) AS employee_name,
              e.employee_code
@@ -696,50 +738,50 @@ const checkinStatus = async (req, res) => {
       WHERE u.user_id = ? AND u.status = 1
     `;
 
-    const [users] = await connection.query(getUserQuery, [user_id]);
+        const [users] = await connection.query(getUserQuery, [user_id]);
 
-    if (users.length === 0) {
-      return error422("Employee Not Found.", res);
-    }
+        if (users.length === 0) {
+            return error422("Employee Not Found.", res);
+        }
 
-    const user = users[0];
+        const user = users[0];
 
-    // ---------------- attendance ----------------
-    const attendanceQuery = `
+        // ---------------- attendance ----------------
+        const attendanceQuery = `
       SELECT in_time, out_time
       FROM attendance_master
       WHERE employee_code = ? AND attendance_date = ?
     `;
 
-    const [attendance] = await connection.query(attendanceQuery, [
-      user.employee_code,
-      attendance_date
-    ]);
+        const [attendance] = await connection.query(attendanceQuery, [
+            user.employee_code,
+            attendance_date
+        ]);
 
-    //check status
-    let checkin_status = false;
-    let checkout_status = false;
+        //check status
+        let checkin_status = false;
+        let checkout_status = false;
 
-    if (attendance.length > 0) {
-      checkin_status = !!attendance[0].in_time;
-      checkout_status = !!attendance[0].out_time;
+        if (attendance.length > 0) {
+            checkin_status = !!attendance[0].in_time;
+            checkout_status = !!attendance[0].out_time;
+        }
+
+        return res.status(200).json({
+            status: 200,
+            checkin_status: checkin_status,
+            checkout_status: checkout_status,
+            attendance_date: attendance_date,
+            in_time: attendance[0]?.in_time || '',
+            out_time: attendance[0]?.out_time || ''
+        });
+
+    } catch (error) {
+        console.error(error);
+        return error500(error, res)
+    } finally {
+        if (connection) await connection.release()
     }
-
-    return res.status(200).json({
-      status: 200,
-      checkin_status:checkin_status,
-      checkout_status:checkout_status,
-      attendance_date:attendance_date,
-      in_time:attendance[0]?.in_time||'',
-      out_time:attendance[0]?.out_time||''
-    });
-
-  } catch (error) {
-    console.error(error);
-    return error500(error, res)
-  } finally {
-    if (connection) await connection.release()
-  }
 };
 module.exports = {
     importAttendanceFromBase64,

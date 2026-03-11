@@ -25,6 +25,8 @@ router.get('/:id', employeeController.getEmployee);
 
 // update employee
 router.put('/:id', employeeController.updateEmployee);
+// update employee self
+router.put('/profile/:id', employeeController.updateEmployeeProfile)
 
 // change status employee
 router.patch('/:id', employeeController.onStatusChange);

@@ -421,7 +421,7 @@ const createEmployee = async (req, res) => {
 
 // get employee list...
 const getEmployees = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id, departments_id, designation_id, company_id, reporting_manager_id, employment_type_id } = req.query;
+    const { page, perPage, key, fromDate, toDate, grade_id, employee_id, departments_id, designation_id, company_id, reporting_manager_id, employment_type_id, shift_type_header_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -442,6 +442,7 @@ const getEmployees = async (req, res) => {
         LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
         LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
         LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        LEFT JOIN employee_salary_mapping esm ON e.employee_id = esm.employee_id 
         WHERE 1 AND e.reporting_manager_id !=0 `;
 
         let countQuery = `SELECT COUNT(*) AS total FROM employee e
@@ -454,6 +455,7 @@ const getEmployees = async (req, res) => {
         LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
         LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
         LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        LEFT JOIN employee_salary_mapping esm ON e.employee_id = esm.employee_id 
         WHERE 1 AND e.reporting_manager_id !=0 `;
 
         if (key) {
@@ -503,6 +505,16 @@ const getEmployees = async (req, res) => {
         if (employee_id) {
             getEmployeesQuery += ` AND e.employee_id = ${employee_id}`;
             countQuery += `  AND e.employee_id = ${employee_id}`;
+        }
+
+        if (shift_type_header_id) {
+            getEmployeesQuery += ` AND es.shift_type_header_id = ${shift_type_header_id}`;
+            countQuery += `  AND es.shift_type_header_id = ${shift_type_header_id}`;
+        }
+
+        if (grade_id) {
+            getEmployeesQuery += ` AND esm.grade_id = ${grade_id}`;
+            countQuery += `  AND esm.grade_id = ${grade_id}`;
         }
 
         getEmployeesQuery += " ORDER BY e.cts DESC";
@@ -1435,7 +1447,7 @@ const getEmployeeAdminWma = async (req, res) => {
 //download list
 const getEmployeeDownload = async (req, res) => {
 
-    const { key, designation_id, employment_type_id, departments_id, fromDate, toDate} = req.query;
+    const { key, grade_id, shift_type_header_id, employee_id, company_id, designation_id, employment_type_id, departments_id, fromDate, toDate} = req.query;
 
     let connection = await getConnection();
     try {
@@ -1452,6 +1464,7 @@ const getEmployeeDownload = async (req, res) => {
         LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
         LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
         LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        LEFT JOIN employee_salary_mapping esm ON e.employee_id = esm.employee_id 
         WHERE 1 AND e.reporting_manager_id !=0 `;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -1473,6 +1486,21 @@ const getEmployeeDownload = async (req, res) => {
             getEmployeeQuery += ` AND e.employment_type_id = ${employment_type_id}`;
         }
 
+        if (company_id) {
+            getEmployeeQuery += ` AND e.company_id = ${company_id}`;
+        }
+
+        if (employee_id) {
+            getEmployeeQuery += ` AND e.employee_id = ${employee_id}`;
+        }
+
+        if (shift_type_header_id) {
+            getEmployeeQuery += ` AND es.shift_type_header_id = ${shift_type_header_id}`;
+        }
+
+        if (grade_id) {
+            getEmployeeQuery += ` AND esm.grade_id = ${grade_id}`;
+        }
         getEmployeeQuery += " ORDER BY e.cts DESC";
 
         let result = await connection.query(getEmployeeQuery);
@@ -1569,6 +1597,8 @@ const getEmployeeDownload = async (req, res) => {
 
         await connection.commit();
     } catch (error) {
+        console.log(error);
+        
         return error500(error, res);
     } finally {
         if (connection) connection.release();

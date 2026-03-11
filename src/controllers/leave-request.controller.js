@@ -207,7 +207,7 @@ const createLeaveRequest = async (req, res) => {
 }
 // get leave requests...
 const getLeaveRequests = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id, approver_id, leave_type_id,status } = req.query;
+    const { page, perPage, key, fromDate, toDate, company_id, shift_type_header_id, employee_id, approver_id, leave_type_id, departments_id, status } = req.query;
 
     if (status) {
         if (status!="Pending"&&status!="Approved"&&status!="Rejected"&&status!="Cancelled") {
@@ -223,17 +223,26 @@ const getLeaveRequests = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
-        lt.leave_type_name 
+        lt.leave_type_name, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
         LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
+        LEFT JOIN company c ON c.company_id = e.company_id
+        LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
+        LEFT JOIN departments d ON d.departments_id = e.departments_id
+        LEFT JOIN shift_type_header sth ON sth.shift_type_header_id = es.shift_type_header_id
         WHERE 1`;
 
         let countQuery = `SELECT COUNT(*) AS total FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
         LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
+        LEFT JOIN company c ON c.company_id = e.company_id
+        LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
+        LEFT JOIN departments d ON d.departments_id = e.departments_id
+        LEFT JOIN shift_type_header sth ON sth.shift_type_header_id = es.shift_type_header_id
+
         WHERE 1`;
 
         if (key) {
@@ -247,6 +256,16 @@ const getLeaveRequests = async (req, res) => {
             countQuery += ` AND DATE(lq.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
         }
 
+        if (departments_id) {
+            getQuery += ` AND e.departments_id = ${departments_id}`;
+            countQuery += `  AND e.departments_id = ${departments_id}`;
+        }
+
+        if (company_id) {
+            getQuery += ` AND e.company_id = ${company_id}`;
+            countQuery += `  AND e.company_id = ${company_id}`;
+        }
+
         if (employee_id) {
             getQuery += ` AND lq.employee_id = ${employee_id}`;
             countQuery += `  AND lq.employee_id = ${employee_id}`;
@@ -254,6 +273,10 @@ const getLeaveRequests = async (req, res) => {
         if (approver_id) {
             getQuery += ` AND lq.approver_id = ${approver_id}`;
             countQuery += `  AND lq.approver_id = ${approver_id}`;
+        }
+        if (shift_type_header_id) {
+            getQuery += ` AND es.shift_type_header_id = ${shift_type_header_id}`;
+            countQuery += `  AND es.shift_type_header_id = ${shift_type_header_id}`;
         }
         if (leave_type_id) {
             getQuery += ` AND lq.leave_type_id = ${leave_type_id}`;
@@ -770,7 +793,7 @@ const getLeaveBalances = async (req, res )=>{
 //download leave requests
 const getLeaveRequestsDownload = async (req, res) => {
 
-    let { key, fromDate, toDate, employee_id, approver_id, leave_type_id,status } = req.query;
+    let { key, fromDate, toDate, company_id,  shift_type_header_id, employee_id, approver_id, leave_type_id, departments_id, status } = req.query;
 
     if (status) {
         if (status!="Pending"&&status!="Approved"&&status!="Rejected"&&status!="Cancelled") {
@@ -783,24 +806,36 @@ const getLeaveRequestsDownload = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
-        lt.leave_type_name 
+        lt.leave_type_name, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
         LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
+        LEFT JOIN company c ON c.company_id = e.company_id
+        LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
+        LEFT JOIN departments d ON d.departments_id = e.departments_id
+        LEFT JOIN shift_type_header sth ON sth.shift_type_header_id = es.shift_type_header_id
         WHERE 1`;
         if (key) {
-                const lowercaseKey = key.toLowerCase().trim();
+            const lowercaseKey = key.toLowerCase().trim();
             getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' || LOWER(lt.leave_type_name) LIKE '%${lowercaseKey}%' || LOWER(lq.total_days) LIKE '%${lowercaseKey}%') )`;
-            }
+        }
 
         // from date and to date
         if (fromDate && toDate) {
             getQuery += ` AND DATE(lq.applied_date) BETWEEN '${fromDate}' AND '${toDate}'`;
         }
-
+        if (departments_id) {
+            getQuery += ` AND e.departments_id = ${departments_id}`;
+        }
+        if (company_id) {
+            getQuery += ` AND e.company_id = ${company_id}`;
+        }
         if (employee_id) {
             getQuery += ` AND lq.employee_id = ${employee_id}`;
+        }
+        if (shift_type_header_id) {
+            getQuery += ` AND es.shift_type_header_id = ${shift_type_header_id}`;
         }
         if (approver_id) {
             getQuery += ` AND lq.approver_id = ${approver_id}`;

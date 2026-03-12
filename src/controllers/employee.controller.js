@@ -1331,12 +1331,18 @@ const onStatusChange = async (req, res) => {
             });
         }
         let employee_status = status == 1 ? 'Active' : 'Inactive'
+        // Soft update the employee status
+            const updateQuery = `
+            UPDATE employee
+            SET status = ?, employee_status = ?
+            WHERE employee_id = ?`;
+            await connection.query(updateQuery, [status, employee_status, employeeId]);
         let getUserQuery = `SELECT * FROM users WHERE employee_id = ?`;
         let [getUserResult] = await connection.query(getUserQuery, [employeeId])
         if (getUserResult[0]) {
             // Soft update the user status
             const updateQuery = `
-            UPDATE user
+            UPDATE users
             SET status = ?
             WHERE employee_id = ?`;
             await connection.query(updateQuery, [status, employeeId]);

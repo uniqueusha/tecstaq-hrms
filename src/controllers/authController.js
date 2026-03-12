@@ -42,7 +42,7 @@ exports.login = async (req, res) => {
              LEFT JOIN untitled t ON u.user_id = t.user_id
              LEFT JOIN employee e ON e.employee_id = u.employee_id
              LEFT JOIN employee ee ON e.reporting_manager_id = ee.employee_id
-             WHERE u.email_id = ?`,
+             WHERE u.email_id = ? AND u.status = 1 AND e.employee_status ='Active'`,
             [email_id]
         );
         if (rows.length === 0) {

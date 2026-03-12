@@ -259,7 +259,7 @@ const getUsers = async (req, res) => {
         //     getQuery += ` AND lq.leave_type_id = ${leave_type_id}`;
         //     countQuery += `  AND lq.leave_type_id = ${leave_type_id}`;
         // }
-
+         getQuery += ` ORDER BY u.cts DESC`;
         // getQuery += " ORDER BY lq.applied_date DESC";
         // Apply pagination if both page and perPage are provided
         let total = 0;
@@ -416,7 +416,7 @@ const getUserDownload = async (req, res) => {
             const lowercaseKey = key.toLowerCase().trim();
             getUserQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(u.mobile_number) LIKE '%${lowercaseKey}%')`;
         }
-        getUserQuery += " ORDER BY u.cts DESC";
+        getUserQuery += ` ORDER BY u.cts DESC`;
 
         let result = await connection.query(getUserQuery);
         let user = result[0];

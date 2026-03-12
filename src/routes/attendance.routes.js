@@ -9,7 +9,10 @@ router.post("/check-in", attendanceController.checkIn);
 router.post("/check-out", attendanceController.checkOut);
 router.get("/checkin-status", verifyToken, attendanceController.checkinStatus);
 router.get("/upload", attendanceController.getAttendanceUploadList);
-router.get('/upload-manual', verifyToken, attendanceController.getAttendanceUploadManualList)
+router.get('/upload-download', attendanceController.getAttendanceUploadDownload);
+router.get('/upload-manual', verifyToken, attendanceController.getAttendanceUploadManualList);
+router.get('/upload-manual-download', verifyToken, attendanceController.getAttendanceUploadManualDownload);
 router.get("/", attendanceController.getEmployeeAttendanceByEmployeeCode);
+router.get('/all-attendance-download', attendanceController.getAllAttendanceDownload);
 
 module.exports = router;

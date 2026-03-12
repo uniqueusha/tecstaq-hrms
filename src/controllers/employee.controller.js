@@ -426,7 +426,7 @@ const createEmployee = async (req, res) => {
 
 // get employee list...
 const getEmployees = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id, departments_id, designation_id, company_id, reporting_manager_id, employment_type_id } = req.query;
+    const { page, perPage, key, fromDate, toDate, grade_id, employee_id, departments_id, designation_id, company_id, reporting_manager_id, employment_type_id, shift_type_header_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -437,7 +437,7 @@ const getEmployees = async (req, res) => {
         await connection.beginTransaction();
 
         let getEmployeesQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.family_dob,ef.is_dependent,ef.is_nominee,ef.family_mobile_number,empc.previous_start_date,empc.previous_end_date,empc.last_drawn_salary,empc.previous_designation,empc.hr_email,empc.hr_mobile,
-        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.shift_start_date,es.shift_end_date,eww.work_week_pattern_id,eww. work_week_start_date,eww.work_week_end_date, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name,ee.last_name AS reporting_manager_last_name FROM employee e
+        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.shift_start_date,es.shift_end_date,eww.work_week_pattern_id,eww. work_week_start_date,eww.work_week_end_date, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name,ee.last_name AS reporting_manager_last_name , esm.grade_id, g.grade_name, dpt.department_name, sth.shift_type_name FROM employee e
         LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
         LEFT JOIN company c ON c.company_id = e.company_id
         LEFT JOIN designation d ON d.designation_id = e.designation_id
@@ -447,6 +447,10 @@ const getEmployees = async (req, res) => {
         LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
         LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
         LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        LEFT JOIN employee_salary_mapping esm ON e.employee_id = esm.employee_id 
+        LEFT JOIN grades g ON g.grade_id = esm.grade_id
+        LEFT JOIN departments dpt ON dpt.departments_id = e.departments_id
+        LEFT JOIN shift_type_header sth ON sth.shift_type_header_id = es.shift_type_header_id
         WHERE 1 AND e.reporting_manager_id !=0 `;
 
         let countQuery = `SELECT COUNT(*) AS total FROM employee e
@@ -459,6 +463,10 @@ const getEmployees = async (req, res) => {
         LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
         LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
         LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        LEFT JOIN employee_salary_mapping esm ON e.employee_id = esm.employee_id 
+        LEFT JOIN grades g ON g.grade_id = esm.grade_id
+        LEFT JOIN departments dpt ON dpt.departments_id = e.departments_id
+        LEFT JOIN shift_type_header sth ON sth.shift_type_header_id = es.shift_type_header_id
         WHERE 1 AND e.reporting_manager_id !=0 `;
 
         if (key) {
@@ -483,22 +491,22 @@ const getEmployees = async (req, res) => {
 
         if (departments_id) {
             getEmployeesQuery += ` AND e.departments_id = ${departments_id}`;
-            countQuery += `  AND e.departments_id = ${departments_id}`;
+            countQuery += ` AND e.departments_id = ${departments_id}`;
         }
 
         if (designation_id) {
             getEmployeesQuery += ` AND e.designation_id = ${designation_id}`;
-            countQuery += `  AND e.designation_id = ${designation_id}`;
+            countQuery += ` AND e.designation_id = ${designation_id}`;
         }
 
         if (employment_type_id) {
             getEmployeesQuery += ` AND e.employment_type_id = ${employment_type_id}`;
-            countQuery += `  AND e.employment_type_id = ${employment_type_id}`;
+            countQuery += ` AND e.employment_type_id = ${employment_type_id}`;
         }
 
         if (company_id) {
             getEmployeesQuery += ` AND e.company_id = ${company_id}`;
-            countQuery += `  AND e.company_id = ${company_id}`;
+            countQuery += ` AND e.company_id = ${company_id}`;
         }
         if (reporting_manager_id) {
             getEmployeesQuery += ` AND e.reporting_manager_id = ${reporting_manager_id}`;
@@ -510,7 +518,19 @@ const getEmployees = async (req, res) => {
             countQuery += `  AND e.employee_id = ${employee_id}`;
         }
 
-        getEmployeesQuery += " ORDER BY e.employee_id ASC";
+        if (shift_type_header_id) {
+            getEmployeesQuery += ` AND es.shift_type_header_id = ${shift_type_header_id}`;
+            countQuery += `  AND es.shift_type_header_id = ${shift_type_header_id}`;
+        }
+
+        if (grade_id) {
+            getEmployeesQuery += ` AND esm.grade_id = ${grade_id}`;
+            countQuery += ` AND esm.grade_id = ${grade_id}`;
+        }
+
+        // getEmployeesQuery += ` ORDER BY e.cts DESC`;
+        // getEmployeesQuery += ` ORDER BY e.employee_id ASC`;
+        getEmployeesQuery += ` ORDER BY e.cts DESC, e.employee_id ASC`;
 
         // Apply pagination if both page and perPage are provided
         let total = 0;
@@ -543,6 +563,7 @@ const getEmployees = async (req, res) => {
 
         return res.status(200).json(data);
     } catch (error) {
+      
         return error500(error, res);
     } finally {
         if (connection) connection.release()
@@ -1291,7 +1312,6 @@ const updateEmployee = async (req, res) => {
             message: "Employee updated successfully.",
         });
     } catch (error) {
-        console.log(error);
         return error500(error, res);
     } finally {
         if (connection) connection.release()
@@ -1347,9 +1367,6 @@ const onStatusChange = async (req, res) => {
             WHERE employee_id = ?`;
             await connection.query(updateQuery, [status, employeeId]);
         }
-
-
-
 
         const statusMessage = status === 1 ? "activated" : "deactivated";
         // Commit the transaction
@@ -1452,14 +1469,14 @@ const getEmployeeAdminWma = async (req, res) => {
 //download list
 const getEmployeeDownload = async (req, res) => {
 
-    const { key, designation_id, employment_type_id, departments_id, fromDate, toDate} = req.query;
+    const { key, fromDate, toDate, grade_id, employee_id, departments_id, designation_id, company_id, reporting_manager_id, employment_type_id, shift_type_header_id} = req.query;
 
     let connection = await getConnection();
     try {
         await connection.beginTransaction();
 
         let getEmployeeQuery = `SELECT e.*, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.family_dob,ef.is_dependent,ef.is_nominee,ef.family_mobile_number,empc.previous_start_date,empc.previous_end_date,empc.last_drawn_salary,empc.previous_designation,empc.hr_email,empc.hr_mobile,
-        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.shift_start_date,es.shift_end_date,eww.work_week_pattern_id,eww. work_week_start_date,eww.work_week_end_date, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name,ee.last_name AS reporting_manager_last_name FROM employee e
+        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id,es.shift_start_date,es.shift_end_date,eww.work_week_pattern_id,eww. work_week_start_date,eww.work_week_end_date, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name,ee.last_name AS reporting_manager_last_name, esm.grade_id, g.grade_name, dp.department_name, sth.shift_type_name FROM employee e
         LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
         LEFT JOIN company c ON c.company_id = e.company_id
         LEFT JOIN designation d ON d.designation_id = e.designation_id
@@ -1469,6 +1486,11 @@ const getEmployeeDownload = async (req, res) => {
         LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
         LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
         LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        LEFT JOIN employee_salary_mapping esm ON e.employee_id = esm.employee_id 
+        LEFT JOIN grades g ON g.grade_id = esm.grade_id
+        LEFT JOIN departments dp ON dp.departments_id = e.departments_id
+        LEFT JOIN shift_type_header sth ON sth.shift_type_header_id = es.shift_type_header_id
+    
         WHERE 1 AND e.reporting_manager_id !=0 `;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -1490,6 +1512,23 @@ const getEmployeeDownload = async (req, res) => {
             getEmployeeQuery += ` AND e.employment_type_id = ${employment_type_id}`;
         }
 
+        if (company_id) {
+            getEmployeeQuery += ` AND e.company_id = ${company_id}`;
+        }
+        if (reporting_manager_id) {
+            getEmployeeQuery += ` AND e.reporting_manager_id = ${reporting_manager_id}`;
+        }
+        if (employee_id) {
+            getEmployeeQuery += ` AND e.employee_id = ${employee_id}`;
+        }
+
+        if (shift_type_header_id) {
+            getEmployeeQuery += ` AND es.shift_type_header_id = ${shift_type_header_id}`;
+        }
+
+        if (grade_id) {
+            getEmployeeQuery += ` AND esm.grade_id = ${grade_id}`;
+        }
         getEmployeeQuery += " ORDER BY e.cts DESC";
 
         let result = await connection.query(getEmployeeQuery);
@@ -1577,7 +1616,6 @@ const getEmployeeDownload = async (req, res) => {
         // Send the file to the client
         res.download(excelFileName, (err) => {
             if (err) {
-                console.error(err);
                 res.status(500).send("Error downloading the file.");
             } else {
                 fs.unlinkSync(excelFileName);

@@ -1,6 +1,8 @@
 const XLSX = require("xlsx");
 const moment = require("moment");
 const pool = require('../../db');
+const fs = require('fs');
+const path = require('path');
 const { body, param, validationResult } = require('express-validator');
 const error422 = (message, res) => {
     return res.status(422).json({
@@ -365,6 +367,82 @@ const getAttendanceUploadList = async (req, res) => {
         if (connection) connection.release()
     }
 }
+
+//get get Attendance Upload Download...
+const getAttendanceUploadDownload = async (req, res) => {
+    const { fromDate, toDate, employee_id} = req.query;
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT a.*, e.first_name, e.last_name 
+        FROM attendance_upload a
+        LEFT JOIN employee e
+        ON e.employee_id = a.created_by
+        WHERE 1 `;
+        // from date and to date
+        if (fromDate && toDate) {
+            getQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (employee_id) {
+            getQuery += ` AND a.created_by = '${employee_id}'`;
+        }
+        getQuery += " ORDER BY a.created_at DESC";
+
+        let result = await connection.query(getQuery);
+        let attendanceUpload = result[0];
+        if (attendanceUpload.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        attendanceUpload = attendanceUpload.map((item, index) => ({
+            "Sr No": index + 1,
+            "File": item.file_name,
+            "Records": item.records,
+            "Attendace cycle": item.attendance_cycle,
+            "Month": item.attendance_month,
+            "Year": item.attendance_year,
+            "Locked": item.is_locked === 1 ? "Yes" : "NO",
+            "Pay roll run": item.is_payroll_run === 1 ? "Yes" : "NO",
+            "Uploaded by": `${item.first_name} ${item.last_name}`,
+            "Uploaded at": item.created_at,
+            // "Status": item.status === 1 ? "activated" : "deactivated",
+            
+        }));
+
+        // Create a new workbook
+        const workbook = XLSX.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = XLSX.utils.json_to_sheet(attendanceUpload);
+
+        // Add the worksheet to the workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, "attendanceUploadInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        XLSX.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 const checkIn = async (req, res) => {
     let employee_code = req.body.employee_code ? req.body.employee_code : '';
     let attendance_date = req.body.attendance_date ? req.body.attendance_date : '';
@@ -709,6 +787,80 @@ const getAttendanceUploadManualList = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//get get Attendance Upload Manual Download...
+const getAttendanceUploadManualDownload = async (req, res) => {
+    const { fromDate, toDate, employee_id} = req.query;
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT a.*, e.first_name, e.last_name 
+        FROM attendance_upload_manual a
+        LEFT JOIN employee e
+        ON e.employee_id = a.created_by
+        WHERE 1 `;
+        // from date and to date
+        if (fromDate && toDate) {
+            getQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (employee_id) {
+            getQuery += ` AND a.created_by = '${employee_id}'`;
+        }
+        getQuery += " ORDER BY a.created_at DESC";
+
+        let result = await connection.query(getQuery);
+        let attendanceUploadManual = result[0];
+        if (attendanceUploadManual.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        attendanceUploadManual = attendanceUploadManual.map((item, index) => ({
+            "Sr No": index + 1,
+            "File": item.file_name,
+            "Records": item.records,
+            "Month": item.month,
+            "Year": item.year,
+            "Locked": item.is_locked === 1 ? "Yes" : "NO",
+            "Pay roll run": item.is_payroll_run === 1 ? "Yes" : "NO",
+            "Uploaded by": `${item.first_name} ${item.last_name}`,
+            "Uploaded at": item.created_at,
+            // "Status": item.status === 1 ? "activated" : "deactivated",
+            
+        }));
+
+        // Create a new workbook
+        const workbook = XLSX.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = XLSX.utils.json_to_sheet(attendanceUploadManual);
+
+        // Add the worksheet to the workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, "attendanceUploadManualInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        XLSX.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 //checkin status
 const checkinStatus = async (req, res) => {
     let connection
@@ -783,6 +935,105 @@ const checkinStatus = async (req, res) => {
         if (connection) await connection.release()
     }
 };
+//get get All Attendance  Download...
+const getAllAttendanceDownload = async (req, res) => {
+    const { fromDate, toDate, employee_code, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id } = req.query;
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT a.*, e.employee_id, e.first_name, e.last_name, es.shift_type_header_id, st.shift_type_name, eww.work_week_pattern_id, wwp.pattern_name
+        FROM attendance_master a
+        LEFT JOIN employee e
+        ON e.employee_code = a.employee_code
+        LEFT JOIN employee_shift es
+        ON es.employee_id = e.employee_id
+        LEFT JOIN shift_type_header st
+        ON st.shift_type_header_id = es.shift_type_header_id
+        LEFT JOIN employee_work_week eww
+        ON eww.employee_id = e.employee_id
+        LEFT JOIN work_week_pattern wwp
+        ON wwp.work_week_pattern_id = eww.work_week_pattern_id
+        WHERE 1 `;
+        // from date and to date
+        if (fromDate && toDate) {
+            getQuery += ` AND DATE(a.attendance_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (employee_code) {
+            getQuery += ` AND a.employee_code = '${employee_code}'`;
+        }
+       if (status) {
+            getQuery += ` AND a.status = '${status}'`;
+        }
+        if (is_late_by == 'true') {
+            getQuery += ` AND a.late_by IS NOT NULL`;
+        }
+        if (is_early_by == 'true') {
+            getQuery += ` AND a.early_by IS NOT NULL`;
+        }
+        if (shift_type_header_id) {
+            getQuery += ` AND st.shift_type_header_id = '${shift_type_header_id}'`;
+        }
+        if (work_week_pattern_id) {
+            getQuery += ` AND eww.work_week_pattern_id = '${work_week_pattern_id}'`;
+        }
+
+        getQuery += " ORDER BY a.attendance_date DESC";
+
+        let result = await connection.query(getQuery);
+        let attendance= result[0];
+        if (attendance.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        attendance = attendance.map((item, index) => ({
+            "Sr No": index + 1,
+            "Employee Code": item.employee_code,
+            "Employee Name": item.employee_name,
+            "Attendance Date": item.attendance_date,
+            "In Time": item.in_time,
+            "Out Time": item.out_time,
+            "Shift Type": item.shift_type_name,
+            "Work Pattern Name": item.pattern_name,
+            "Status": item.medium,
+            "Working Mode": item.status
+            // "Status": item.status === 1 ? "activated" : "deactivated",
+            
+        }));
+
+        // Create a new workbook
+        const workbook = XLSX.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = XLSX.utils.json_to_sheet(attendance);
+
+        // Add the worksheet to the workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, "attendanceInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        XLSX.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 module.exports = {
     importAttendanceFromBase64,
     getEmployeeAttendanceByEmployeeCode,
@@ -791,5 +1042,8 @@ module.exports = {
     checkOut,
     importAttendanceManual,
     getAttendanceUploadManualList,
-    checkinStatus
+    checkinStatus,
+    getAttendanceUploadDownload,
+    getAttendanceUploadManualDownload,
+    getAllAttendanceDownload
 };

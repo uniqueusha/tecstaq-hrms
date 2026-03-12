@@ -40,6 +40,7 @@ const salaryComponentRoutes = require('./src/routes/master/salary-component.rout
 const esiRuleRoutes = require('./src/routes/master/esi-rules.routes');
 const providentFundRuleRoutes = require('./src/routes/master/provident-fund-rules.route');
 const documentType = require('./src/routes/master/document_type.routes');
+const customerRoute = require('./src/routes/master/customer.routes');
 //Employee salary mapping
 const employeeSalaryMappingRoutes = require('./src/routes/employee-salary-mapping.routes')
 const payRollRoutes = require('./src/routes/pay-roll.routes')
@@ -90,6 +91,7 @@ app.use('/salary-component', salaryComponentRoutes)
 app.use('/esi-rule', esiRuleRoutes)
 app.use('/provident-fund-rule', providentFundRuleRoutes);
 app.use('/document-type', documentType);
+app.use('/customer', customerRoute);
 //employee salary mapping
 app.use('/employee-salary-mapping', employeeSalaryMappingRoutes)
 app.use('/pay-roll', payRollRoutes)

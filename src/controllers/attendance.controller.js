@@ -167,7 +167,7 @@ const importAttendanceFromBase64 = async (req, res) => {
     }
 }
 const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_code, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id } = req.query;
+    const { page, perPage, key, fromDate, toDate, employee_id, employee_code, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id } = req.query;
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
 
@@ -212,6 +212,10 @@ const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
         if (employee_code) {
             getQuery += ` AND a.employee_code = '${employee_code}'`;
             countQuery += `  AND a.employee_code = '${employee_code}'`;
+        }
+        if (employee_id) {
+            getQuery += ` AND e.employee_id = '${employee_id}'`;
+            countQuery += `  AND e.employee_id = '${employee_id}'`;
         }
         if (status) {
             getQuery += ` AND a.status = '${status}'`;

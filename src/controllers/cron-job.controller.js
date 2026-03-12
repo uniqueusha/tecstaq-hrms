@@ -38,10 +38,12 @@ const autoCheckOut = async (req, res) => {
         e.employee_code,
         e.first_name,
         e.last_name,
+        e.holiday_calendar_id,
         st.end_time,
         am.attendance_date,
         am.in_time,
-        am.out_time
+        am.out_time,
+        h.holiday_date
       FROM employee e
       LEFT JOIN employee_shift es
         ON es.employee_id = e.employee_id
@@ -50,17 +52,36 @@ const autoCheckOut = async (req, res) => {
       LEFT JOIN attendance_master am
         ON am.employee_code = e.employee_code
         AND am.attendance_date = ?
+      LEFT JOIN holiday_calendar_details h
+        ON h.holiday_calendar_id = e.holiday_calendar_id
+        AND h.holiday_date = ?
       WHERE e.employee_status = 'active'
       AND e.status = 1
     `;
 
-    const [employees] = await connection.query(getEmployeeQuery, [date]);
+    const [employees] = await connection.query(getEmployeeQuery, [date, date]);
 
     for (const emp of employees) {
 
       const employeeName = `${emp.first_name} ${emp.last_name}`;
 
-      // 1. No attendance record - mark absent
+      // CASE 1: Holiday
+      if (emp.holiday_date) {
+
+        if (!emp.attendance_date) {
+
+        //   await connection.query(`
+        //     INSERT INTO attendance_master
+        //     (employee_code, employee_name, attendance_date, status, medium)
+        //     VALUES (?, ?, ?, 'H', 'auto')
+        //   `, [emp.employee_code, employeeName, date]);
+
+        }
+
+        continue;
+      }
+
+      // CASE 2: No attendance record → Absent
       if (!emp.attendance_date) {
 
         await connection.query(`
@@ -72,7 +93,7 @@ const autoCheckOut = async (req, res) => {
         continue;
       }
 
-      // CASE 2: Checked in but not checked out
+      // CASE 3: Checked in but not checked out
       if (emp.in_time && !emp.out_time && emp.end_time) {
 
         const shiftEnd = new Date(date);
@@ -105,7 +126,7 @@ const autoCheckOut = async (req, res) => {
 
     return res.json({
       status: 200,
-      message: "Auto checkout and absent marking completed"
+      message: "Auto checkout, holiday and absent marking completed"
     });
 
   } catch (error) {

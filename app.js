@@ -45,6 +45,7 @@ const workCategoryRoute = require('./src/routes/master/work-category.routes');
 //Employee salary mapping
 const employeeSalaryMappingRoutes = require('./src/routes/employee-salary-mapping.routes')
 const payRollRoutes = require('./src/routes/pay-roll.routes')
+const cronJobRoutes = require('./src/routes/cron-job.routes')
 // Middleware
 app.use(bodyParser.json());
 app.use((req,res,next)=>{
@@ -96,7 +97,8 @@ app.use('/customer', customerRoute);
 app.use('/work-category', workCategoryRoute);
 //employee salary mapping
 app.use('/employee-salary-mapping', employeeSalaryMappingRoutes)
-app.use('/pay-roll', payRollRoutes)
+app.use('/pay-roll', payRollRoutes);
+app.use('/cron',cronJobRoutes)
 
 app.get('/', (req,res)=>{
     res.status(200).json({

@@ -96,13 +96,13 @@ const getWorkWeek = async (req, res) => {
         FROM work_week_pattern w
         LEFT JOIN company c ON c.company_id = w.company_id
         LEFT JOIN users u ON u.user_id = w.user_id
-        WHERE 1 AND w.status = 1`;
+        WHERE 1 `;
         
         let countQuery = `SELECT COUNT(*) AS total 
         FROM work_week_pattern w
         LEFT JOIN company c ON c.company_id = w.company_id
         LEFT JOIN users u ON u.user_id = w.user_id
-        WHERE 1 AND w.status = 1`;
+        WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -331,7 +331,7 @@ const getWorkWeekPatternDownload = async (req, res) => {
         FROM work_week_pattern w
         LEFT JOIN company c ON c.company_id = w.company_id
         LEFT JOIN users u ON u.user_id = w.user_id
-        WHERE 1 AND w.status = 1`;
+        WHERE 1 `;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
             getWorkWeekPatternQuery += ` AND (LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(c.name) LIKE '%${lowercaseKey}%' || LOWER(w.pattern_name) LIKE '%${lowercaseKey}%')`;

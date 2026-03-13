@@ -410,6 +410,13 @@ const createEmployee = async (req, res) => {
             const insertUntitledQuery = "INSERT INTO untitled (user_id, extenstions) VALUES (?,?)";
             const insertUntitledValues = [user_id, hash];
             const untitledResult = await connection.query(insertUntitledQuery, insertUntitledValues)
+            // Update the employee Active
+            const updateEmployeeQuery = `
+                UPDATE employee
+                SET employee_status = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updateEmployeeQuery, ['Active', employeeId]);
         }
         await connection.commit()
         return res.status(200).json({
@@ -972,53 +979,107 @@ const updateEmployee = async (req, res) => {
                 fs.unlinkSync(oldImageFilePath);
             }
         }
-        //update employee_bank_deatils
-        const updateBankQuery = `
-            UPDATE employee_bank_details
-            SET payment_mode = ?, account_number = ?, bank_name = ?, ifsc_code = ?, branch_name = ?
-            WHERE employee_id = ?
-        `;
-        await connection.query(updateBankQuery, [payment_mode, account_number, bank_name, ifsc_code, branch_name, employeeId]);
+        // Check if employee_bank_details exists
+        const employeeBankDetailsQuery = "SELECT * FROM employee_bank_details WHERE employee_id  = ?";
+        const employeeBankDetailsResult = await connection.query(employeeBankDetailsQuery, [employeeId]);
+        if (employeeBankDetailsResult[0].length == 0) {
+            //insert employee_bank_deatils
+            const insertBankQuery = "INSERT INTO employee_bank_details (employee_id, payment_mode, account_number, bank_name, ifsc_code, branch_name)VALUES( ?, ?, ?, ?, ?, ?)";
+            const insertBankResult = await connection.query(insertBankQuery, [employeeId, payment_mode, account_number, bank_name, ifsc_code, branch_name]);
+        }else{
+            //update employee_bank_deatils
+            const updateBankQuery = `
+                UPDATE employee_bank_details
+                SET payment_mode = ?, account_number = ?, bank_name = ?, ifsc_code = ?, branch_name = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updateBankQuery, [payment_mode, account_number, bank_name, ifsc_code, branch_name, employeeId]);
+        }
 
-        //update employee_family
-        const updateFamilyQuery = `
-            UPDATE employee_family
-            SET family_member_name = ?, relationship = ?, family_dob = ?, is_dependent = ?, is_nominee = ?, family_mobile_number = ?
-            WHERE employee_id = ?
-        `;
-        await connection.query(updateFamilyQuery, [family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number, employeeId]);
-
-        //update employee_probation
-        const updateProbationQuery = `
+        // Check if employee family exists
+        const employeefamilyQuery = "SELECT * FROM employee_family WHERE employee_id  = ?";
+        const employeefamilyResult = await connection.query(employeefamilyQuery, [employeeId]);
+        if (employeefamilyResult[0].length == 0) {
+            //insert employee_family
+            const insertFamilyQuery = "INSERT INTO employee_family (employee_id, family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number)VALUES( ?, ?, ?, ?, ?, ?, ?)";
+            const insertFamilyResult = await connection.query(insertFamilyQuery, [employeeId, family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number]);
+        }else{
+            //update employee_family
+            const updateFamilyQuery = `
+                UPDATE employee_family
+                SET family_member_name = ?, relationship = ?, family_dob = ?, is_dependent = ?, is_nominee = ?, family_mobile_number = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updateFamilyQuery, [family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number, employeeId]);
+        }
+        
+        // Check if employee_probation exists
+        const employeeProbationQuery = "SELECT * FROM employee_probation WHERE employee_id  = ?";
+        const employeeProbationResult = await connection.query(employeeProbationQuery, [employeeId]);
+        if (employeeProbationResult[0].length == 0) {
+            //insert employee_probation
+            const insertProbationQuery = "INSERT INTO employee_probation (employee_id, probation_start_date, probation_end_date)VALUES( ?, ?, ?)";
+            const insertProbationResult = await connection.query(insertProbationQuery, [employeeId, probation_start_date, probation_end_date]);
+        }else{
+            //update employee_probation
+            const updateProbationQuery = `
             UPDATE employee_probation
             SET probation_start_date = ?, probation_end_date = ? 
             WHERE employee_id = ?
-        `;
-        await connection.query(updateProbationQuery, [probation_start_date, probation_end_date, employeeId]);
+            `;
+            await connection.query(updateProbationQuery, [probation_start_date, probation_end_date, employeeId]);
+        }
 
-        //update employee_previous_company
-        const updatePreviousCompanyQuery = `
-            UPDATE employee_previous_company
-            SET previous_company_name = ?, previous_start_date = ?, previous_end_date = ?, last_drawn_salary = ?, previous_designation = ?, hr_email = ?, hr_mobile = ?
-            WHERE employee_id = ?
-        `;
-        await connection.query(updatePreviousCompanyQuery, [previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile, employeeId]);
+        // Check if employee_previous_company exists
+        const employeePreviousCompanyQuery = "SELECT * FROM employee_previous_company WHERE employee_id  = ?";
+        const employeePreviousCompanyResult = await connection.query(employeePreviousCompanyQuery, [employeeId]);
+        if (employeePreviousCompanyResult[0].length == 0) {
+            //insert employee_previous_company
+            const insertPreviousQuery = "INSERT INTO employee_previous_company (employee_id, previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile)VALUES( ?, ?, ?, ?, ?, ?, ?, ?)";
+            const insertPreviousResult = await connection.query(insertPreviousQuery, [employeeId, previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile]);
+        }else{
+            //update employee_previous_company
+            const updatePreviousCompanyQuery = `
+                UPDATE employee_previous_company
+                SET previous_company_name = ?, previous_start_date = ?, previous_end_date = ?, last_drawn_salary = ?, previous_designation = ?, hr_email = ?, hr_mobile = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updatePreviousCompanyQuery, [previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile, employeeId]);
+        }
 
-        //update employee_shift
-        const updateShiftQuery = `
-            UPDATE employee_shift
-            SET shift_type_header_id = ?, shift_start_date = ?, shift_end_date = ?
-            WHERE employee_id = ?
-        `;
-        await connection.query(updateShiftQuery, [shift_type_header_id, shift_start_date, shift_end_date, employeeId]);
+        // Check if employee_shift exists
+        const employeeShiftQuery = "SELECT * FROM employee_shift WHERE employee_id  = ?";
+        const employeeShiftResult = await connection.query(employeeShiftQuery, [employeeId]);
+        if (employeeShiftResult[0].length == 0) {
+            //insert employee_shift
+            const insertShiftQuery = "INSERT INTO employee_shift (employee_id, shift_type_header_id , shift_start_date, shift_end_date)VALUES( ?, ?, ?, ?)";
+            const insertShiftResult = await connection.query(insertShiftQuery, [employeeId, shift_type_header_id, shift_start_date, shift_end_date]);
+        }else{
+            //update employee_shift
+            const updateShiftQuery = `
+                UPDATE employee_shift
+                SET shift_type_header_id = ?, shift_start_date = ?, shift_end_date = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updateShiftQuery, [shift_type_header_id, shift_start_date, shift_end_date, employeeId]);
+        }
 
-        //update employee_work_week
-        const updateWorkQuery = `
-            UPDATE employee_work_week
-            SET work_week_pattern_id = ?, work_week_start_date = ?, work_week_end_date = ?
-            WHERE employee_id = ?
-        `;
-        await connection.query(updateWorkQuery, [work_week_pattern_id, work_week_start_date, work_week_end_date, employeeId]);
+        // Check if employee_work_week exists
+        const employeeWorkWeekQuery = "SELECT * FROM employee_work_week WHERE employee_id  = ?";
+        const employeeWorkWeekResult = await connection.query(employeeWorkWeekQuery, [employeeId]);
+        if (employeeWorkWeekResult[0].length == 0) {
+            //insert employee_work_week
+            const insertWorkQuery = "INSERT INTO employee_work_week (employee_id, work_week_pattern_id, work_week_start_date, work_week_end_date)VALUES( ?, ?, ?, ?)";
+            const insertWorkResult = await connection.query(insertWorkQuery, [employeeId, work_week_pattern_id, work_week_start_date, work_week_end_date]);
+        }else{
+            //update employee_work_week
+            const updateWorkQuery = `
+                UPDATE employee_work_week
+                SET work_week_pattern_id = ?, work_week_start_date = ?, work_week_end_date = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updateWorkQuery, [work_week_pattern_id, work_week_start_date, work_week_end_date, employeeId]);
+        }
 
         let documentsArray = employeeDocuments
         for (let i = 0; i < documentsArray.length; i++) {
@@ -1542,7 +1603,7 @@ const getEmployeeDownload = async (req, res) => {
             "Sr No": index + 1,
             "Code": item.employee_code,
             "Name": `${item.title} ${item.first_name} ${item.last_name}`,
-            "Email": item.email_id,
+            "Email": item.email,
             "Personal Email": item.personal_email,
             "Date of Birth": item.dob,
             "Gender": item.gender,
@@ -2003,41 +2064,92 @@ const updateEmployeeProfile = async (req, res) => {
                 fs.unlinkSync(oldImageFilePath);
             }
         }
-        //update employee_family
-        const updateFamilyQuery = `
-            UPDATE employee_family
-            SET family_member_name = ?, relationship = ?, family_dob = ?, is_dependent = ?, is_nominee = ?, family_mobile_number = ?
-            WHERE employee_id = ?
-        `;
-        await connection.query(updateFamilyQuery, [family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number, employeeId]);
-        //update employee_probation
-        const updateProbationQuery = `
+        // Check if employee family exists
+        const employeefamilyQuery = "SELECT * FROM employee_family WHERE employee_id  = ?";
+        const employeefamilyResult = await connection.query(employeefamilyQuery, [employeeId]);
+        if (employeefamilyResult[0].length == 0) {
+            //insert employee_family
+            const insertFamilyQuery = "INSERT INTO employee_family (employee_id, family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number)VALUES( ?, ?, ?, ?, ?, ?, ?)";
+            const insertFamilyResult = await connection.query(insertFamilyQuery, [employeeId, family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number]);
+        }else{
+            //update employee_family
+            const updateFamilyQuery = `
+                UPDATE employee_family
+                SET family_member_name = ?, relationship = ?, family_dob = ?, is_dependent = ?, is_nominee = ?, family_mobile_number = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updateFamilyQuery, [family_member_name, relationship, family_dob, is_dependent, is_nominee, family_mobile_number, employeeId]);
+        }
+
+        // Check if employee_probation exists
+        const employeeProbationQuery = "SELECT * FROM employee_probation WHERE employee_id  = ?";
+        const employeeProbationResult = await connection.query(employeeProbationQuery, [employeeId]);
+        if (employeeProbationResult[0].length == 0) {
+            //insert employee_probation
+            const insertProbationQuery = "INSERT INTO employee_probation (employee_id, probation_start_date, probation_end_date)VALUES( ?, ?, ?)";
+            const insertProbationResult = await connection.query(insertProbationQuery, [employeeId, probation_start_date, probation_end_date]);
+        }else{
+            //update employee_probation
+            const updateProbationQuery = `
             UPDATE employee_probation
             SET probation_start_date = ?, probation_end_date = ? 
             WHERE employee_id = ?
-        `;
-        await connection.query(updateProbationQuery, [probation_start_date, probation_end_date, employeeId]);
-        //update employee_previous_company
-        const updatePreviousCompanyQuery = `
-            UPDATE employee_previous_company
-            SET previous_company_name = ?, previous_start_date = ?, previous_end_date = ?, last_drawn_salary = ?, previous_designation = ?, hr_email = ?, hr_mobile = ?
-            WHERE employee_id = ?
-        `;
-        await connection.query(updatePreviousCompanyQuery, [previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile, employeeId]);
-        //update employee_shift
-        const updateShiftQuery = `
-            UPDATE employee_shift
-            SET shift_type_header_id = ?, shift_start_date = ?, shift_end_date = ?
-            WHERE employee_id = ?
-        `;
-        await connection.query(updateShiftQuery, [shift_type_header_id, shift_start_date, shift_end_date, employeeId]);
-        //update employee_work_week
-        const updateWorkQuery = `
-            UPDATE employee_work_week
-            SET work_week_pattern_id = ?, work_week_start_date = ?, work_week_end_date = ?
-            WHERE employee_id = ?
-        `;
-        await connection.query(updateWorkQuery, [work_week_pattern_id, work_week_start_date, work_week_end_date, employeeId]);
+            `;
+            await connection.query(updateProbationQuery, [probation_start_date, probation_end_date, employeeId]);
+        }
+       
+        // Check if employee_previous_company exists
+        const employeePreviousCompanyQuery = "SELECT * FROM employee_previous_company WHERE employee_id  = ?";
+        const employeePreviousCompanyResult = await connection.query(employeePreviousCompanyQuery, [employeeId]);
+        if (employeePreviousCompanyResult[0].length == 0) {
+            //insert employee_previous_company
+            const insertPreviousQuery = "INSERT INTO employee_previous_company (employee_id, previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile)VALUES( ?, ?, ?, ?, ?, ?, ?, ?)";
+            const insertPreviousResult = await connection.query(insertPreviousQuery, [employeeId, previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile]);
+        }else{
+            //update employee_previous_company
+            const updatePreviousCompanyQuery = `
+                UPDATE employee_previous_company
+                SET previous_company_name = ?, previous_start_date = ?, previous_end_date = ?, last_drawn_salary = ?, previous_designation = ?, hr_email = ?, hr_mobile = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updatePreviousCompanyQuery, [previous_company_name, previous_start_date, previous_end_date, last_drawn_salary, previous_designation, hr_email, hr_mobile, employeeId]);
+        }
+
+        // Check if employee_shift exists
+        const employeeShiftQuery = "SELECT * FROM employee_shift WHERE employee_id  = ?";
+        const employeeShiftResult = await connection.query(employeeShiftQuery, [employeeId]);
+        if (employeeShiftResult[0].length == 0) {
+            //insert employee_shift
+            const insertShiftQuery = "INSERT INTO employee_shift (employee_id, shift_type_header_id , shift_start_date, shift_end_date)VALUES( ?, ?, ?, ?)";
+            const insertShiftResult = await connection.query(insertShiftQuery, [employeeId, shift_type_header_id, shift_start_date, shift_end_date]);
+        }else{
+            //update employee_shift
+            const updateShiftQuery = `
+                UPDATE employee_shift
+                SET shift_type_header_id = ?, shift_start_date = ?, shift_end_date = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updateShiftQuery, [shift_type_header_id, shift_start_date, shift_end_date, employeeId]);
+        }
+
+        // Check if employee_work_week exists
+        const employeeWorkWeekQuery = "SELECT * FROM employee_work_week WHERE employee_id  = ?";
+        const employeeWorkWeekResult = await connection.query(employeeWorkWeekQuery, [employeeId]);
+        if (employeeWorkWeekResult[0].length == 0) {
+            //insert employee_work_week
+            const insertWorkQuery = "INSERT INTO employee_work_week (employee_id, work_week_pattern_id, work_week_start_date, work_week_end_date)VALUES( ?, ?, ?, ?)";
+            const insertWorkResult = await connection.query(insertWorkQuery, [employeeId, work_week_pattern_id, work_week_start_date, work_week_end_date]);
+        }else{
+            //update employee_work_week
+            const updateWorkQuery = `
+                UPDATE employee_work_week
+                SET work_week_pattern_id = ?, work_week_start_date = ?, work_week_end_date = ?
+                WHERE employee_id = ?
+            `;
+            await connection.query(updateWorkQuery, [work_week_pattern_id, work_week_start_date, work_week_end_date, employeeId]);
+        }
+        
+        
         let documentsArray = employeeDocuments
         for (let i = 0; i < documentsArray.length; i++) {
             const element = documentsArray[i];

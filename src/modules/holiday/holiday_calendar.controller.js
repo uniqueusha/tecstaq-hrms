@@ -96,13 +96,13 @@ const getHoliday = async (req, res) => {
         FROM holiday_calendar h
         LEFT JOIN company c ON c.company_id = h.company_id
         LEFT JOIN users u ON u.user_id = h.user_id
-        WHERE 1 AND h.status = 1`;
+        WHERE 1 `;
         
         let countQuery = `SELECT COUNT(*) AS total 
         FROM holiday_calendar h
         LEFT JOIN company c ON c.company_id = h.company_id
         LEFT JOIN users u ON u.user_id = h.user_id
-        WHERE 1 AND h.status = 1`;
+        WHERE 1 `;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();

@@ -179,6 +179,7 @@ const createLeaveRequest = async (req, res) => {
             to: email_id,
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
             cc : reportManagerEmailValue.map(item => item.email_id),
+            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: employeeMessage,
         };
@@ -187,7 +188,7 @@ const createLeaveRequest = async (req, res) => {
             to: hrResult.map(item => item.email_id),
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
             // cc : technicianEmails,
-            
+            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };
@@ -540,12 +541,14 @@ const updateLeaveRequest = async (req, res) => {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: email_id,
             cc : reportManagerEmailValue.map(item => item.email_id),
+            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: employeeMessage,
         };
         const hrMailOptions  = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: hrResult.map(item => item.email_id),
+            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };

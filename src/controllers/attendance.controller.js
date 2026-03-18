@@ -203,7 +203,19 @@ const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
         LEFT JOIN work_week_pattern wwp
         ON wwp.work_week_pattern_id = eww.work_week_pattern_id
         WHERE 1 `;
-
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            if (lowercaseKey === "activated") {
+                getQuery += ` AND a.status = 1`;
+                countQuery += ` AND a.status = 1`;
+            } else if (lowercaseKey === "deactivated") {
+                getQuery += ` AND a.status = 0`;
+                countQuery += ` AND a.status = 0`;
+            } else {
+                getQuery += ` AND (LOWER(a.employee_code) LIKE '%${lowercaseKey}%' || LOWER(a.employee_name) LIKE '%${lowercaseKey}%' || a.status LIKE '%${lowercaseKey}%' || a.in_time LIKE '%${lowercaseKey}%' || a.out_time LIKE '%${lowercaseKey}%' || a.duration LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(a.employee_code) LIKE '%${lowercaseKey}%' || LOWER(a.employee_name) LIKE '%${lowercaseKey}%' || a.status LIKE '%${lowercaseKey}%' || a.in_time LIKE '%${lowercaseKey}%' || a.out_time LIKE '%${lowercaseKey}%' || a.duration LIKE '%${lowercaseKey}%')`;
+            }
+        }
         // from date and to date
         if (fromDate && toDate) {
             getQuery += ` AND DATE(a.attendance_date) BETWEEN '${fromDate}' AND '${toDate}'`;
@@ -322,6 +334,19 @@ const getAttendanceUploadList = async (req, res) => {
         ON e.employee_id = a.created_by
         WHERE 1 `;
 
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            if (lowercaseKey === "activated") {
+                getQuery += ` AND a.status = 1`;
+                countQuery += ` AND a.status = 1`;
+            } else if (lowercaseKey === "deactivated") {
+                getQuery += ` AND a.status = 0`;
+                countQuery += ` AND a.status = 0`;
+            } else {
+                getQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || LOWER(a.attendance_cycle) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.attendance_month LIKE '%${lowercaseKey}%' || a.attendance_year LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || LOWER(a.attendance_cycle) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.attendance_month LIKE '%${lowercaseKey}%' || a.attendance_year LIKE '%${lowercaseKey}%')`;
+            }
+        }
         // from date and to date
         if (fromDate && toDate) {
             getQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
@@ -371,10 +396,9 @@ const getAttendanceUploadList = async (req, res) => {
         if (connection) connection.release()
     }
 }
-
 //get get Attendance Upload Download...
 const getAttendanceUploadDownload = async (req, res) => {
-    const { fromDate, toDate, employee_id} = req.query;
+    const { fromDate, toDate, key, employee_id} = req.query;
     let connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -384,6 +408,16 @@ const getAttendanceUploadDownload = async (req, res) => {
         LEFT JOIN employee e
         ON e.employee_id = a.created_by
         WHERE 1 `;
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            if (lowercaseKey === "activated") {
+                getQuery += ` AND a.status = 1`;
+            } else if (lowercaseKey === "deactivated") {
+                getQuery += ` AND a.status = 0`;
+            } else {
+                getQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || LOWER(a.attendance_cycle) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.attendance_month LIKE '%${lowercaseKey}%' || a.attendance_year LIKE '%${lowercaseKey}%')`;
+            }
+        }
         // from date and to date
         if (fromDate && toDate) {
             getQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
@@ -741,7 +775,19 @@ const getAttendanceUploadManualList = async (req, res) => {
         LEFT JOIN employee e
         ON e.employee_id = a.created_by
         WHERE 1 `;
-
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            if (lowercaseKey === "activated") {
+                getQuery += ` AND a.status = 1`;
+                countQuery += ` AND a.status = 1`;
+            } else if (lowercaseKey === "deactivated") {
+                getQuery += ` AND a.status = 0`;
+                countQuery += ` AND a.status = 0`;
+            } else {
+                getQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.month LIKE '%${lowercaseKey}%' || a.year LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.month LIKE '%${lowercaseKey}%' || a.year LIKE '%${lowercaseKey}%')`;
+            }
+        }
         // from date and to date
         if (fromDate && toDate) {
             getQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
@@ -803,6 +849,19 @@ const getAttendanceUploadManualDownload = async (req, res) => {
         LEFT JOIN employee e
         ON e.employee_id = a.created_by
         WHERE 1 `;
+        if (key) {
+        const lowercaseKey = key.toLowerCase().trim();
+        if (lowercaseKey === "activated") {
+            getQuery += ` AND a.status = 1`;
+            countQuery += ` AND a.status = 1`;
+        } else if (lowercaseKey === "deactivated") {
+            getQuery += ` AND a.status = 0`;
+            countQuery += ` AND a.status = 0`;
+        } else {
+            getQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.month LIKE '%${lowercaseKey}%' || a.year LIKE '%${lowercaseKey}%')`;
+            countQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.month LIKE '%${lowercaseKey}%' || a.year LIKE '%${lowercaseKey}%')`;
+        }
+        }
         // from date and to date
         if (fromDate && toDate) {
             getQuery += ` AND DATE(a.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
@@ -939,9 +998,9 @@ const checkinStatus = async (req, res) => {
         if (connection) await connection.release()
     }
 };
-//get get All Attendance  Download...
+//get All Attendance  Download...
 const getAllAttendanceDownload = async (req, res) => {
-    const { fromDate, toDate, employee_code, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id } = req.query;
+    const { fromDate, toDate, employee_code, employee_id, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id,key } = req.query;
     let connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -959,6 +1018,19 @@ const getAllAttendanceDownload = async (req, res) => {
         LEFT JOIN work_week_pattern wwp
         ON wwp.work_week_pattern_id = eww.work_week_pattern_id
         WHERE 1 `;
+        if (key) {
+        const lowercaseKey = key.toLowerCase().trim();
+        if (lowercaseKey === "activated") {
+            getQuery += ` AND a.status = 1`;
+            countQuery += ` AND a.status = 1`;
+        } else if (lowercaseKey === "deactivated") {
+            getQuery += ` AND a.status = 0`;
+            countQuery += ` AND a.status = 0`;
+        } else {
+            getQuery += ` AND (LOWER(a.employee_code) LIKE '%${lowercaseKey}%' || LOWER(a.employee_name) LIKE '%${lowercaseKey}%' || a.status LIKE '%${lowercaseKey}%' || a.in_time LIKE '%${lowercaseKey}%' || a.out_time LIKE '%${lowercaseKey}%' || a.duration LIKE '%${lowercaseKey}%')`;
+            countQuery += ` AND (LOWER(a.employee_code) LIKE '%${lowercaseKey}%' || LOWER(a.employee_name) LIKE '%${lowercaseKey}%' || a.status LIKE '%${lowercaseKey}%' || a.in_time LIKE '%${lowercaseKey}%' || a.out_time LIKE '%${lowercaseKey}%' || a.duration LIKE '%${lowercaseKey}%')`;
+        }
+        }
         // from date and to date
         if (fromDate && toDate) {
             getQuery += ` AND DATE(a.attendance_date) BETWEEN '${fromDate}' AND '${toDate}'`;
@@ -966,6 +1038,10 @@ const getAllAttendanceDownload = async (req, res) => {
 
         if (employee_code) {
             getQuery += ` AND a.employee_code = '${employee_code}'`;
+        }
+        
+        if (employee_id) {
+            getQuery += ` AND e.employee_id = '${employee_id}'`;
         }
        if (status) {
             getQuery += ` AND a.status = '${status}'`;
@@ -1038,6 +1114,63 @@ const getAllAttendanceDownload = async (req, res) => {
         if (connection) connection.release();
     }
 };
+//get all monthly attendace...
+const getAllMonthlyAttendances = async (req, res) => {
+    const { page, perPage, key, month, year} = req.query;
+    if (!month) {
+        return error422("Month is required.", res)
+    } else if (!year) {
+        return error422("Year is required.", res)
+    }
+    // attempt to obtain a database connection
+    let connection = await pool.getConnection();
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT employee_name AS Employee, SUM(status='P') AS Present, SUM(status='A') AS Absent, SUM(status='L') AS Leave_Count, COUNT(late_by) AS Late_Count FROM attendance_master WHERE MONTH(attendance_date)=${month} AND YEAR(attendance_date)=${year} GROUP BY employee_name ORDER BY employee_name `;
+
+        let countQuery = `SELECT COUNT(*) AS total  FROM attendance_master WHERE MONTH(attendance_date)=3 AND YEAR(attendance_date)=2026 GROUP BY employee_name ORDER BY employee_name `;
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getQuery);
+        const employee_attendance = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Attendance upload manual retrieved successfully",
+            data: employee_attendance,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
 module.exports = {
     importAttendanceFromBase64,
     getEmployeeAttendanceByEmployeeCode,
@@ -1049,5 +1182,6 @@ module.exports = {
     checkinStatus,
     getAttendanceUploadDownload,
     getAttendanceUploadManualDownload,
-    getAllAttendanceDownload
+    getAllAttendanceDownload,
+    getAllMonthlyAttendances
 };

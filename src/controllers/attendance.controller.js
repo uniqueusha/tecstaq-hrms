@@ -1116,7 +1116,7 @@ const getAllAttendanceDownload = async (req, res) => {
 };
 //get all monthly attendace...
 const getAllMonthlyAttendances = async (req, res) => {
-    const { page, perPage, key, month, year} = req.query;
+    const { page, perPage, key, employee_id, month, year} = req.query;
     if (!month) {
         return error422("Month is required.", res)
     } else if (!year) {
@@ -1129,10 +1129,32 @@ const getAllMonthlyAttendances = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getQuery = `SELECT employee_name AS Employee, SUM(status='P') AS Present, SUM(status='A') AS Absent, SUM(status='L') AS Leave_Count, COUNT(late_by) AS Late_Count FROM attendance_master WHERE MONTH(attendance_date)=${month} AND YEAR(attendance_date)=${year} GROUP BY employee_name ORDER BY employee_name `;
+        let getQuery = `SELECT  CONCAT(e.first_name,' ',e.last_name) AS Employee, SUM(am.status='P') AS Present, SUM(am.status='A') AS Absent, SUM(am.status='L') AS Leave_Count, COUNT(am.late_by) AS Late_Count, am.employee_code, e.employee_id 
+        FROM attendance_master am 
+        LEFT JOIN employee e 
+        ON e.employee_code = am.employee_code 
+        WHERE MONTH(am.attendance_date)=${month} AND YEAR(am.attendance_date)=${year} 
+        `;
 
-        let countQuery = `SELECT COUNT(*) AS total  FROM attendance_master WHERE MONTH(attendance_date)=3 AND YEAR(attendance_date)=2026 GROUP BY employee_name ORDER BY employee_name `;
+        let countQuery = `SELECT COUNT(DISTINCT am.employee_name) AS total  FROM attendance_master am 
+        LEFT JOIN employee e 
+        ON e.employee_code = am.employee_code 
+        WHERE MONTH(am.attendance_date)=${month} AND YEAR(am.attendance_date)=${year} 
+        `;
 
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getQuery += ` AND (LOWER(CONCAT(e.first_name,' ',e.last_name)) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%'  )`;
+            countQuery += ` AND (LOWER(CONCAT(e.first_name,' ',e.last_name)) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%'  )`;
+        }
+
+        if (employee_id) {
+            getQuery += ` AND e.employee_id= '${employee_id}'`;
+            countQuery += `  AND e.employee_id = '${employee_id}'`;
+        }
+
+         getQuery += "  GROUP BY am.employee_name ORDER BY am.employee_name";
+         
         // Apply pagination if both page and perPage are provided
         let total = 0;
         if (page && perPage) {
@@ -1170,6 +1192,83 @@ const getAllMonthlyAttendances = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//get All monthly Attendance  Download...
+const getAllMonthlyAttendancesDownload = async (req, res) => {
+    const { key, employee_id, month, year} = req.query;
+    if (!month) {
+        return error422("Month is required.", res)
+    } else if (!year) {
+        return error422("Year is required.", res)
+    }
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT  CONCAT(e.first_name,' ',e.last_name) AS Employee, SUM(am.status='P') AS Present, SUM(am.status='A') AS Absent, SUM(am.status='L') AS Leave_Count, COUNT(am.late_by) AS Late_Count, am.employee_code, e.employee_id 
+        FROM attendance_master am 
+        LEFT JOIN employee e 
+        ON e.employee_code = am.employee_code 
+        WHERE MONTH(am.attendance_date)=${month} AND YEAR(am.attendance_date)=${year} 
+        `;
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getQuery += ` AND (LOWER(CONCAT(e.first_name,' ',e.last_name)) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%'  )`;
+        }
+
+        if (employee_id) {
+            getQuery += ` AND e.employee_id= '${employee_id}'`;
+        }
+
+         getQuery += "  GROUP BY am.employee_name ORDER BY am.employee_name";
+
+        let result = await connection.query(getQuery);
+        let attendance= result[0];
+        if (attendance.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        attendance = attendance.map((item, index) => ({
+            "Sr No": index + 1,
+            "Employee Code": item.employee_code,
+            "Employee Name": item.Employee,
+            "Present": item.Present,
+            "Absent": item.Absent,
+            "Leave Count": item.Leave_Count,
+            "Late Count": item.Late_Count,
+        }));
+
+        // Create a new workbook
+        const workbook = XLSX.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = XLSX.utils.json_to_sheet(attendance);
+
+        // Add the worksheet to the workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Monthly-Attendance-Report");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        XLSX.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 
 module.exports = {
     importAttendanceFromBase64,
@@ -1183,5 +1282,6 @@ module.exports = {
     getAttendanceUploadDownload,
     getAttendanceUploadManualDownload,
     getAllAttendanceDownload,
-    getAllMonthlyAttendances
+    getAllMonthlyAttendances,
+    getAllMonthlyAttendancesDownload
 };

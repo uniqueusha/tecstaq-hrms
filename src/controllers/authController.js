@@ -80,7 +80,8 @@ exports.login = async (req, res) => {
             const User = {
                 user_id: user.user_id,
                 session_id:session_id,
-                first_name: user.first_name,           
+                first_name: user.first_name,  
+                email_id:user.email_id,             
                 employee_id: user.employee_id,  
                 employee_code: user.employee_code,         
                 signed_in: user.signed_in,         

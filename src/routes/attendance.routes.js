@@ -15,5 +15,6 @@ router.get('/upload-manual-download', verifyToken, attendanceController.getAtten
 router.get("/", attendanceController.getEmployeeAttendanceByEmployeeCode);
 router.get('/all-attendance-download', attendanceController.getAllAttendanceDownload);
 router.get('/monthly', attendanceController.getAllMonthlyAttendances)
+router.get('/monthly/download', attendanceController.getAllMonthlyAttendancesDownload)
 
 module.exports = router;

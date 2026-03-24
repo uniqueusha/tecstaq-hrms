@@ -2,7 +2,6 @@ const XLSX = require("xlsx");
 const moment = require("moment");
 const pool = require('../../db');
 const fs = require('fs');
-const path = require('path');
 const { body, param, validationResult } = require('express-validator');
 const error422 = (message, res) => {
     return res.status(422).json({

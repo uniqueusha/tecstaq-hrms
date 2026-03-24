@@ -101,7 +101,7 @@ const createLeaveRequest = async (req, res) => {
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, approver_id, "Pending", reason])
 
-        await connection.commit();
+       
 
         let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
@@ -110,7 +110,7 @@ const createLeaveRequest = async (req, res) => {
         let employee_code = nameResult[0].employee_code;
         let reporting_manager_id = nameResult[0].reporting_manager_id;
         
-        let reportManagerEmailQuery = `SELECT * FROM users WHERE user_id = ?`;
+        let reportManagerEmailQuery = `SELECT * FROM users WHERE employee_id = ?`;
         let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
         let email = reportManagerEmailValue[0].email_id;
         
@@ -195,6 +195,7 @@ const createLeaveRequest = async (req, res) => {
 
         await transporter.sendMail(employeeMailOptions);
         await transporter.sendMail(hrMailOptions);
+        await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Leave Request created Successfully"
@@ -458,8 +459,7 @@ const updateLeaveRequest = async (req, res) => {
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, leaveRequest.approver_id, "Pending", reason])
 
-        // Commit the transaction
-        await connection.commit();
+        
 
         let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
@@ -468,7 +468,7 @@ const updateLeaveRequest = async (req, res) => {
         let employee_code = nameResult[0].employee_code;
         let reporting_manager_id = nameResult[0].reporting_manager_id;
         
-        let reportManagerEmailQuery = `SELECT * FROM users WHERE user_id = ?`;
+        let reportManagerEmailQuery = `SELECT * FROM users WHERE employee_id = ?`;
         let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
         let email = reportManagerEmailValue[0].email_id;
 
@@ -555,6 +555,8 @@ const updateLeaveRequest = async (req, res) => {
         
         await transporter.sendMail(employeeMailOptions);
         await transporter.sendMail(hrMailOptions);
+        // Commit the transaction
+        await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Leave Request Updated successfully",

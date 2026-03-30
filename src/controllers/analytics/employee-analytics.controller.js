@@ -53,18 +53,21 @@ const getEmployeeAnalytics = async (req, res) => {
       LEFT JOIN departments dp ON dp.departments_id = e.departments_id
       WHERE e.employee_id = ?
     `, [employee_id]);
-
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
     // Attendance Count
     const [attendanceCount] = await connection.query(`
       SELECT 
         SUM(a.status = 'P') AS present,
         SUM(a.status = 'A') AS absent,
         SUM(a.status = 'L') AS leave_count,
-        SUM(a.late_by IS NOT NULL AND a.late_by != '00:00:00') AS late_count
+        SUM(a.late_by IS NOT NULL AND a.late_by != '00:00:00') AS late_count,
+        a.attendance_date
       FROM attendance_master a
       LEFT JOIN employee e 
         ON e.employee_code = a.employee_code
-      WHERE e.employee_id = ?
+      WHERE e.employee_id = ? AND MONTH(a.attendance_date)=${month} AND YEAR(a.attendance_date)=${year} 
     `, [employee_id]);
 
     await connection.commit();

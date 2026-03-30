@@ -58,7 +58,7 @@ exports.login = async (req, res) => {
         
         const session_id = Date.now().toString() + "_" + user.user_id; // simple unique session
         const token = jwt.sign(
-            { user_id: user.user_id, email: user.email_id, session_id },
+            { user_id: user.user_id, email: user.email_id, session_id, employee_id:user.employee_id },
             "1f7d5d6e0b0c0e3123f4d65f4e12c6bde56232",
             { expiresIn: '10h' }
             );

@@ -166,7 +166,7 @@ const importAttendanceFromBase64 = async (req, res) => {
     }
 }
 const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id, employee_code, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id } = req.query;
+    const { page, perPage, key, fromDate, toDate, employee_id, employee_code, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id, reporting_manager_id } = req.query;
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
 
@@ -247,6 +247,10 @@ const getEmployeeAttendanceByEmployeeCode = async (req, res) => {
         if (work_week_pattern_id) {
             getQuery += ` AND eww.work_week_pattern_id = '${work_week_pattern_id}'`;
             countQuery += `  AND eww.work_week_pattern_id = '${work_week_pattern_id}'`;
+        }
+        if (reporting_manager_id) {
+            getQuery += ` AND e.reporting_manager_id = '${reporting_manager_id}'`;
+            countQuery += `  AND e.reporting_manager_id = '${reporting_manager_id}'`;
         }
 
         getQuery += " ORDER BY a.attendance_date DESC";
@@ -1115,7 +1119,7 @@ const getAllAttendanceDownload = async (req, res) => {
 };
 //get all monthly attendace...
 const getAllMonthlyAttendances = async (req, res) => {
-    const { page, perPage, key, employee_id, month, year} = req.query;
+    const { page, perPage, key, employee_id, reporting_manager_id, month, year} = req.query;
     if (!month) {
         return error422("Month is required.", res)
     } else if (!year) {
@@ -1151,7 +1155,10 @@ const getAllMonthlyAttendances = async (req, res) => {
             getQuery += ` AND e.employee_id= '${employee_id}'`;
             countQuery += `  AND e.employee_id = '${employee_id}'`;
         }
-
+        if (reporting_manager_id) {
+            getQuery += ` AND e.reporting_manager_id= '${reporting_manager_id}'`;
+            countQuery += `  AND e.reporting_manager_id = '${reporting_manager_id}'`;
+        }
          getQuery += "  GROUP BY am.employee_name ORDER BY am.employee_name";
          
         // Apply pagination if both page and perPage are provided
@@ -1193,7 +1200,7 @@ const getAllMonthlyAttendances = async (req, res) => {
 }
 //get All monthly Attendance  Download...
 const getAllMonthlyAttendancesDownload = async (req, res) => {
-    const { key, employee_id, month, year} = req.query;
+    const { key, employee_id, month, year, reporting_manager_id} = req.query;
     if (!month) {
         return error422("Month is required.", res)
     } else if (!year) {
@@ -1216,6 +1223,9 @@ const getAllMonthlyAttendancesDownload = async (req, res) => {
 
         if (employee_id) {
             getQuery += ` AND e.employee_id= '${employee_id}'`;
+        }
+        if (reporting_manager_id) {
+            getQuery += ` AND e.reporting_manager_id= '${reporting_manager_id}'`;
         }
 
          getQuery += "  GROUP BY am.employee_name ORDER BY am.employee_name";

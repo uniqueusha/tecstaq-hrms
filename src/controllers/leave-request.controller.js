@@ -23,8 +23,9 @@ const transporter = nodemailer.createTransport({
     port: 587,
     secure: false,
     auth: {
-        user: "support@tecstaq.com",
-        pass: "HelpMe@1212#$",
+        user: "hrms@tecstaq.com",
+        // pass: "HelpMe@1212#$",
+        pass: "N.141863782190ag",
     },
     tls: {
         rejectUnauthorized: false,
@@ -60,6 +61,7 @@ const createLeaveRequest = async (req, res) => {
 
     const connection = await pool.getConnection();
     try {
+        connection.beginTransaction();
         //is leave type
         let isLeaveTypeQuery = "SELECT * FROM leave_type_master WHERE leave_type_master_id = ?";
         let [isLeaveTypeResult] = await connection.query(isLeaveTypeQuery, [leave_type_id]);
@@ -68,6 +70,11 @@ const createLeaveRequest = async (req, res) => {
         let leave_type = isLeaveTypeResult[0];
         if (!leave_type) {
             return error422("Leave Type not found.", res)
+        }
+        let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id, reporting_manager_id FROM employee WHERE employee_id = '${employee_id}' `;
+        let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
+        if (isExistEmployeeResult[0].length == 0) {
+            return error422("Employee Not Found.", res)
         }
         if (parseFloat(leave_type.number_of_days) < parseFloat(total_days)) {
             return error422("Leave limit is over.", res);
@@ -101,7 +108,7 @@ const createLeaveRequest = async (req, res) => {
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, approver_id, "Pending", reason])
 
-        await connection.commit();
+       
 
         let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
@@ -110,7 +117,7 @@ const createLeaveRequest = async (req, res) => {
         let employee_code = nameResult[0].employee_code;
         let reporting_manager_id = nameResult[0].reporting_manager_id;
         
-        let reportManagerEmailQuery = `SELECT * FROM users WHERE user_id = ?`;
+        let reportManagerEmailQuery = `SELECT * FROM users WHERE employee_id = ?`;
         let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
         let email = reportManagerEmailValue[0].email_id;
         
@@ -166,34 +173,43 @@ const createLeaveRequest = async (req, res) => {
         <body>
         <div>
         <h2 style="text-transform: capitalize;">Dear HR,</h2>
-        </p>A leave request from Employee ID <strong>${employee_code}</strong> for <strong>${start_date}</strong> to <strong>${end_date}</strong> (<strong>${total_days}</strong> days) has been submitted and is awaiting your approval.</p>
+        </p><strong>Employee Details:</strong></p>
+        <ul>
+        <li>Employee ID : ${employee_code}</li>
+        <li>Leave Type : ${leaveType}</li>
+        <li>Start Date: ${start_date}</li>
+        <li>End Date: ${end_date}</li>
+        <li>Total Days: ${total_days}</li>
+        <li>Reason: ${reason}</li>
+        </ul>
+        </p>A leave request has been submitted and is awaiting your approval.</p>
         <p>Please review and take the necessary action.</p>
         <p>Thank you.</p>
         </div>
         </body>
         </html>`;
-
          // Prepare the email message options.
         const employeeMailOptions  = {
-            from: "support@tecstaq.com", // Sender address from environment variables.
+            from: "hrms@tecstaq.com", // Sender address from environment variables.
             to: email_id,
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
             cc : reportManagerEmailValue.map(item => item.email_id),
+            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: employeeMessage,
         };
         const hrMailOptions  = {
-            from: "support@tecstaq.com", // Sender address from environment variables.
+            from: "hrms@tecstaq.com", // Sender address from environment variables.
             to: hrResult.map(item => item.email_id),
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
             // cc : technicianEmails,
-            
+            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };
-
         await transporter.sendMail(employeeMailOptions);
         await transporter.sendMail(hrMailOptions);
+        // await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Leave Request created Successfully"
@@ -223,7 +239,7 @@ const getLeaveRequests = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
-        lt.leave_type_name, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
+        lt.leave_type_name, lt.leave_type_code, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
@@ -399,7 +415,12 @@ const updateLeaveRequest = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name FROM leave_request lq 
+        let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id, reporting_manager_id FROM employee WHERE employee_id = '${employee_id}' `;
+        let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
+        if (isExistEmployeeResult[0].length == 0) {
+            return error422("Employee Not Found.", res)
+        }
+        let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name, lt.leave_type_code FROM leave_request lq 
         LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE  lq.leave_request_id = ?`;
         const [result] = await connection.query(getQuery, [leave_request_id]);
@@ -457,8 +478,7 @@ const updateLeaveRequest = async (req, res) => {
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, leaveRequest.approver_id, "Pending", reason])
 
-        // Commit the transaction
-        await connection.commit();
+        
 
         let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
@@ -467,7 +487,7 @@ const updateLeaveRequest = async (req, res) => {
         let employee_code = nameResult[0].employee_code;
         let reporting_manager_id = nameResult[0].reporting_manager_id;
         
-        let reportManagerEmailQuery = `SELECT * FROM users WHERE user_id = ?`;
+        let reportManagerEmailQuery = `SELECT * FROM users WHERE employee_id = ?`;
         let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
         let email = reportManagerEmailValue[0].email_id;
 
@@ -528,7 +548,16 @@ const updateLeaveRequest = async (req, res) => {
         <body>
         <div>
         <h2 style="text-transform: capitalize;">Dear HR,</h2>
-        </p>A leave request from Employee ID ${employee_code} for ${start_date} to ${end_date} (${total_days} days) has been submitted and is awaiting your approval.</p>
+        </p><strong>Employee Details:</strong></p>
+        <ul>
+        <li>Employee ID : ${employee_code}</li>
+        <li>Leave Type : ${leaveType}</li>
+        <li>Start Date: ${start_date}</li>
+        <li>End Date: ${end_date}</li>
+        <li>Total Days: ${total_days}</li>
+        <li>Reason: ${reason}</li>
+        </ul>
+        </p>A leave request has been submitted and is awaiting your approval.</p>
         <p>Please review and take the necessary action.</p>
         <p>Thank you.</p>
         </div>
@@ -540,18 +569,22 @@ const updateLeaveRequest = async (req, res) => {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: email_id,
             cc : reportManagerEmailValue.map(item => item.email_id),
+            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: employeeMessage,
         };
         const hrMailOptions  = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: hrResult.map(item => item.email_id),
+            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };
         
         await transporter.sendMail(employeeMailOptions);
         await transporter.sendMail(hrMailOptions);
+        // Commit the transaction
+        await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Leave Request Updated successfully",
@@ -573,6 +606,7 @@ const deleteLeaveRequestFooter = async (req, res) => {
     }
     let connection = await pool.getConnection()
     try {
+        await connection .beginTransaction()
         //delete leave request footer 
         let deleteLeaveRequestFooterQuery = 'DELETE FROM leave_request_footer WHERE leave_request_footer_id = ?'
         await connection.query(deleteLeaveRequestFooterQuery, [leave_request_footer_id]);
@@ -601,7 +635,8 @@ const approveLeaveRequest = async (req, res) => {
 
     let connection = await pool.getConnection();
     try {
-        let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name FROM leave_request lq 
+        await connection .beginTransaction()
+        let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name, lt.leave_type_code FROM leave_request lq 
        LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE  lq.leave_request_id = ?`;
         const [result] = await connection.query(getQuery, [leave_request_id]);
@@ -612,6 +647,13 @@ const approveLeaveRequest = async (req, res) => {
         if (status == leaveRequest.status) {
             return error422("This leave request is already " + status, res)
         }
+        let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id, reporting_manager_id FROM employee WHERE employee_id = '${leaveRequest.employee_id}' `;
+        let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
+        if (isExistEmployeeResult[0].length == 0) {
+            return error422("Employee Not Found.", res)
+        }
+        const employee_name = isExistEmployeeResult[0][0].employee_name;
+        const employee_code = isExistEmployeeResult[0][0].employee_code;
         let current_year = new Date().getFullYear();
         //is leave balance
         let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ? AND year = ?";
@@ -629,6 +671,15 @@ const approveLeaveRequest = async (req, res) => {
         used_days = parseFloat(used_days) + parseFloat(leaveRequest.total_days);
         let remaining_days = allocated_days - used_days
         if (status == 'Approved') { 
+            //get all leave requested days
+            let getAllLeaveRequestedDaysQuery = `SELECT * FROM leave_request_footer WHERE leave_request_id = ${leave_request_id}`
+            let [allLeaveRequestedDays] = await connection.query(getAllLeaveRequestedDaysQuery)
+            for (let index = 0; index < allLeaveRequestedDays.length; index++) {
+                const element = allLeaveRequestedDays[index];
+                const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?)`;
+                await connection.query(insertAttendanceQuery, [employee_code, employee_name, element.leave_date, 'PL', 'NULL', 'NULL', 'leave-request']);
+                
+            }
             if (leaveBalance) {
                 let updateLeaveBalanceQuery = `UPDATE leave_balance 
             SET allocated_days = ?, used_days = ?, remaining_days = ? WHERE leave_balance_id = ?`
@@ -637,7 +688,6 @@ const approveLeaveRequest = async (req, res) => {
                 let insertLeaveBalanceQuery = "INSERT INTO leave_balance (employee_id, leave_type_id, allocated_days, used_days, remaining_days, year ) VALUES (?,?,?,?,?,?)";
                 await connection.query(insertLeaveBalanceQuery, [leaveRequest.employee_id, leaveRequest.leave_type_id, allocated_days, used_days, remaining_days, current_year])
             }
-
         }
         let updateLeaveRequestQuery = `UPDATE leave_request
         SET status = ?, approved_date = ? WHERE leave_request_id = ?`;
@@ -719,7 +769,7 @@ const getLeaveBalances = async (req, res )=>{
         await connection.beginTransaction();
 
         let getQuery = `SELECT lb.*, e.first_name, e.last_name,
-        lt.leave_type_name 
+        lt.leave_type_name, lt.leave_type_code 
         FROM leave_balance lb
         LEFT JOIN employee e ON e.employee_id = lb.employee_id
         LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lb.leave_type_id
@@ -806,7 +856,7 @@ const getLeaveRequestsDownload = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
-        lt.leave_type_name, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
+        lt.leave_type_name, lt.leave_type_code, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id

@@ -30,7 +30,8 @@ const professionalTaxSlabRoute = require('./src/routes/master/professional-tax-s
 const attendanceRoutes = require('./src/routes/attendance.routes');
 const settingsRoutes = require('./src/routes/settings.routes');
 const dropdownRoutes = require("./src/routes/dropdown.routes")
-
+const employeeAnalyticsRoutes = require("./src/routes/analytics/employee-analytics.routes");
+const regularizationRoutes = require("./src/routes/regularization.routes")
 // master 
 const gradeRoutes = require('./src/routes/master/grade.routes');
 const salaryStructureRoutes = require('./src/routes/master/salary-structure.routes');
@@ -100,7 +101,9 @@ app.use('/timesheet', timesheetRoute);
 //employee salary mapping
 app.use('/employee-salary-mapping', employeeSalaryMappingRoutes)
 app.use('/pay-roll', payRollRoutes);
-app.use('/cron',cronJobRoutes)
+app.use('/cron',cronJobRoutes);
+app.use('/employee-analytics', employeeAnalyticsRoutes);
+app.use('/regularization', regularizationRoutes)
 
 app.get('/', (req,res)=>{
     res.status(200).json({

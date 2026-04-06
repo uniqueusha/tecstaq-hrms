@@ -1,13 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/user.controller");
+const { verifyToken } = require('../middleware/authMiddleware');
 
 router.post('/', userController.createUser);
 router.get('/', userController.getUsers);
 router.get('/download', userController.getUserDownload);
 router.get('/state', userController.getStateList);
 router.get('/:id', userController.getUser);
-router.put('/change-password',userController.onChangePassword);
+router.put('/change-password', verifyToken, userController.onChangePassword);
 
 router.put('/:id', userController.updateUser);
 router.post('/send-otp',userController.sendOtp);

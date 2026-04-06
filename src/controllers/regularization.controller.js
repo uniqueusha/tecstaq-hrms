@@ -1,4 +1,6 @@
-const pool = require('../../db')
+const XLSX = require("xlsx");
+const pool = require('../../db');
+const fs = require('fs');
 const { body, param, validationResult } = require('express-validator');
 
 const error422 = (message, res) => {
@@ -28,14 +30,14 @@ const createRegularizationRequest = async (req, res) => {
     if (!errors.isEmpty()) {
         return error422(errors.array()[0].msg, res)
     }
-    const employee_id = req.body.employee_id ? req.body.employee_id :null
+    const employee_id = req.body.employee_id ? req.body.employee_id : null
     const attendance_date = req.body.attendance_date ? req.body.attendance_date.trim() : '';
     const type = req.body.type ? req.body.type.trim() : '';
     const requested_in_time = req.body.requested_in_time ? req.body.requested_in_time.trim() : '';
     const requested_out_time = req.body.requested_out_time ? req.body.requested_out_time.trim() : '';
     const actual_in_time = req.body.actual_in_time ? req.body.actual_in_time.trim() : '';
     const actual_out_time = req.body.actual_out_time ? req.body.actual_out_time.trim() : '';
-    const reason = req.body.reason ? req.body.reason.trim() : ''; 
+    const reason = req.body.reason ? req.body.reason.trim() : '';
 
     let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id, reporting_manager_id FROM employee WHERE employee_id = '${employee_id}' `;
     let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
@@ -75,11 +77,16 @@ const createRegularizationRequest = async (req, res) => {
 }
 // get regularizations...
 const getRegularizationRequests = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, company_id, shift_type_header_id, employee_id, approver_id, status } = req.query;
+    const { page, perPage, key, fromDate, toDate, company_id, shift_type_header_id, employee_id, approver_id, status, type } = req.query;
 
     if (status) {
         if (status != "Pending" && status != "Approved" && status != "Rejected") {
             return error422("Regularization status is Invalid.", res);
+        }
+    }
+    if (type) {
+        if (type != "Missed Punch" && type != "Regularization") {
+            return error422("Type is Invalid.", res);
         }
     }
     // attempt to obtain a database connection
@@ -112,8 +119,8 @@ const getRegularizationRequests = async (req, res) => {
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' )`;
-            countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || (LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' )`;
+            getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' )`;
+            countQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' )`;
         }
         // from date and to date
         if (fromDate && toDate) {
@@ -141,6 +148,10 @@ const getRegularizationRequests = async (req, res) => {
         if (status) {
             getQuery += ` AND rq.status = '${status}'`;
             countQuery += `  AND rq.status = '${status}'`;
+        }
+        if (type) {
+            getQuery += ` AND rq.type = '${type}'`;
+            countQuery += `  AND rq.type = '${type}'`;
         }
         getQuery += " ORDER BY rq.attendance_date DESC";
         // Apply pagination if both page and perPage are provided
@@ -214,6 +225,7 @@ const getRegularizationRequest = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//update regularization request
 const updateRegularizationRequest = async (req, res) => {
     //validate run 
     await Promise.all([
@@ -229,7 +241,7 @@ const updateRegularizationRequest = async (req, res) => {
         return error422(errors.array()[0].msg, res)
     }
     const regularization_id = parseInt(req.params.id);
-    const employee_id = req.body.employee_id ? req.body.employee_id :null;
+    const employee_id = req.body.employee_id ? req.body.employee_id : null;
     const attendance_date = req.body.attendance_date ? req.body.attendance_date.trim() : '';
     const type = req.body.type ? req.body.type.trim() : '';
     const requested_in_time = req.body.requested_in_time ? req.body.requested_in_time.trim() : '';
@@ -249,6 +261,9 @@ const updateRegularizationRequest = async (req, res) => {
 
     if (existingRegularizationResult[0].length > 0) {
         return error422("Regularization already exists.", res);
+    }
+    if (regularizationResult[0][0].status=="Approved") {
+        return error422("Regularization already approved. Update not allowed.", res)
     }
     let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id, reporting_manager_id FROM employee WHERE employee_id = '${employee_id}' `;
     let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
@@ -311,9 +326,20 @@ const approveRegularizationRequest = async (req, res) => {
         if (status == regularizationRequest.status) {
             return error422("This Regularization request is already " + status, res)
         }
+        let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id, reporting_manager_id FROM employee WHERE employee_id = '${regularizationRequest.employee_id}' `;
+        let isExistEmployeeResult = await connection.query(isExistEmployeeQuery);
+        if (isExistEmployeeResult[0].length == 0) {
+            return error422("Employee Not Found.", res)
+        }
+        const employee_code = isExistEmployeeResult[0][0].employee_code;
+        const employee_name = isExistEmployeeResult[0][0].employee_name;
         let updateRegularizationQuery = `UPDATE regularization_request 
             SET status = ?, approved_at = ? WHERE regularization_id = ?`
-        let [updateLeaveBalanceResult] = await connection.query(updateRegularizationQuery, [status, approved_at, regularization_id])
+        let [updateLeaveBalanceResult] = await connection.query(updateRegularizationQuery, [status, approved_at, regularization_id]);
+        if (status=='Approved') {
+            const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?)`;
+            await connection.query(insertAttendanceQuery, [employee_code, employee_name, regularizationRequest.attendance_date, 'P', regularizationRequest.requested_in_time, regularizationRequest.requested_out_time, 'regularization']);
+        }
         // Commit the transaction
         await connection.commit();
         return res.status(200).json({
@@ -327,11 +353,123 @@ const approveRegularizationRequest = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//get regularization request Download...
+const getRegularizationRequestsDownload = async (req, res) => {
+    const { key, fromDate, toDate, company_id, shift_type_header_id, employee_id, approver_id, status, type } = req.query;
+    if (status) {
+        if (status != "Pending" && status != "Approved" && status != "Rejected") {
+            return error422("Regularization status is Invalid.", res);
+        }
+    }
+    if (type) {
+        if (type != "Missed Punch" && type != "Regularization") {
+            return error422("Type is Invalid.", res);
+        }
+    }
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getQuery = `SELECT rq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
+        e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
+        FROM regularization_request rq
+        LEFT JOIN employee e ON e.employee_id = rq.employee_id
+        LEFT JOIN employee em ON em.employee_id = rq.approver_id
+        LEFT JOIN company c ON c.company_id = e.company_id
+        LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
+        LEFT JOIN departments d ON d.departments_id = e.departments_id
+        LEFT JOIN shift_type_header sth ON sth.shift_type_header_id = es.shift_type_header_id
+        WHERE 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getQuery += ` AND (LOWER(e.first_name) LIKE '%${lowercaseKey}%' || LOWER(em.first_name) LIKE '%${lowercaseKey}%' ||  LOWER(e.last_name) LIKE '%${lowercaseKey}%' || LOWER(em.last_name) LIKE '%${lowercaseKey}%' )`;
+        }
+        // from date and to date
+        if (fromDate && toDate) {
+            getQuery += ` AND DATE(rq.attendance_date) BETWEEN '${fromDate}' AND '${toDate}'`;
+        }
+
+        if (company_id) {
+            getQuery += ` AND e.company_id = ${company_id}`;
+        }
+
+        if (employee_id) {
+            getQuery += ` AND rq.employee_id = ${employee_id}`;
+        }
+        if (approver_id) {
+            getQuery += ` AND rq.approver_id = ${approver_id}`;
+        }
+        if (shift_type_header_id) {
+            getQuery += ` AND es.shift_type_header_id = ${shift_type_header_id}`;
+        }
+        if (status) {
+            getQuery += ` AND rq.status = '${status}'`;
+        }
+        if (type) {
+            getQuery += ` AND rq.type = '${type}'`;
+        }
+        getQuery += " ORDER BY rq.attendance_date DESC";
+
+        let result = await connection.query(getQuery);
+        let regularization = result[0];
+        if (regularization.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        regularization = regularization.map((item, index) => ({
+            "Sr No": index + 1,
+            "Date": item.attendance_date,
+            "Employee Name": item.first_name +' '+item.last_name,
+            "In Time": item.requested_in_time,
+            "Out Time": item.requested_out_time,
+            "Actual In Time": item.actual_in_time,
+            "Actual Out Time": item.actual_out_time,
+            "Approver": item.approver_first_name+' '+item.approver_last_name,
+            "Shift Type": item.shift_type_name,
+            "Status": item.status,
+            // "Status": item.status === 1 ? "activated" : "deactivated",
+
+        }));
+
+        // Create a new workbook
+        const workbook = XLSX.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = XLSX.utils.json_to_sheet(regularization);
+
+        // Add the worksheet to the workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, "regularization-request");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        XLSX.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 
 module.exports = {
     createRegularizationRequest,
     getRegularizationRequests,
     getRegularizationRequest,
     updateRegularizationRequest,
-    approveRegularizationRequest
+    approveRegularizationRequest,
+    getRegularizationRequestsDownload
 }

@@ -1132,7 +1132,7 @@ const getAllMonthlyAttendances = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getQuery = `SELECT  CONCAT(e.first_name,' ',e.last_name) AS Employee, SUM(am.status='P') AS Present, SUM(am.status='A') AS Absent, SUM(am.status='L') AS Leave_Count, COUNT(am.late_by) AS Late_Count, am.employee_code, e.employee_id 
+        let getQuery = `SELECT  CONCAT(e.first_name,' ',e.last_name) AS Employee, SUM(am.status='P') AS Present, SUM(am.status='A') AS Absent, SUM(am.status='PL') AS Leave_Count, COUNT(am.late_by) AS Late_Count, am.employee_code, e.employee_id 
         FROM attendance_master am 
         LEFT JOIN employee e 
         ON e.employee_code = am.employee_code 
@@ -1210,7 +1210,7 @@ const getAllMonthlyAttendancesDownload = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        let getQuery = `SELECT  CONCAT(e.first_name,' ',e.last_name) AS Employee, SUM(am.status='P') AS Present, SUM(am.status='A') AS Absent, SUM(am.status='L') AS Leave_Count, COUNT(am.late_by) AS Late_Count, am.employee_code, e.employee_id 
+        let getQuery = `SELECT  CONCAT(e.first_name,' ',e.last_name) AS Employee, SUM(am.status='P') AS Present, SUM(am.status='A') AS Absent, SUM(am.status='PL') AS Leave_Count, COUNT(am.late_by) AS Late_Count, am.employee_code, e.employee_id 
         FROM attendance_master am 
         LEFT JOIN employee e 
         ON e.employee_code = am.employee_code 

@@ -209,7 +209,7 @@ const createLeaveRequest = async (req, res) => {
         };
         await transporter.sendMail(employeeMailOptions);
         await transporter.sendMail(hrMailOptions);
-        // await connection.commit();
+        await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Leave Request created Successfully"

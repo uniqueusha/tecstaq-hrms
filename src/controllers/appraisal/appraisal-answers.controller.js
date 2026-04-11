@@ -22,18 +22,25 @@ const error500 = (error, res) => {
 const createAppraisalAnswer = async (req, res) => {
     //validation run
     await Promise.all([
+        body('appraisal_cycle_id').notEmpty().withMessage("Appraisal cycle id is required").run(req),
+        body('employee_id').notEmpty().withMessage("Employee id is required").run(req),
+        body('manager_id').notEmpty().withMessage("Manager id is required").run(req),
+        body('status').notEmpty().withMessage("Status is required").isIn(['Pending', 'Self Submitted', 'Manager Reviewed', 'Finalized']).withMessage("Invalid status value").run(req),
         body('appraisalAnswerDetails').isArray({ min: 1 }).withMessage("Appraisal Answer Details must be a non-empty array").run(req),
         body('appraisalAnswerDetails.*.appraisal_question_id').notEmpty().withMessage("Appraisal question is required").isInt().run(req),
-        body('appraisalAnswerDetails.*.value').notEmpty().withMessage("Value is required").run(req),
     ]);
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return error422(errors.array()[0].msg, res);
     }
-
+    const appraisal_cycle_id = req.body.appraisal_cycle_id
+    const employee_id = req.body.employee_id;
+    const manager_id = req.body.manager_id;
+    const status = req.body.status;
     const appraisalAnswerDetails = req.body.appraisalAnswerDetails;
-    const employee_id = req.user.employee_id;
+    let selfCount = 0, selfValueCount = 0, selfTotal = 0;
+    let managerCount = 0, managerValueCount = 0, managerTotal = 0;
 
     const seen = new Set();
     for (let item of appraisalAnswerDetails) {
@@ -47,27 +54,79 @@ const createAppraisalAnswer = async (req, res) => {
     let connection = await pool.getConnection()
     try {
         await connection.beginTransaction();
+        //is appraisal cycles employee 
+        let isAppraisalCycleEmloyeeQuery = "SELECT * FROM appraisal_cycles_employees WHERE employee_id = ? AND appraisal_cycle_id = ?"
+        let [isAppraisalCycleEmployeeResult] = await connection.query(isAppraisalCycleEmloyeeQuery, [employee_id, appraisal_cycle_id])
+        if (isAppraisalCycleEmployeeResult.length == 0) {
+            await connection.rollback();
+            return error422("Appraisal cycle emloyee is not found.", res);
+        }
+        //get totol count of question 
+        let getTotalQuestionCountQuery = "SELECT COUNT(*) AS total FROM appraisal_questions WHERE appraisal_cycle_id = ?"
+        let [getTotalQuestionCountResult] = await connection.query(getTotalQuestionCountQuery, [appraisal_cycle_id]);
+        let total_question = getTotalQuestionCountResult[0].total;
+
         for (let i = 0; i < appraisalAnswerDetails.length; i++) {
             const element = appraisalAnswerDetails[i];
+            const appraisal_question_id = element.appraisal_question_id;
+            const value = element.value;
             //is question 
             let isQuestionQuery = "SELECT * FROM appraisal_questions WHERE appraisal_question_id = ?"
-            let isQuestionResult = await connection.query(isQuestionQuery, [element.appraisal_question_id]);
-            if (isQuestionResult[0].length == 0) {
+            let [isQuestionResult] = await connection.query(isQuestionQuery, [appraisal_question_id]);
+            if (isQuestionResult.length == 0) {
                 await connection.rollback();
                 return error422("Question Not Found", res);
             }
+            if (isQuestionResult[0].section == 'self') {
+                selfCount++;
+                if (value && value != 0) {
+                    if(value) selfTotal = selfTotal+parseInt(value)
+                    selfValueCount++
+                }
+            }
+            if (isQuestionResult[0].section == 'manager') {
+                managerCount++;
+                if (value && value != 0) {
+                    if(value) managerTotal = managerTotal+parseInt(value)
+                    managerValueCount++
+                }
+            }
             //is exist Appraisal Answer
-            let isAppraisalAnswerQuery = "SELECT * FROM appraisal_answers WHERE appraisal_question_id = ? AND created_by = ? ";
-            let isAppraisalAnswerResult = await pool.query(isAppraisalAnswerQuery, [element.appraisal_question_id, employee_id]);
+            let isAppraisalAnswerQuery = "SELECT * FROM appraisal_answers WHERE appraisal_question_id = ? AND employee_id = ? ";
+            let isAppraisalAnswerResult = await pool.query(isAppraisalAnswerQuery, [appraisal_question_id, employee_id]);
             if (isAppraisalAnswerResult[0].length > 0) {
                 await connection.rollback();
                 return error422("Appraisal Answer already exists.", res);
             }
         }
+        if (status == 'Self Submitted') {
+            if (selfCount != selfValueCount) {
+                await connection.rollback();
+                return error422("Sorry question answer of self is required.", res);
+            }
+        } else if (status == 'Manager Reviewed') {
+            if (selfCount != selfValueCount || managerCount != managerValueCount) {
+                await connection.rollback();
+                return error422("Sorry question answer of manager is required.", res);
+            }
+        }
+        const maxScore = total_question * 5;
+        
+        const selfPercent = (selfTotal / maxScore) * 100;
+        const managerPercent = (managerTotal / maxScore) * 100;
+        
+        const finalScore = (selfPercent * 0.4) + (managerPercent * 0.6);
+        
+        console.log(selfCount,selfValueCount, selfTotal);
+        console.log(managerCount,managerValueCount, managerTotal);
+        console.log(finalScore)
         // Bulk insert
-        const values = appraisalAnswerDetails.map(item => [item.appraisal_question_id, item.value, employee_id]);
-        await connection.query(`INSERT INTO appraisal_answers (appraisal_question_id, value, created_by)VALUES ?`, [values]);
-        await connection.commit();
+        const values = appraisalAnswerDetails.map(item => [item.appraisal_question_id, item.value, employee_id, manager_id]);
+        await connection.query(`INSERT INTO appraisal_answers (appraisal_question_id, value, employee_id, manager_id )VALUES ?`, [values]);
+        //update appraisal cycle employee update
+        let updateQuery = "UPDATE appraisal_cycles_employees SET status = ? WHERE appraisal_cycles_employee_id = ?";
+        await connection.query(updateQuery, [status, isAppraisalCycleEmployeeResult[0].appraisal_cycles_employee_id])
+        // await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Appraisal Answer submitted successfully."
@@ -91,7 +150,7 @@ const getAppraisalAnswers = async (req, res) => {
         LEFT JOIN appraisal_cycles ac
         ON ac.appraisal_cycle_id = aq.appraisal_cycle_id
         LEFT JOIN employee e
-        ON e.employee_id = aa.created_by
+        ON e.employee_id = aa.employee_id
         WHERE 1 `;
         let countQuery = `SELECT COUNT(*) AS total 
         FROM appraisal_answers aa 
@@ -100,7 +159,7 @@ const getAppraisalAnswers = async (req, res) => {
         LEFT JOIN appraisal_cycles ac
         ON ac.appraisal_cycle_id = aq.appraisal_cycle_id
         LEFT JOIN employee e
-        ON e.employee_id = aa.created_by
+        ON e.employee_id = aa.employee_id
         WHERE 1`;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -152,16 +211,24 @@ const getAppraisalAnswers = async (req, res) => {
 const updateAppraisalAnswer = async (req, res) => {
     //validation run
     await Promise.all([
+        body('appraisal_cycle_id').notEmpty().withMessage("Appraisal cycle id is required").run(req),
+        body('employee_id').notEmpty().withMessage("Employee id is required").run(req),
+        body('manager_id').notEmpty().withMessage("Manager id is required").run(req),
+        body('status').notEmpty().withMessage("Status is required").isIn(['Pending', 'Self Submitted', 'Manager Reviewed', 'Finalized']).withMessage("Invalid status value").run(req),
         body('appraisalAnswerDetails').isArray({ min: 1 }).withMessage("Appraisal Answer Details must be a non-empty array").run(req),
-        body('appraisalAnswerDetails.*.appraisal_question_id').notEmpty().withMessage("Appraisal Question ID is required").isInt().run(req),
-        body('appraisalAnswerDetails.*.value').notEmpty().withMessage("Value is required").run(req)
-    ]);
+        body('appraisalAnswerDetails.*.appraisal_question_id').notEmpty().withMessage("Appraisal question is required").isInt().run(req),
+    ])
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return error422(errors.array()[0].msg, res)
     }
+    const appraisal_cycle_id = req.body.appraisal_cycle_id
+    const employee_id = req.body.employee_id;
+    const manager_id = req.body.manager_id;
+    const status = req.body.status;
     const appraisalAnswerDetails = req.body.appraisalAnswerDetails;
-    const employee_id = req.user.employee_id;
+    let selfCount = 0, selfValueCount = 0, managerCount = 0, managerValueCount = 0
+
     const seen = new Set();
     for (let item of appraisalAnswerDetails) {
         const key = `${item.appraisal_question_id}`;
@@ -177,19 +244,35 @@ const updateAppraisalAnswer = async (req, res) => {
     try {
         //start a transaction
         await connection.beginTransaction();
+        //is appraisal cycles employee 
+        let isAppraisalCycleEmloyeeQuery = "SELECT * FROM appraisal_cycles_employees WHERE employee_id = ? AND appraisal_cycle_id = ?"
+        let [isAppraisalCycleEmployeeResult] = await connection.query(isAppraisalCycleEmloyeeQuery, [employee_id, appraisal_cycle_id])
+        if (isAppraisalCycleEmployeeResult.length == 0) {
+            await connection.rollback();
+            return error422("Appraisal cycle emloyee is not found.", res);
+        }
 
         for (let i = 0; i < appraisalAnswerDetails.length; i++) {
             const element = appraisalAnswerDetails[i];
+            const appraisal_answer_id = element.appraisal_answer_id;
+            const appraisal_question_id = element.appraisal_question_id;
+            const value = element.value;
             // Check if appraisal question id exist
-            const [appraisalQuestions] = await connection.query(`SELECT appraisal_question_id FROM appraisal_questions WHERE appraisal_question_id = ?`, [element.appraisal_question_id]);
+            const [appraisalQuestions] = await connection.query(`SELECT * FROM appraisal_questions WHERE appraisal_question_id = ?`, [appraisal_question_id]);
             if (appraisalQuestions.length == 0) {
                 await connection.rollback()
-                return error422("Invalid appraisal_question_id provided.", res);
+                return error422("Question Not Found", res);
             }
-            if (element.appraisal_answer_id) {
+            if (appraisalQuestions[0].section == 'self') {
+                selfCount++; if (value && value != 0) selfValueCount++
+            }
+            if (appraisalQuestions[0].section == 'manager') {
+                managerCount++; if (value && value != 0) managerValueCount++
+            }
+            if (appraisal_answer_id) {
                 //appraisal question already exist
-                let isExistingQuery = `SELECT appraisal_question_id FROM appraisal_answers WHERE appraisal_question_id =? AND created_by =? AND appraisal_answer_id !=?`
-                const [existing] = await connection.query(isExistingQuery, [element.appraisal_question_id, employee_id, element.appraisal_answer_id]);
+                let isExistingQuery = `SELECT appraisal_question_id FROM appraisal_answers WHERE appraisal_question_id =? AND employee_id =? AND appraisal_answer_id !=?`
+                const [existing] = await connection.query(isExistingQuery, [appraisal_question_id, employee_id, appraisal_answer_id]);
                 if (existing.length > 0) {
                     await connection.rollback()
                     return error422("Appraisal Answer already exists.", res);
@@ -197,23 +280,37 @@ const updateAppraisalAnswer = async (req, res) => {
                 // Update record with new data
                 const updateQuery = `
                 UPDATE appraisal_answers
-                SET appraisal_question_id = ?, value = ?, created_by = ?
+                SET appraisal_question_id = ?, value = ?, employee_id = ?
                 WHERE appraisal_answer_id = ?
             `;
-                await connection.query(updateQuery, [element.appraisal_question_id, element.value, employee_id, element.appraisal_answer_id]);
+                await connection.query(updateQuery, [appraisal_question_id, value, employee_id, appraisal_answer_id]);
             } else {
                 //appraisal answer already exist
-                let isExistingQuery = `SELECT appraisal_answer_id FROM appraisal_answers WHERE appraisal_question_id =? AND created_by =? `
-                const [existing] = await connection.query(isExistingQuery, [element.appraisal_question_id, employee_id]);
+                let isExistingQuery = `SELECT appraisal_answer_id FROM appraisal_answers WHERE appraisal_question_id =? AND employee_id =? `
+                const [existing] = await connection.query(isExistingQuery, [appraisal_question_id, employee_id]);
                 if (existing.length > 0) {
                     await connection.rollback()
                     return error422("Appraisal Answer already exists.", res);
                 }
-                let insertQuery = "INSERT INTO appraisal_answers (appraisal_question_id, value, created_by)VALUES (?, ?, ?)"
-                await connection.query(insertQuery, [element.appraisal_question_id, element.value, employee_id]);
+                let insertQuery = "INSERT INTO appraisal_answers (appraisal_question_id, value, employee_id, manager_id)VALUES (?, ?, ?, ?)"
+                await connection.query(insertQuery, [appraisal_question_id, value, employee_id, manager_id]);
             }
 
         }
+        if (status == 'Self Submitted') {
+            if (selfCount != selfValueCount) {
+                await connection.rollback();
+                return error422("Sorry question answer of self is required.", res);
+            }
+        } else if (status == 'Manager Reviewed') {
+            if (selfCount != selfValueCount || managerCount != managerValueCount) {
+                await connection.rollback();
+                return error422("Sorry question answer of manager is required.", res);
+            }
+        }
+        //update appraisal cycle employee update
+        let updateQuery = "UPDATE appraisal_cycles_employees SET status = ? WHERE appraisal_cycles_employee_id = ?";
+        await connection.query(updateQuery, [status, isAppraisalCycleEmployeeResult[0].appraisal_cycles_employee_id])
         // Commit the transaction
         await connection.commit();
 
@@ -267,8 +364,8 @@ const getAppraisalAnswerDownload = async (req, res) => {
             "Question": item.question_text,
             "Type": item.type,
             "Section": item.section,
-            "Value":item.value,
-            "Answer By":item.first_name+' '+ item.last_name,
+            "Value": item.value,
+            "Answer By": item.first_name + ' ' + item.last_name,
             "Status": item.status,
         }));
 

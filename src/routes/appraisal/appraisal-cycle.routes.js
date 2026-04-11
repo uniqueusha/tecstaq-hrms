@@ -8,6 +8,8 @@ router.post('/', verifyToken, appraisalCycleController.createAppraisalCycle);
 router.get('/',verifyToken,  appraisalCycleController.getAppraisalCycles);
 //download list
 router.get('/download', verifyToken, appraisalCycleController.getAppraisalCycleDownload);
+//get appraisal cycle with employee id
+router.get('/employee/:id', verifyToken, appraisalCycleController.getAppraisalCycleWithEmployeeId)
 // by id appraisal-cycle
 router.get('/:id', verifyToken, appraisalCycleController.getAppraisalCycle);
 // update appraisal-cycle

@@ -78,6 +78,13 @@ const createAppraisalCycle = async (req, res) => {
                 return error422("Employee Not Found.", res);
             }
             let employee = employeeResult[0][0];
+            // Check if check appraisal cycle employee exists
+            const isCycleEmployeeQuery = "SELECT * FROM appraisal_cycles_employees WHERE employee_id  = ? AND appraisal_cycle_id = ?";
+            const cycleEmployeeResult = await connection.query(isCycleEmployeeQuery, [element.employee_id, appraisal_cycle_id]);
+            if (cycleEmployeeResult[0].length > 0) {
+                await connection.rollback();
+                return error422("Appraisal cycle is not assigned to the employee.", res);
+            }
             let insertAppraisalCycleEmployeeQuery = "INSERT INTO appraisal_cycles_employees ( appraisal_cycle_id, department_id, employee_id, reporting_manager_id ) VALUES (?, ?, ?, ?)";
             await connection.query(insertAppraisalCycleEmployeeQuery, [appraisal_cycle_id, employee.departments_id, element.employee_id, employee.reporting_manager_id])
         }
@@ -255,6 +262,13 @@ const updateAppraisalCycle = async (req, res) => {
                 return error422("Employee Not Found.", res);
             }
             let employee = employeeResult[0][0];
+            // Check if check appraisal cycle employee exists
+            const isCycleEmployeeQuery = "SELECT * FROM appraisal_cycles_employees WHERE employee_id  = ? AND appraisal_cycle_id = ?";
+            const cycleEmployeeResult = await connection.query(isCycleEmployeeQuery, [element.employee_id, appraisalCycleId]);
+            if (cycleEmployeeResult[0].length > 0) {
+                await connection.rollback();
+                return error422("Appraisal cycle is aleady assigned to the employee.", res);
+            }
             let insertAppraisalCycleEmployeeQuery = "INSERT INTO appraisal_cycles_employees ( appraisal_cycle_id, department_id, employee_id, reporting_manager_id ) VALUES (?, ?, ?, ?)";
             await connection.query(insertAppraisalCycleEmployeeQuery, [appraisalCycleId, employee.departments_id, element.employee_id, employee.reporting_manager_id])
         }
@@ -372,12 +386,54 @@ const onStatusChange = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//get appraisal cycle With employee id
+const getAppraisalCycleWithEmployeeId = async (req, res) => {
+    const appraisal_cycle_id = parseInt(req.params.id);
+    const employee_id = parseInt(req.query.employee_id);
+    if (!employee_id) {
+        return error422("Employee id is required.", res);
+    }
+    let connection = await pool.getConnection()
+    try {
+        await connection.beginTransaction();
+        //get query
+        let getQuery = `SELECT ace.*, ac.cycle_name, ac.start_date, ac.end_date
+        FROM appraisal_cycles_employees ace 
+        LEFT JOIN appraisal_cycles ac
+        ON ac.appraisal_cycle_id = ace.appraisal_cycle_id
+        WHERE ace.employee_id = ${employee_id} AND ace.appraisal_cycle_id = ${appraisal_cycle_id}`;
+        let [result] = await connection.query(getQuery)
+        if (result.length==0) {
+            await connection.rollback();
+            return error422("Appraisal cycle is not assigned to the employee.",res)
+        }
 
+        let getAppraisalQuestionQuery =` SELECT aq.*, aa.value 
+        FROM appraisal_questions aq 
+        LEFT JOIN appraisal_answers aa
+        ON aa.appraisal_question_id = aq.appraisal_question_id
+        WHERE aq.appraisal_cycle_id = ${appraisal_cycle_id} ORDER BY appraisal_question_id ASC`
+        let [appraisalQuestionResult]= await connection.query(getAppraisalQuestionQuery)
+        result[0]['appraisalQuestionDetails'] = appraisalQuestionResult
+        await connection.commit();
+        return res.status(200).json({
+            status:200,
+            message:"Appraisal cycle retrived successfully.",
+            data:result
+        })
+    } catch (error) {
+        if(connection) await connection.rollback();
+        return error500(error, res)
+    } finally {
+        if(connection) connection.release()
+    }
+}
 module.exports = {
     createAppraisalCycle,
     getAppraisalCycles,
     getAppraisalCycle,
     updateAppraisalCycle,
     getAppraisalCycleDownload,
-    onStatusChange
+    onStatusChange,
+    getAppraisalCycleWithEmployeeId
 }

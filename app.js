@@ -50,7 +50,9 @@ const payRollRoutes = require('./src/routes/pay-roll.routes')
 const cronJobRoutes = require('./src/routes/cron-job.routes');
 //appraisal cycle
 const appraisalCycleRoutes = require('./src/routes/appraisal/appraisal-cycle.routes')
-const appraisalRoutes = require('./src/routes/appraisal/appraisal.routes')
+const appraisalQuestionRoutes = require('./src/routes/appraisal/appraisal-questions.routes');
+const appraisalAnswerRoutes = require('./src/routes/appraisal/appraisal-answers.routes');
+const appraisalRoutes = require('./src/routes/appraisal/appraisal.routes');
 // Middleware
 app.use(bodyParser.json());
 app.use((req,res,next)=>{
@@ -109,6 +111,8 @@ app.use('/employee-analytics', employeeAnalyticsRoutes);
 app.use('/regularization', regularizationRoutes);
 //appraisal 
 app.use('/appraisal-cycle', appraisalCycleRoutes);
+app.use('/appraisal/question', appraisalQuestionRoutes)
+app.use('/appraisal/answer', appraisalAnswerRoutes)
 app.use('/appraisal', appraisalRoutes);
 
 app.get('/', (req,res)=>{

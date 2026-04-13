@@ -39,8 +39,8 @@ const createAppraisalAnswer = async (req, res) => {
     const manager_id = req.body.manager_id;
     const status = req.body.status;
     const appraisalAnswerDetails = req.body.appraisalAnswerDetails;
-    let selfCount = 0, selfValueCount = 0, selfTotal = 0;
-    let managerCount = 0, managerValueCount = 0, managerTotal = 0;
+    let selfCount = 0, selfValueCount = 0, selfTotal = 0, selfMax = 0;
+    let managerCount = 0, managerValueCount = 0, managerTotal = 0, managerMax = 0;
 
     const seen = new Set();
     for (let item of appraisalAnswerDetails) {
@@ -78,16 +78,18 @@ const createAppraisalAnswer = async (req, res) => {
                 return error422("Question Not Found", res);
             }
             if (isQuestionResult[0].section == 'self') {
+                selfMax = selfMax + 5
                 selfCount++;
                 if (value && value != 0) {
-                    if(value) selfTotal = selfTotal+parseInt(value)
+                    if (value) selfTotal = selfTotal + parseInt(value)
                     selfValueCount++
                 }
             }
             if (isQuestionResult[0].section == 'manager') {
+                managerMax = managerMax + 5
                 managerCount++;
                 if (value && value != 0) {
-                    if(value) managerTotal = managerTotal+parseInt(value)
+                    if (value) managerTotal = managerTotal + parseInt(value)
                     managerValueCount++
                 }
             }
@@ -109,24 +111,36 @@ const createAppraisalAnswer = async (req, res) => {
                 await connection.rollback();
                 return error422("Sorry question answer of manager is required.", res);
             }
+            const maxScore = total_question * 5;
+
+            const selfPercent = (selfTotal / selfMax) * 100;
+            const managerPercent = (managerTotal / managerMax) * 100;
+
+            const final_score = (selfPercent * 0.4) + (managerPercent * 0.6);
+            let final_outcome = ''
+            if (final_score >= 90) {
+                final_outcome = 'Outstanding'
+            } else if (final_score >= 80) {
+                final_outcome = 'Exceeds Expectations'
+            } else if (final_score >= 60) {
+                final_outcome = 'Meets Expectations'
+            } else if (final_score < 60) {
+                final_outcome = 'Needs Improvement'
+            }
+            //insert into appraisal
+            let insertQuery = `INSERT INTO appraisals (appraisal_cycle_id, employee_id, self_score_total, self_score_per, manager_score_total, manager_score_per, final_score, final_outcome) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+            await connection.query(insertQuery, [appraisal_cycle_id, employee_id, selfTotal, selfPercent, managerTotal, managerPercent, final_score, final_outcome])
         }
-        const maxScore = total_question * 5;
-        
-        const selfPercent = (selfTotal / maxScore) * 100;
-        const managerPercent = (managerTotal / maxScore) * 100;
-        
-        const finalScore = (selfPercent * 0.4) + (managerPercent * 0.6);
-        
-        console.log(selfCount,selfValueCount, selfTotal);
-        console.log(managerCount,managerValueCount, managerTotal);
-        console.log(finalScore)
+
         // Bulk insert
         const values = appraisalAnswerDetails.map(item => [item.appraisal_question_id, item.value, employee_id, manager_id]);
         await connection.query(`INSERT INTO appraisal_answers (appraisal_question_id, value, employee_id, manager_id )VALUES ?`, [values]);
         //update appraisal cycle employee update
         let updateQuery = "UPDATE appraisal_cycles_employees SET status = ? WHERE appraisal_cycles_employee_id = ?";
-        await connection.query(updateQuery, [status, isAppraisalCycleEmployeeResult[0].appraisal_cycles_employee_id])
-        // await connection.commit();
+        await connection.query(updateQuery, [status, isAppraisalCycleEmployeeResult[0].appraisal_cycles_employee_id]);
+
+
+        await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Appraisal Answer submitted successfully."
@@ -227,7 +241,9 @@ const updateAppraisalAnswer = async (req, res) => {
     const manager_id = req.body.manager_id;
     const status = req.body.status;
     const appraisalAnswerDetails = req.body.appraisalAnswerDetails;
-    let selfCount = 0, selfValueCount = 0, managerCount = 0, managerValueCount = 0
+    let selfCount = 0, selfValueCount = 0, selfTotal = 0, selfMax = 0;
+    let managerCount = 0, managerValueCount = 0, managerTotal = 0, managerMax = 0;
+
 
     const seen = new Set();
     for (let item of appraisalAnswerDetails) {
@@ -252,6 +268,11 @@ const updateAppraisalAnswer = async (req, res) => {
             return error422("Appraisal cycle emloyee is not found.", res);
         }
 
+        //get totol count of question 
+        let getTotalQuestionCountQuery = "SELECT COUNT(*) AS total FROM appraisal_questions WHERE appraisal_cycle_id = ?"
+        let [getTotalQuestionCountResult] = await connection.query(getTotalQuestionCountQuery, [appraisal_cycle_id]);
+        let total_question = getTotalQuestionCountResult[0].total;
+
         for (let i = 0; i < appraisalAnswerDetails.length; i++) {
             const element = appraisalAnswerDetails[i];
             const appraisal_answer_id = element.appraisal_answer_id;
@@ -264,10 +285,20 @@ const updateAppraisalAnswer = async (req, res) => {
                 return error422("Question Not Found", res);
             }
             if (appraisalQuestions[0].section == 'self') {
-                selfCount++; if (value && value != 0) selfValueCount++
+                selfMax = selfMax + 5
+                selfCount++;
+                if (value && value != 0) {
+                    if (value) selfTotal = selfTotal + parseInt(value)
+                    selfValueCount++
+                }
             }
             if (appraisalQuestions[0].section == 'manager') {
-                managerCount++; if (value && value != 0) managerValueCount++
+                managerMax =managerMax + 5
+                managerCount++;
+                if (value && value != 0) {
+                    if (value) managerTotal = managerTotal + parseInt(value)
+                    managerValueCount++
+                }
             }
             if (appraisal_answer_id) {
                 //appraisal question already exist
@@ -307,6 +338,35 @@ const updateAppraisalAnswer = async (req, res) => {
                 await connection.rollback();
                 return error422("Sorry question answer of manager is required.", res);
             }
+            const maxScore = total_question * 5;
+            const selfPercent = (selfTotal / selfMax) * 100;
+            const managerPercent = (managerTotal / managerMax) * 100;
+
+            const final_score = (selfPercent * 0.4) + (managerPercent * 0.6);
+            let final_outcome = ''
+            if (final_score >= 90) {
+                final_outcome = 'Outstanding'
+            } else if (final_score >= 80) {
+                final_outcome = 'Exceeds Expectations'
+            } else if (final_score >= 60) {
+                final_outcome = 'Meets Expectations'
+            } else if (final_score < 60) {
+                final_outcome = 'Needs Improvement'
+            }
+            //is appraisal 
+            let isAppraisalQuery = "SELECT * FROM appraisals WHERE appraisal_cycle_id = ? AND employee_id = ?"
+            let [isApprasalResult] = await connection.query(isAppraisalQuery, [appraisal_cycle_id, employee_id]);
+            if (isApprasalResult.length == 0) {
+                //insert into appraisal
+                let insertQuery = `INSERT INTO appraisals (appraisal_cycle_id, employee_id, self_score_total, self_score_per, manager_score_total, manager_score_per, final_score, final_outcome) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+                await connection.query(insertQuery, [appraisal_cycle_id, employee_id, selfTotal, selfPercent, managerTotal, managerPercent, final_score, final_outcome])
+            } else {
+                //update appraisal
+                let updateAppraisalQuery = `UPDATE appraisals SET self_score_total = ?, self_score_per = ?, manager_score_total = ?, 
+                manager_score_per = ?, final_score = ?, final_outcome = ? WHERE appraisal_cycle_id = ? AND employee_id = ? `;
+                await connection.query(updateAppraisalQuery, [selfTotal, selfPercent, managerTotal, managerPercent, final_score, final_outcome, appraisal_cycle_id, employee_id])
+            }
+
         }
         //update appraisal cycle employee update
         let updateQuery = "UPDATE appraisal_cycles_employees SET status = ? WHERE appraisal_cycles_employee_id = ?";

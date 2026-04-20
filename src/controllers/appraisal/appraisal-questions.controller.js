@@ -23,7 +23,7 @@ const createAppraisalQuestion = async (req, res) => {
     //validation run
     await Promise.all([
         body('appraisalQuestionDetails').isArray({ min: 1 }).withMessage("Appraisal Question Details must be a non-empty array").run(req),
-        body('appraisalQuestionDetails.*.appraisal_cycle_id').notEmpty().withMessage("Appraisal Cycle ID is required").isInt().run(req),
+        body('appraisal_cycle_id').notEmpty().withMessage("Appraisal Cycle ID is required").isInt().run(req),
         body('appraisalQuestionDetails.*.question_text').notEmpty().withMessage("Question text is required").run(req),
         body('appraisalQuestionDetails.*.type').notEmpty().withMessage("Type is required").isIn(['text', 'rating', 'boolean']).withMessage("Type is invalid").run(req),
         body('appraisalQuestionDetails.*.section').notEmpty().withMessage("Section is required").isIn(['self', 'manager']).withMessage("Section is invalid").run(req),
@@ -33,30 +33,29 @@ const createAppraisalQuestion = async (req, res) => {
     if (!errors.isEmpty()) {
         return error422(errors.array()[0].msg, res);
     }
-
+    const appraisal_cycle_id = req.body.appraisal_cycle_id
     const appraisalQuestionDetails = req.body.appraisalQuestionDetails;
     const employee_id = req.user.employee_id;
     const seen = new Set();
     for (let item of appraisalQuestionDetails) {
-        const key = `${item.appraisal_cycle_id}-${item.section}-${item.question_text.trim().toLowerCase()}`;
+        const key = `${appraisal_cycle_id}-${item.section}-${item.question_text.trim().toLowerCase()}`;
         if (seen.has(key)) {
             return error422("Duplicate question found in request.", res);
         }
         seen.add(key);
+    }
+    // Check if cycle id exist
+    const [cycles] = await pool.query(`SELECT appraisal_cycle_id FROM appraisal_cycles WHERE appraisal_cycle_id = ?`, [appraisal_cycle_id]);
+    if (cycles.length == 0) {
+        return error422("Invalid appraisal_cycle_id provided.", res);
     }
     let connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
         for (let i = 0; i < appraisalQuestionDetails.length; i++) {
             const element = appraisalQuestionDetails[i];
-            // Check if cycle id exist
-            const [cycles] = await connection.query(`SELECT appraisal_cycle_id FROM appraisal_cycles WHERE appraisal_cycle_id = ?`, [element.appraisal_cycle_id]);
-            if (cycles.length == 0) {
-                await connection.rollback();
-                return error422("Invalid appraisal_cycle_id provided.", res);
-            }
-            let isExistingQuery = `SELECT appraisal_cycle_id, question_text FROM appraisal_questions WHERE appraisal_cycle_id = ? AND question_text = ? AND section = ?`
-            const [existing] = await connection.query(isExistingQuery, [element.appraisal_cycle_id, element.question_text, element.section]);
+            let isExistingQuery = `SELECT appraisal_cycle_id, question_text FROM appraisal_questions WHERE appraisal_cycle_id = ? AND question_text = ? AND section = ? AND status != 0`
+            const [existing] = await connection.query(isExistingQuery, [appraisal_cycle_id, element.question_text, element.section]);
             if (existing.length > 0) {
                 await connection.rollback();
                 return error422("Some appraisal questions already exist.", res);
@@ -64,7 +63,7 @@ const createAppraisalQuestion = async (req, res) => {
         }
 
         // Bulk insert
-        const values = appraisalQuestionDetails.map(item => [item.appraisal_cycle_id, item.question_text.trim(), item.type.trim(), item.section.trim(), employee_id]);
+        const values = appraisalQuestionDetails.map(item => [appraisal_cycle_id, item.question_text.trim(), item.type.trim(), item.section.trim(), employee_id]);
         await connection.query(`INSERT INTO appraisal_questions (appraisal_cycle_id, question_text, type, section, created_by)VALUES ?`, [values]);
 
         await connection.commit();
@@ -82,50 +81,50 @@ const createAppraisalQuestion = async (req, res) => {
 };
 // get Appraisal Questions...
 const getAppraisalQuestions = async (req, res) => {
-    let { page, perPage, key, appraisal_cycle_id } = req.query;
+    let { page, perPage, key, status } = req.query;
+    if (status) {
+        if (status != "Draft" && status != "Active" && status != "Closed") {
+            return error422("Appraisal cycle status is Invalid.", res);
+        }
+    }
     let connection = await pool.getConnection();
     try {
-        let getQuery = ` SELECT aq.*, ac.cycle_name, ac.start_date, ac.end_date, e.first_name, e.last_name 
-        FROM appraisal_questions aq 
-        LEFT JOIN appraisal_cycles ac
-        ON ac.appraisal_cycle_id = aq.appraisal_cycle_id
-        LEFT JOIN employee e
-        ON e.employee_id = aa.created_by
-        WHERE 1 `
-        let countQuery = `SELECT COUNT(*) AS total 
-        FROM appraisal_questions aq 
-        LEFT JOIN appraisal_cycles ac
-        ON ac.appraisal_cycle_id = aq.appraisal_cycle_id
-        LEFT JOIN employee e
-        ON e.employee_id = aa.created_by
-        WHERE 1 `
+        let getAppraisalCycleQuery = " SELECT * FROM appraisal_cycles WHERE 1 ";
+        let countQuery = " SELECT COUNT(*) AS total FROM appraisal_cycles WHERE 1"
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getQuery += ` AND (LOWER(aq.question_text) LIKE '%${lowercaseKey}%' ) `;
-            countQuery += ` AND (LOWER(aq.question_text) LIKE '%${lowercaseKey}%' ) `;
+            getAppraisalCycleQuery += ` AND (LOWER(cycle_name) LIKE '%${lowercaseKey}%' ) `;
+            countQuery += ` AND (LOWER(cycle_name) LIKE '%${lowercaseKey}%' ) `;
         }
-        if (appraisal_cycle_id) {
-            getQuery += ` AND aq.appraisal_cycle_id = '${appraisal_cycle_id}'`;
-            countQuery += `  AND aq.appraisal_cycle_id = '${appraisal_cycle_id}'`;
+        if (status) {
+            getAppraisalCycleQuery += ` AND status = '${status}'`;
+            countQuery += `  AND status = '${status}'`;
         }
-        getQuery += ` ORDER BY aq.created_at DESC `;
+        getAppraisalCycleQuery += ` ORDER BY created_at DESC `;
         //Apply pagination if both page and perPage are provided
         let total = 0;
         if (page && perPage) {
             const totalResult = await connection.query(countQuery)
             total = parseInt(totalResult[0][0].total);
             const start = (page - 1) * perPage;
-            getQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+            getAppraisalCycleQuery += ` LIMIT ${perPage} OFFSET ${start}`;
         }
 
-        let result = await connection.query(getQuery)
+        let [result] = await connection.query(getAppraisalCycleQuery)
+
+        for (let i = 0; i < result.length; i++) {
+            const element = result[i];
+            let getQuestionQuery = `SELECT * FROM appraisal_questions WHERE appraisal_cycle_id = ? AND status = 1`;
+            let [resultQuestion] = await connection.query(getQuestionQuery, [element.appraisal_cycle_id])
+            result[i]['appraisalQuestionDetails'] = resultQuestion
+        }
 
         //commit the transaction
         await connection.commit();
         const data = {
             status: 200,
-            message: "Appraisal Questions retrived successfully",
-            data: result[0]
+            message: "Appraisal Cycle With Question retrived successfully",
+            data: result
         }
         // Add pagination information if provided
         if (page && perPage) {
@@ -149,7 +148,7 @@ const updateAppraisalQuestion = async (req, res) => {
     //validation run
     await Promise.all([
         body('appraisalQuestionDetails').isArray({ min: 1 }).withMessage("Appraisal Question Details must be a non-empty array").run(req),
-        body('appraisalQuestionDetails.*.appraisal_cycle_id').notEmpty().withMessage("Appraisal Cycle ID is required").isInt().run(req),
+        body('appraisal_cycle_id').notEmpty().withMessage("Appraisal Cycle ID is required").isInt().run(req),
         body('appraisalQuestionDetails.*.question_text').notEmpty().withMessage("Question text is required").run(req),
         body('appraisalQuestionDetails.*.type').notEmpty().withMessage("Type is required").isIn(['text', 'rating', 'boolean']).withMessage("Type is invalid").run(req),
         body('appraisalQuestionDetails.*.section').notEmpty().withMessage("Section is required").isIn(['self', 'manager']).withMessage("Section is invalid").run(req),
@@ -158,29 +157,29 @@ const updateAppraisalQuestion = async (req, res) => {
     if (!errors.isEmpty()) {
         return error422(errors.array()[0].msg, res)
     }
+    const appraisal_cycle_id = req.body.appraisal_cycle_id;
     const appraisalQuestionDetails = req.body.appraisalQuestionDetails;
     const employee_id = req.user.employee_id;
     const seen = new Set();
     for (let item of appraisalQuestionDetails) {
-        const key = `${item.appraisal_cycle_id}-${item.section}-${item.question_text.trim().toLowerCase()}`;
+        const key = `${appraisal_cycle_id}-${item.section}-${item.question_text.trim().toLowerCase()}`;
         if (seen.has(key)) {
             return error422("Duplicate question found in request.", res);
         }
         seen.add(key);
     }
-
+    // Check if cycle id exist
+    const [cycles] = await pool.query(`SELECT appraisal_cycle_id FROM appraisal_cycles WHERE appraisal_cycle_id = ?`, [appraisal_cycle_id]);
+    if (cycles.length == 0) {
+        return error422("Invalid appraisal_cycle_id provided.", res);
+    }
     let connection = await pool.getConnection();
     try {
         //start a transaction
         await connection.beginTransaction();
         for (let i = 0; i < appraisalQuestionDetails.length; i++) {
             const element = appraisalQuestionDetails[i];
-            // Check if cycle id exist
-            const [cycles] = await connection.query(`SELECT appraisal_cycle_id FROM appraisal_cycles WHERE appraisal_cycle_id = ?`, [element.appraisal_cycle_id]);
-            if (cycles.length == 0) {
-                await connection.rollback()
-                return error422("Invalid appraisal_cycle_id provided.", res);
-            }
+
             if (element.appraisal_question_id) {
                 // Check if appraisal question id exist
                 const [appraisalQuestions] = await connection.query(`SELECT appraisal_question_id FROM appraisal_questions WHERE appraisal_question_id = ?`, [element.appraisal_question_id]);
@@ -189,8 +188,8 @@ const updateAppraisalQuestion = async (req, res) => {
                     return error422("Invalid appraisal_question_id provided.", res);
                 }
                 //appraisal question already exist
-                let isExistingQuery = `SELECT appraisal_cycle_id, question_text FROM appraisal_questions WHERE appraisal_cycle_id =? AND question_text =?  AND section =?  AND appraisal_question_id !=?`
-                const [existing] = await connection.query(isExistingQuery, [element.appraisal_cycle_id, element.question_text, element.section, element.appraisal_question_id]);
+                let isExistingQuery = `SELECT appraisal_cycle_id, question_text FROM appraisal_questions WHERE appraisal_cycle_id =? AND question_text =?  AND section =?  AND appraisal_question_id !=?  AND status != 0`
+                const [existing] = await connection.query(isExistingQuery, [appraisal_cycle_id, element.question_text, element.section, element.appraisal_question_id]);
                 if (existing.length > 0) {
                     await connection.rollback()
                     return error422("Appraisal Question already exists.", res);
@@ -201,17 +200,17 @@ const updateAppraisalQuestion = async (req, res) => {
                 SET appraisal_cycle_id = ?, question_text = ?, type = ?, section = ?, created_by = ?
                 WHERE appraisal_question_id = ?
             `;
-                await connection.query(updateQuery, [element.appraisal_cycle_id, element.question_text, element.type, element.section, employee_id, element.appraisal_question_id]);
+                await connection.query(updateQuery, [appraisal_cycle_id, element.question_text, element.type, element.section, employee_id, element.appraisal_question_id]);
             } else {
                 //appraisal question already exist
-                let isExistingQuery = `SELECT appraisal_cycle_id, question_text FROM appraisal_questions WHERE appraisal_cycle_id =? AND question_text =? AND section =?`
-                const [existing] = await connection.query(isExistingQuery, [element.appraisal_cycle_id, element.question_text, element.section]);
+                let isExistingQuery = `SELECT appraisal_cycle_id, question_text FROM appraisal_questions WHERE appraisal_cycle_id =? AND question_text =? AND section =? AND status != 0`
+                const [existing] = await connection.query(isExistingQuery, [appraisal_cycle_id, element.question_text, element.section]);
                 if (existing.length > 0) {
                     await connection.rollback()
                     return error422("Appraisal Question already exists.", res);
                 }
                 let insertQuery = "INSERT INTO appraisal_questions (appraisal_cycle_id, question_text, type, section, created_by)VALUES (?, ?, ?, ?, ?)"
-                await connection.query(insertQuery, [element.appraisal_cycle_id, element.question_text, element.type, element.section, employee_id]);
+                await connection.query(insertQuery, [appraisal_cycle_id, element.question_text, element.type, element.section, employee_id]);
             }
 
         }
@@ -243,7 +242,7 @@ const getAppraisalQuestionDownload = async (req, res) => {
         LEFT JOIN appraisal_cycles ac
         ON ac.appraisal_cycle_id = aq.appraisal_cycle_id
         LEFT JOIN employee e
-        ON e.employee_id = aa.created_by
+        ON e.employee_id = aq.created_by
         WHERE 1 `;
 
         if (key) {
@@ -342,11 +341,41 @@ const onStatusChange = async (req, res) => {
         if (connection) connection.release()
     }
 }
+//get appraisal question by appraisal cycle id 
+const getAppraisalQuestionsByAppraisalCycleId = async (req, res) => {
+    const appraisal_cycle_id = parseInt(req.params.id);
+    if (!appraisal_cycle_id) {
+        return error422("Appraisal cycle id is required.", res)
+    }
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        let getQuery = 'SELECT * FROM appraisal_cycles WHERE appraisal_cycle_id = ?';
+        let [result] = await connection.query(getQuery,[appraisal_cycle_id])
+        let getQuestionQuery = ` SELECT aq.*
+        FROM appraisal_questions aq 
+        WHERE aq.appraisal_cycle_id = ${appraisal_cycle_id} AND status = 1 ORDER BY appraisal_question_id ASC`
+        let [resultQuestion] = await connection.query(getQuestionQuery)
+        result[0]['appraisalQuestionDetails'] = resultQuestion
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Appraisal questions retrived successfully.",
+            data: result[0]
+        })
+    } catch (error) {
+        await connection.rollback()
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 
 module.exports = {
     createAppraisalQuestion,
     getAppraisalQuestions,
     updateAppraisalQuestion,
     getAppraisalQuestionDownload,
-    onStatusChange
+    onStatusChange,
+    getAppraisalQuestionsByAppraisalCycleId
 }

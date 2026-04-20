@@ -4,6 +4,8 @@ const appraisalController = require("../../controllers/appraisal/appraisal-quest
 const { verifyToken } = require("../../middleware/authMiddleware");
 //create appraisal Question
 router.post('/', verifyToken, appraisalController.createAppraisalQuestion);
+//get all appraisal Question by appraisal cycle id
+router.get('/question/:id',verifyToken,  appraisalController.getAppraisalQuestionsByAppraisalCycleId);
 //get all appraisal Question
 router.get('/',verifyToken,  appraisalController.getAppraisalQuestions);
 //download list

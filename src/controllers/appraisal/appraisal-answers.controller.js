@@ -376,7 +376,7 @@ const updateAppraisalAnswer = async (req, res) => {
 
         return res.status(200).json({
             status: 200,
-            message: "Appraisal Question updated successfully.",
+            message: "Appraisal updated successfully.",
         });
     } catch (error) {
         return error500(error, res);

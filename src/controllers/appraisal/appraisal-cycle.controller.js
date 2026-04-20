@@ -103,7 +103,7 @@ const createAppraisalCycle = async (req, res) => {
 }
 // get Appraisal Cycle...
 const getAppraisalCycles = async (req, res) => {
-    let { page, perPage, key, status } = req.query;
+    let { status, key, page, perPage } = req.query;
     if (status) {
         if (status != "Draft" && status != "Active" && status != "Closed") {
             return error422("Appraisal cycle status is Invalid.", res);
@@ -175,11 +175,21 @@ const getAppraisalCycle = async (req, res) => {
         if (AppraisalCycleResult[0].length == 0) {
             return error422("Appraisal Cycle Not Found.", res);
         }
-        const AppraisalCycle = AppraisalCycleResult[0][0];
+        let appraisalCycle = AppraisalCycleResult[0][0];
+        let getEmployeeDetailsQuery = `SELECT ace.*, e.first_name, e.last_name, d.department_name, ee.first_name AS reporting_manager_first_name, ee.last_name AS reporting_manager_last_name FROM appraisal_cycles_employees ace 
+        LEFT JOIN employee e
+        ON e.employee_id = ace.employee_id
+        LEFT JOIN departments d
+        ON e.departments_id = d.departments_id
+        LEFT JOIN employee ee
+        ON e.reporting_manager_id = ee.employee_id
+        WHERE appraisal_cycle_id = ?`;
+        let [resultEmployeeDetails] = await connection.query(getEmployeeDetailsQuery, [appraisalCycleId])
+        appraisalCycle['employeeDetails'] = resultEmployeeDetails
         return res.status(200).json({
             status: 200,
             message: "Appraisal Cycle Retrived Successfully",
-            data: AppraisalCycle
+            data: appraisalCycle
         });
     } catch (error) {
         return error500(error, res);
@@ -386,48 +396,215 @@ const onStatusChange = async (req, res) => {
         if (connection) connection.release()
     }
 }
-//get appraisal cycle With employee id
-const getAppraisalCycleWithEmployeeId = async (req, res) => {
-    const appraisal_cycle_id = parseInt(req.params.id);
-    const employee_id = parseInt(req.query.employee_id);
-    if (!employee_id) {
-        return error422("Employee id is required.", res);
+//get appraisal cycle by appraisal cycle employee id
+const getAppraisalCycleByAppraisalCycleEmployeeId = async (req, res) => {
+    const appraisal_cycles_employee_id = parseInt(req.params.id);
+    if (!appraisal_cycles_employee_id) {
+        return error422("Appraisal cycle employee id is required.", res);
     }
     let connection = await pool.getConnection()
     try {
         await connection.beginTransaction();
-        //get query
-        let getQuery = `SELECT ace.*, ac.cycle_name, ac.start_date, ac.end_date
+        //get appraisal cycles employee query
+        let getQuery = `SELECT ace.*, ac.cycle_name, ac.start_date, ac.end_date, e.first_name, e.last_name
         FROM appraisal_cycles_employees ace 
         LEFT JOIN appraisal_cycles ac
         ON ac.appraisal_cycle_id = ace.appraisal_cycle_id
-        WHERE ace.employee_id = ${employee_id} AND ace.appraisal_cycle_id = ${appraisal_cycle_id}`;
+        LEFT JOIN employee e
+        ON e.employee_id = ace.employee_id
+        WHERE ace.appraisal_cycles_employee_id = ${appraisal_cycles_employee_id} `;
         let [result] = await connection.query(getQuery)
-        if (result.length==0) {
+        let appraisal = result[0]
+        if (result.length == 0) {
             await connection.rollback();
-            return error422("Appraisal cycle is not assigned to the employee.",res)
+            return error422("Appraisal cycle is not assigned to the employee.", res)
         }
-
-        let getAppraisalQuestionQuery =` SELECT aq.*, aa.value 
-        FROM appraisal_questions aq 
+        //get appraisal questions query
+        let getAppraisalQuestionQuery = `SELECT aq.*, aa.value, aa.appraisal_answer_id FROM appraisal_cycles_employees ace
+        LEFT JOIN appraisal_questions aq
+        ON aq.appraisal_cycle_id = ace.appraisal_cycle_id
         LEFT JOIN appraisal_answers aa
-        ON aa.appraisal_question_id = aq.appraisal_question_id
-        WHERE aq.appraisal_cycle_id = ${appraisal_cycle_id} ORDER BY appraisal_question_id ASC`
-        let [appraisalQuestionResult]= await connection.query(getAppraisalQuestionQuery)
-        result[0]['appraisalQuestionDetails'] = appraisalQuestionResult
+        ON aa.appraisal_question_id = aq.appraisal_question_id AND aa.employee_id = ace.employee_id
+        WHERE ace.appraisal_cycle_id =${appraisal.appraisal_cycle_id} AND ace.employee_id = ${appraisal.employee_id} AND aq.status = 1 ORDER BY aq.appraisal_question_id ASC;`
+        let [appraisalQuestionResult] = await connection.query(getAppraisalQuestionQuery)
+        appraisal['appraisalQuestionDetails'] = appraisalQuestionResult;
+
+        //get appraisal analytics
+        let getAppraisalQuery =` SELECT a.* FROM appraisals a WHERE a.appraisal_cycle_id = ${appraisal.appraisal_cycle_id} AND a.employee_id = ${appraisal.employee_id}`;
+        let [getAppraisalResult] = await connection.query(getAppraisalQuery);
+        appraisal['appraisalAnalyticDetails'] = getAppraisalResult[0];
+
         await connection.commit();
         return res.status(200).json({
-            status:200,
-            message:"Appraisal cycle retrived successfully.",
-            data:result
+            status: 200,
+            message: "Appraisal cycle retrived successfully.",
+            data: appraisal
         })
     } catch (error) {
-        if(connection) await connection.rollback();
+        if (connection) await connection.rollback();
         return error500(error, res)
     } finally {
-        if(connection) connection.release()
+        if (connection) connection.release()
     }
 }
+//get appraisal cycles employees
+const getAppraisalCycleEmployees = async (req, res) => {
+    let { employee_id, reporting_manager_id, status, key, page, perPage } = req.query;
+    if (status) {
+        if (status != "Draft" && status != "Active" && status != "Closed") {
+            return error422("Appraisal cycle status is Invalid.", res);
+        }
+    }
+    let connection = await pool.getConnection();
+    try {
+        let getAppraisalCycleQuery = `SELECT ace.*, ac.cycle_name, ac.start_date, ac.end_date, e.first_name, e.last_name, ee.first_name AS reporting_manager_first_name, ee.last_name AS reporting_manager_last_name FROM appraisal_cycles_employees ace
+        LEFT JOIN appraisal_cycles ac
+        ON ac.appraisal_cycle_id = ace.appraisal_cycle_id
+        LEFT JOIN employee e
+        ON e.employee_id = ace.employee_id
+        LEFT JOIN employee ee
+        ON ee.employee_id = ace.reporting_manager_id
+         WHERE 1 `;
+        let countQuery = `SELECT COUNT(*) AS total FROM appraisal_cycles_employees ace 
+        LEFT JOIN appraisal_cycles ac
+        ON ac.appraisal_cycle_id = ace.appraisal_cycle_id
+        LEFT JOIN employee e
+        ON e.employee_id = ace.employee_id
+        WHERE 1 `
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getAppraisalCycleQuery += ` AND (LOWER(ac.cycle_name) LIKE '%${lowercaseKey}%' ) `;
+            countQuery += ` AND (LOWER(ac.cycle_name) LIKE '%${lowercaseKey}%' ) `;
+        }
+        if (status) {
+            getAppraisalCycleQuery += ` AND ac.status = '${status}'`;
+            countQuery += `  AND ac.status = '${status}'`;
+        }
+        if (employee_id) {
+            getAppraisalCycleQuery += ` AND ace.employee_id = '${employee_id}'`;
+            countQuery += `  AND ace.employee_id = '${employee_id}'`;
+        }
+        if (reporting_manager_id) {
+            getAppraisalCycleQuery += ` AND ace.reporting_manager_id = '${reporting_manager_id}'`;
+            countQuery += `  AND ace.reporting_manager_id = '${reporting_manager_id}'`;
+        }
+        getAppraisalCycleQuery += ` ORDER BY ac.created_at DESC `;
+        //Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery)
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            getAppraisalCycleQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        let result = await connection.query(getAppraisalCycleQuery)
+
+        //commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Appraisal Cycle employees retrived successfully",
+            data: result[0]
+        }
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage)
+            };
+        }
+        return res.status(200).json(data)
+    } catch (error) {
+        if (connection) await connection.rollback();
+        return error500(error, res)
+    } finally {
+        if (connection) connection.release();
+    }
+}
+//download Appraisal Cycle employee
+const getAppraisalCycleEmployeeDownload = async (req, res) => {
+    let { employee_id, reporting_manager_id, status, key } = req.query;
+    if (status) {
+        if (status != "Draft" && status != "Active" && status != "Closed") {
+            return error422("Appraisal cycle status is Invalid.", res);
+        }
+    }
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getAppraisalCycleQuery = `SELECT ace.*, ac.cycle_name, ac.start_date, ac.end_date, e.first_name, e.last_name FROM appraisal_cycles_employees ace
+        LEFT JOIN appraisal_cycles ac
+        ON ac.appraisal_cycle_id = ace.appraisal_cycle_id
+        LEFT JOIN employee e
+        ON e.employee_id = ace.employee_id
+         WHERE 1 `;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getAppraisalCycleQuery += ` AND (LOWER(ac.cycle_name) LIKE '%${lowercaseKey}%' ) `;
+        }
+        if (status) {
+            getAppraisalCycleQuery += ` AND ac.status = '${status}'`;
+        }
+        if (employee_id) {
+            getAppraisalCycleQuery += ` AND ace.employee_id = '${employee_id}'`;
+        }
+        if (reporting_manager_id) {
+            getAppraisalCycleQuery += ` AND ace.reporting_manager_id = '${reporting_manager_id}'`;
+        }
+        getAppraisalCycleQuery += ` ORDER BY ac.created_at DESC `;
+
+        let result = await connection.query(getAppraisalCycleQuery);
+        let AppraisalCycle = result[0];
+
+        if (AppraisalCycle.length === 0) {
+            return error422("No data found.", res);
+        }
+
+        AppraisalCycle = AppraisalCycle.map((item, index) => ({
+            "Sr No": index + 1,
+            "Created at": item.created_at,
+            "Name": item.cycle_name,
+            "Start": item.start_date,
+            "End": item.end_date,
+            "Status": item.status,
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(AppraisalCycle);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "AppraisalCycleEmployeeInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 module.exports = {
     createAppraisalCycle,
     getAppraisalCycles,
@@ -435,5 +612,7 @@ module.exports = {
     updateAppraisalCycle,
     getAppraisalCycleDownload,
     onStatusChange,
-    getAppraisalCycleWithEmployeeId
+    getAppraisalCycleByAppraisalCycleEmployeeId,
+    getAppraisalCycleEmployees,
+    getAppraisalCycleEmployeeDownload
 }

@@ -7,9 +7,13 @@ router.post('/', verifyToken, appraisalCycleController.createAppraisalCycle);
 //get all appraisal-cycle
 router.get('/',verifyToken,  appraisalCycleController.getAppraisalCycles);
 //download list
+router.get('/download/employee', verifyToken, appraisalCycleController.getAppraisalCycleEmployeeDownload);
+//download list
 router.get('/download', verifyToken, appraisalCycleController.getAppraisalCycleDownload);
-//get appraisal cycle with employee id
-router.get('/employee/:id', verifyToken, appraisalCycleController.getAppraisalCycleWithEmployeeId)
+//get appraisal cycle with employee 
+router.get('/employee', verifyToken, appraisalCycleController.getAppraisalCycleEmployees)
+//get appraisal cycle by appraisal cycle employee id
+router.get('/employee/:id', verifyToken, appraisalCycleController.getAppraisalCycleByAppraisalCycleEmployeeId)
 // by id appraisal-cycle
 router.get('/:id', verifyToken, appraisalCycleController.getAppraisalCycle);
 // update appraisal-cycle

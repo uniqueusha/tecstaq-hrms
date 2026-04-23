@@ -29,7 +29,7 @@ const transporter = nodemailer.createTransport({
     tls: {
         rejectUnauthorized: false,
     },
- });
+});
 const createLeaveRequest = async (req, res) => {
     const employee_id = req.body.employee_id ? req.body.employee_id : null;
     const leave_type_id = req.body.leave_type_id ? req.body.leave_type_id : null;
@@ -107,7 +107,7 @@ const createLeaveRequest = async (req, res) => {
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, approver_id, "Pending", reason])
 
-       
+
 
         let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
@@ -115,12 +115,12 @@ const createLeaveRequest = async (req, res) => {
         let email_id = nameResult[0].email;
         let employee_code = nameResult[0].employee_code;
         let reporting_manager_id = nameResult[0].reporting_manager_id;
-        
+
         let reportManagerEmailQuery = `SELECT * FROM users WHERE employee_id = ?`;
         let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
         let email = reportManagerEmailValue[0].email_id;
-        
-        const employeeMessage  = `
+
+        const employeeMessage = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -153,8 +153,8 @@ const createLeaveRequest = async (req, res) => {
 
         let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
         let [hrResult] = await connection.query(hrQuery);
-        
-        const hrMessage  = `
+
+        const hrMessage = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -187,22 +187,22 @@ const createLeaveRequest = async (req, res) => {
         </div>
         </body>
         </html>`;
-         // Prepare the email message options.
-        const employeeMailOptions  = {
+        // Prepare the email message options.
+        const employeeMailOptions = {
             from: "hrms@tecstaq.com", // Sender address from environment variables.
             to: email_id,
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
-            cc : reportManagerEmailValue.map(item => item.email_id),
-            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
+            cc: reportManagerEmailValue.map(item => item.email_id),
+            bcc: ["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: employeeMessage,
         };
-        const hrMailOptions  = {
+        const hrMailOptions = {
             from: "hrms@tecstaq.com", // Sender address from environment variables.
             to: hrResult.map(item => item.email_id),
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
             // cc : technicianEmails,
-            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
+            bcc: ["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };
@@ -225,9 +225,9 @@ const getLeaveRequests = async (req, res) => {
     const { page, perPage, key, fromDate, toDate, company_id, shift_type_header_id, employee_id, approver_id, leave_type_id, departments_id, status } = req.query;
 
     if (status) {
-        if (status!="Pending"&&status!="Approved"&&status!="Rejected"&&status!="Cancelled") {
-        return error422("Leave status is Invalid.", res);
-    } 
+        if (status != "Pending" && status != "Approved" && status != "Rejected" && status != "Cancelled") {
+            return error422("Leave status is Invalid.", res);
+        }
     }
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
@@ -477,7 +477,7 @@ const updateLeaveRequest = async (req, res) => {
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, leaveRequest.approver_id, "Pending", reason])
 
-        
+
 
         let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
@@ -485,12 +485,12 @@ const updateLeaveRequest = async (req, res) => {
         let email_id = nameResult[0].email;
         let employee_code = nameResult[0].employee_code;
         let reporting_manager_id = nameResult[0].reporting_manager_id;
-        
+
         let reportManagerEmailQuery = `SELECT * FROM users WHERE employee_id = ?`;
         let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
         let email = reportManagerEmailValue[0].email_id;
 
-        const employeeMessage  = `
+        const employeeMessage = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -526,10 +526,10 @@ const updateLeaveRequest = async (req, res) => {
         </body>
         </html>`;
 
-         let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
+        let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
         let [hrResult] = await connection.query(hrQuery);
 
-        const hrMessage  = `
+        const hrMessage = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -563,23 +563,23 @@ const updateLeaveRequest = async (req, res) => {
         </body>
         </html>`;
 
-         // Prepare the email message options.
-        const employeeMailOptions  = {
+        // Prepare the email message options.
+        const employeeMailOptions = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: email_id,
-            cc : reportManagerEmailValue.map(item => item.email_id),
-            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
+            cc: reportManagerEmailValue.map(item => item.email_id),
+            bcc: ["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: employeeMessage,
         };
-        const hrMailOptions  = {
+        const hrMailOptions = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: hrResult.map(item => item.email_id),
-            bcc:["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
+            bcc: ["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };
-        
+
         await transporter.sendMail(employeeMailOptions);
         await transporter.sendMail(hrMailOptions);
         // Commit the transaction
@@ -605,7 +605,7 @@ const deleteLeaveRequestFooter = async (req, res) => {
     }
     let connection = await pool.getConnection()
     try {
-        await connection .beginTransaction()
+        await connection.beginTransaction()
         //delete leave request footer 
         let deleteLeaveRequestFooterQuery = 'DELETE FROM leave_request_footer WHERE leave_request_footer_id = ?'
         await connection.query(deleteLeaveRequestFooterQuery, [leave_request_footer_id]);
@@ -634,7 +634,7 @@ const approveLeaveRequest = async (req, res) => {
 
     let connection = await pool.getConnection();
     try {
-        await connection .beginTransaction()
+        await connection.beginTransaction()
         let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name, lt.leave_type_code FROM leave_request lq 
        LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE  lq.leave_request_id = ?`;
@@ -669,7 +669,7 @@ const approveLeaveRequest = async (req, res) => {
         let allocated_days = leaveRequest.number_of_days
         used_days = parseFloat(used_days) + parseFloat(leaveRequest.total_days);
         let remaining_days = allocated_days - used_days
-        if (status == 'Approved') { 
+        if (status == 'Approved') {
             //get all leave requested days
             let getAllLeaveRequestedDaysQuery = `SELECT * FROM leave_request_footer WHERE leave_request_id = ${leave_request_id}`
             let [allLeaveRequestedDays] = await connection.query(getAllLeaveRequestedDaysQuery)
@@ -677,7 +677,7 @@ const approveLeaveRequest = async (req, res) => {
                 const element = allLeaveRequestedDays[index];
                 const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?)`;
                 await connection.query(insertAttendanceQuery, [employee_code, employee_name, element.leave_date, 'PL', 'NULL', 'NULL', 'leave-request']);
-                
+
             }
             if (leaveBalance) {
                 let updateLeaveBalanceQuery = `UPDATE leave_balance 
@@ -686,6 +686,15 @@ const approveLeaveRequest = async (req, res) => {
             } else {
                 let insertLeaveBalanceQuery = "INSERT INTO leave_balance (employee_id, leave_type_id, allocated_days, used_days, remaining_days, year ) VALUES (?,?,?,?,?,?)";
                 await connection.query(insertLeaveBalanceQuery, [leaveRequest.employee_id, leaveRequest.leave_type_id, allocated_days, used_days, remaining_days, current_year])
+            }
+        }
+        //leave request cancelled
+        if (status == 'Cancelled') {
+            const now = new Date();
+            const startDate = new Date(leaveRequest.start_date);
+            // Allow cancellation only for furture dates
+            if (startDate <= now) {
+                return error422("Leave requests can not be cancelled", res)
             }
         }
         let updateLeaveRequestQuery = `UPDATE leave_request
@@ -756,8 +765,8 @@ const getEmployeeLeaveTypes = async (req, res) => {
     }
 };
 //get leave balances
-const getLeaveBalances = async (req, res )=>{
-     const { page, perPage, key, fromDate, toDate, employee_id, leave_type_id } = req.query;
+const getLeaveBalances = async (req, res) => {
+    const { page, perPage, key, fromDate, toDate, employee_id, leave_type_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
@@ -842,12 +851,12 @@ const getLeaveBalances = async (req, res )=>{
 //download leave requests
 const getLeaveRequestsDownload = async (req, res) => {
 
-    let { key, fromDate, toDate, company_id,  shift_type_header_id, employee_id, approver_id, leave_type_id, departments_id, status } = req.query;
+    let { key, fromDate, toDate, company_id, shift_type_header_id, employee_id, approver_id, leave_type_id, departments_id, status } = req.query;
 
     if (status) {
-        if (status!="Pending"&&status!="Approved"&&status!="Rejected"&&status!="Cancelled") {
-        return error422("Leave status is Invalid.", res);
-    } 
+        if (status != "Pending" && status != "Approved" && status != "Rejected" && status != "Cancelled") {
+            return error422("Leave status is Invalid.", res);
+        }
     }
 
     let connection = await pool.getConnection();
@@ -917,14 +926,14 @@ const getLeaveRequestsDownload = async (req, res) => {
                 };
             }
             return {
-            "Sr No": index + 1,
-            "Name": `${item.first_name} ${item.last_name}`,
-            "Leave Type": item.leave_type_name,
-            "Start Date": item.start_date,
-            "End Date": item.end_date,
-            "Days": item.total_days,
-            "Status": item.status,
-            };   
+                "Sr No": index + 1,
+                "Name": `${item.first_name} ${item.last_name}`,
+                "Leave Type": item.leave_type_name,
+                "Start Date": item.start_date,
+                "End Date": item.end_date,
+                "Days": item.total_days,
+                "Status": item.status,
+            };
         });
 
         // Create a new workbook

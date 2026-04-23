@@ -457,19 +457,26 @@ const getAppraisalCycleEmployees = async (req, res) => {
     }
     let connection = await pool.getConnection();
     try {
-        let getAppraisalCycleQuery = `SELECT ace.*, ac.cycle_name, ac.start_date, ac.end_date, e.first_name, e.last_name, ee.first_name AS reporting_manager_first_name, ee.last_name AS reporting_manager_last_name FROM appraisal_cycles_employees ace
+        let getAppraisalCycleQuery = `SELECT ace.*, ac.cycle_name, ac.start_date, ac.end_date, e.first_name, e.last_name, ee.first_name AS reporting_manager_first_name, ee.last_name AS reporting_manager_last_name,
+        a.self_score_total, a.self_score_per, a.manager_score_total, a.manager_score_per, a.final_score, a.final_outcome, a.is_finalized 
+        FROM appraisal_cycles_employees ace
         LEFT JOIN appraisal_cycles ac
         ON ac.appraisal_cycle_id = ace.appraisal_cycle_id
         LEFT JOIN employee e
         ON e.employee_id = ace.employee_id
         LEFT JOIN employee ee
         ON ee.employee_id = ace.reporting_manager_id
+        LEFT JOIN appraisals a
+        ON a.employee_id = ace.employee_id AND a.appraisal_cycle_id = ace.appraisal_cycle_id
          WHERE 1 `;
-        let countQuery = `SELECT COUNT(*) AS total FROM appraisal_cycles_employees ace 
+        let countQuery = `SELECT COUNT(*) AS total 
+        FROM appraisal_cycles_employees ace 
         LEFT JOIN appraisal_cycles ac
         ON ac.appraisal_cycle_id = ace.appraisal_cycle_id
         LEFT JOIN employee e
         ON e.employee_id = ace.employee_id
+        LEFT JOIN appraisals a
+        ON a.employee_id = ace.employee_id AND a.appraisal_cycle_id = ace.appraisal_cycle_id
         WHERE 1 `
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -536,11 +543,15 @@ const getAppraisalCycleEmployeeDownload = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        let getAppraisalCycleQuery = `SELECT ace.*, ac.cycle_name, ac.start_date, ac.end_date, e.first_name, e.last_name FROM appraisal_cycles_employees ace
+        let getAppraisalCycleQuery = `SELECT ace.*, ac.cycle_name, ac.start_date, ac.end_date, e.first_name, e.last_name, ee.first_name AS reporting_manager_first_name, ee.last_name AS reporting_manager_last_name,
+        a.self_score_total, a.self_score_per, a.manager_score_total, a.manager_score_per, a.final_score, a.final_outcome, a.is_finalized  
+        FROM appraisal_cycles_employees ace
         LEFT JOIN appraisal_cycles ac
         ON ac.appraisal_cycle_id = ace.appraisal_cycle_id
         LEFT JOIN employee e
         ON e.employee_id = ace.employee_id
+        LEFT JOIN appraisals a
+        ON a.employee_id = ace.employee_id AND a.appraisal_cycle_id = ace.appraisal_cycle_id
          WHERE 1 `;
 
         if (key) {

@@ -285,7 +285,7 @@ const hrMessage = `
                     <!-- Header -->
                     <tr>
                         <td align="center" style="padding:20px;">
-                            <img src="http://localhost:3000/assets/images/Empflowhr_Logo.png" alt="Company Logo" width="180" />
+                            <img src="https://hrms.tecstaq.com:3000/assets/images/Empflowhr_Logo.png" alt="Company Logo" width="180" />
                         </td>
                     </tr>
 
@@ -313,7 +313,7 @@ const hrMessage = `
                                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F0F9FF;border-radius:10px">
                                     <tr>
                                         <td align="center" width="70" style="padding:20px;">
-                                             <img src="http://localhost:3000/assets/images/user_logo.png" alt="user Logo" width="50" />  
+                                             <img src="https://hrms.tecstaq.com:3000/assets/images/user_logo.png" alt="user Logo" width="50" />  
                                         </td>
                                         <td >
                                             <div style="padding:0 0 10px 10px; border-left: 1px solid #D0E3FF">
@@ -353,7 +353,7 @@ const hrMessage = `
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F0F9FF;border-radius:10px">
                                 <tr>
                                     <td width="50" style="padding: 20px;">
-                                        <img src="http://localhost:3000/assets/images/cot_icon.png"" alt="user Logo" width="50"; >
+                                        <img src="https://hrms.tecstaq.com:3000/assets/images/cot_icon.png"" alt="user Logo" width="50"; >
                                     </td>
                                     <td>
                                         <div>
@@ -385,6 +385,7 @@ const hrMessage = `
         const employeeMailOptions  = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: email_id,
+            bcc: "rohitlandage86@gmail.com",
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
             cc : reportManagerEmailValue.map(item => item.email_id),
             subject: `Leave Request created Successfully`,
@@ -394,7 +395,7 @@ const hrMessage = `
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: hrResult.map(item => item.email_id),
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
-            // cc : technicianEmails,
+            cc : "rohitlandage86@gmail.com",
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };

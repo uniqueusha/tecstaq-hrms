@@ -108,6 +108,8 @@ const createPolicy = async (req, res)=>{
             message:"Policy created successfully."
         })
     } catch (error) {
+        console.log(error);
+        
         if (connection) connection.rollback();
         return error500(error, res);
     } finally{

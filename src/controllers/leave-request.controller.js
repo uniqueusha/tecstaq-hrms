@@ -113,46 +113,46 @@ const createLeaveRequest = async (req, res) => {
         let reportManagerEmailQuery = `SELECT * FROM employee WHERE employee_id = ?`;
         let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
         
-        let email = reportManagerEmailValue[0].email_id;
+        let email = reportManagerEmailValue[0].email;
+        console.log(email);
         
-        const employeeMessage  = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <title>Welcome to HRMS</title>
-        </head>
-        <body style="font-family: Arial, Helvetica, sans-serif; font-size:14px; color:#333; line-height:1.6;">
+        let name = reportManagerEmailValue[0].title+" "+reportManagerEmailValue[0].first_name+" "+reportManagerEmailValue[0].last_name;
+        
+        
+        // const employeeMessage  = `
+        // <!DOCTYPE html>
+        // <html lang="en">
+        // <head>
+        //   <meta charset="UTF-8">
+        //   <title>Welcome to HRMS</title>
+        // </head>
+        // <body style="font-family: Arial, Helvetica, sans-serif; font-size:14px; color:#333; line-height:1.6;">
 
-        <div>
-        <h2 style="text-transform: capitalize;">Dear ${full_name},</h2>
-        </p>A new leave request has been submitted and is pending for approval.</p>
-        </p><strong>Employee Details:</strong></p>
-        <ul>
-        <li>Employee ID : ${employee_code}</li>
-        <li>Leave Type : ${leaveType}</li>
-        <li>Start Date: ${start_date}</li>
-        <li>End Date: ${end_date}</li>
-        <li>Total Days: ${total_days}</li>
-        <li>Reason: ${reason}</li>
-        <li>Status: Pending</li>
-        </ul>
-        <p>Kindly review the leave request and take the necessary action at your earliest convenience.</p>
-        <p>Please log in to the system to approve or reject the request.</p>
-        <p>Thank you.</p>
-          <p>Best regards,</p>
-          <p><strong>Tecstaq HRMS</strong></p>
-        </div>
-        </body>
-        </html>`;
-
-        let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
-        let [hrResult] = await connection.query(hrQuery);
-
-        const formatDate = (date) => {
+        // <div>
+        // <h2 style="text-transform: capitalize;">Dear ${full_name},</h2>
+        // </p>A new leave request has been submitted and is pending for approval.</p>
+        // </p><strong>Employee Details:</strong></p>
+        // <ul>
+        // <li>Employee ID : ${employee_code}</li>
+        // <li>Leave Type : ${leaveType}</li>
+        // <li>Start Date: ${start_date}</li>
+        // <li>End Date: ${end_date}</li>
+        // <li>Total Days: ${total_days}</li>
+        // <li>Reason: ${reason}</li>
+        // <li>Status: Pending</li>
+        // </ul>
+        // <p>Kindly review the leave request and take the necessary action at your earliest convenience.</p>
+        // <p>Please log in to the system to approve or reject the request.</p>
+        // <p>Thank you.</p>
+        //   <p>Best regards,</p>
+        //   <p><strong>Tecstaq HRMS</strong></p>
+        // </div>
+        // </body>
+        // </html>`;
+       const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-GB', {
         day: '2-digit',
-        month: 'short',
+        month: '2-digit',
         year: 'numeric'
     });
 };
@@ -160,113 +160,128 @@ const createLeaveRequest = async (req, res) => {
 const formattedStartDate = formatDate(start_date);
 const formattedEndDate = formatDate(end_date);
         
-        // const hrMessage  = `
-        // <!DOCTYPE html>
-        // <html lang="en">
-        // <head>
-        //   <meta charset="UTF-8">
-        //   <title>Welcome to HRMS</title>
-        //   <style>
-        //       div{
-        //       font-family: Arial, sans-serif; 
-        //        margin: 0px;
-        //         padding: 0px;
-        //         color:black;
-        //       }
-        //   </style>
-        // </head>
-        // <body>
-        // <div>
-        // <h2 style="text-transform: capitalize;">Dear HR,</h2>
-        // </p>A leave request from Employee ID <strong>${employee_code}</strong> for <strong>${start_date}</strong> to <strong>${end_date}</strong> (<strong>${total_days}</strong> days) has been submitted and is awaiting your approval.</p>
-        // <p>Please review and take the necessary action.</p>
-        // <p>Thank you.</p>
-        // </div>
-        // </body>
-        // </html>`;
-        
-//         const hrMessageold = `
-// <!DOCTYPE html>
-// <html lang="en">
-// <head>
-//     <meta charset="UTF-8">
-//     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//     <title>Leave Request</title>
-// </head>
-// <body style="margin:0; padding:0; background-color:#f4f4f4; font-family: Arial, sans-serif;">
 
-//     <table align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4; padding:20px 0;">
-//         <tr>
-//             <td align="center">
-//                 <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f4; border-radius:8px; overflow:hidden;">
+        const reportManagerMessage = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Request</title>
+</head>
+<body style="margin:0; padding:20; background-color:#f4f4f4; font-family: Arial, sans-serif; ">
+
+    <table align="center" width="70%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4; padding:20px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fff; border-radius:8px; overflow:hidden;">
                     
-//                     <!-- Header -->
-//                     <tr>
-//                         <td align="center" style="padding:20px;">
-//                             <img src="http://localhost:3000/images/Empflowhr_Logo@2x.png" alt="Company Logo" width="180" />
-//                         </td>
-//                     </tr>
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding:20px; background-color:#F3F6FF">
+                            <img src="https://hrms.tecstaq.com:3000/assets/images/Empflowhr_Logo.png" alt="Company Logo" width="180" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:20px;">
+                            <p style="margin-left:150px; color:#333;">
+                                Dear,
+                            <p>
+                            <p style="margin-left:180px; color:#333;">
+                                <strong>${name}</strong>
+                            <p>
+                        </td>
+                    </tr>
 
-//                     <!-- Content Box -->
-//                     <tr>
-//                         <td align="center" style="padding:20px; background:#f4f4f4; border-radius:10px;">
-//                             <table width="650px" cellpadding="0" cellspacing="0" border="0" 
-//                                 style="border:3px solid #ddd; padding:20px; background:#F3F6FF; border-radius:10px; color:#fff;">
-                                
-//                                 <tr>
-//                                     <td align="center">
-//                                         <h2 style="margin:0; color:#333;">
-//                                             Leave request has been received
-//                                         </h2>
-//                                         <p style="font-size:16px; color:#333; margin-top:10px;">
-//                                             The following leave has been requested by
-//                                         </p>
-//                                         <p style="margin:0; color:#333">
-//                                             <strong>${full_name}</strong>
-//                                         </p>
-//                                     </td>
-//                                 </tr>
+                    <!-- Content Box -->
+                    <tr style="background-image: url('https://hrms.tecstaq.com:3000/assets/images/leave_request_background.svg');">
+                        <td align="center" style="padding:30px;">
+                            <h2 style="margin:0; color:#fff;">
+                                A New leave request has been submitted and is pending for approval !
+                            </h2>
+                        </td>
+                    </tr>
+                     <td style="padding: 20px 40px 30px 40px;">
+                            <h3 style="color:#333; font-size: 16px; margin-bottom: 15px;">Employee Details</h3>
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 15px; line-height: 1.8;">
+                                <tr>
+                                    <td width="140" style="color:#596780;">Employee Code</td>
+                                    <td style="color:#596780; font-weight: 500;"> ${employee_code} </td>
+                                </tr>
+                                <tr>
+                                    <td width="140" style="color:#596780;">Employee Name</td>
+                                    <td style="color:#596780; font-weight: 500;"> ${full_name} </td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Leave type</td>
+                                    <td style="color:#596780; font-weight: 500;">${leaveType}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Start Date</td>
+                                    <td style="color:#596780; font-weight: 500;">${formattedStartDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">End Date</td>
+                                    <td style="color:#596780; font-weight: 500;">${formattedEndDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Total Days</td>
+                                    <td style="color:#596780; font-weight: 500;"> Days</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Reason</td>
+                                    <td style="color:#596780; font-weight: 500;">${reason}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Status</td>
+                                    <td style="color:#596780; font-weight: 500;">Pending</td>
+                                </tr>
+                            </table>
+                        </td>
+                   
+                        <tr>
+                            <td style="padding:10px 40px;">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F6FF;border-radius:10px;color:#596780;">
+                                    <tr>
+                                        <td width="70" style="padding:20px;">
+                                            <p>kindly review the leave request and take the neccessary action at your earlist convenience.</p>
+                                            <p>Please log in to system to approve or reject the request.</P>
+                                            <p>Thank you.</p>
+                                        </td>
+        
+                                    </tr>   
+                                </table>
+                            </td>
+                        </tr>
+    
+                    <tr>
+                        <td align="center" style="padding:20px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="border-top:1px solid #dcdcdc; font-size:0; line-height:0;">&nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="padding:10px 0; font-family:Arial, sans-serif; font-size:12px; color:#7a7a7a;">
+                                        This is automated message, please do not reply to this email.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
 
-//                                 <tr>
-//                                     <td style="padding-top:20px;">
-//                                         <table width="100%" cellpadding="5" cellspacing="0" border="0" style="color:#333;">
-//                                             <tr>
-//                                                 <td width="60%" valign="top">
-//                                                     <strong>Dates:</strong><br>
-//                                                     ${formattedStartDate} To ${formattedEndDate}
-//                                                 </td>
-//                                                 <td width="50%" valign="top">
-//                                                     <strong>Leave Type:</strong><br>
-//                                                     ${leaveType}
-//                                                 </td>
-//                                             </tr>
-//                                             <tr>
-//                                                 <td valign="top">
-//                                                     <strong>Total Days:</strong><br>
-//                                                     ${total_days}
-//                                                 </td>
-//                                             </tr>
-//                                             <tr>
-//                                                 <td colspan="2" style="padding-top:10px;">
-//                                                     <strong>Reason:</strong><br>
-//                                                     ${reason}
-//                                                 </td>
-//                                             </tr>
-//                                         </table>
-//                                     </td>
-//                                 </tr>
-//                             </table>
-//                         </td>
-//                     </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 
-//                 </table>
-//             </td>
-//         </tr>
-//     </table>
+</body>
+</html>
+`;
 
-// </body>
-// </html>
-// `;
+        
+        let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
+        let [hrResult] = await connection.query(hrQuery);
+
 const hrMessage = `
 <!DOCTYPE html>
 <html lang="en">
@@ -277,20 +292,20 @@ const hrMessage = `
 </head>
 <body style="margin:0; padding:20; background-color:#f4f4f4; font-family: Arial, sans-serif; ">
 
-    <table align="center" width="70%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4; padding:20px 0;border: 1px solid white;">
+    <table align="center" width="70%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4; padding:20px 0;">
         <tr>
             <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f4; border-radius:8px; overflow:hidden;">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fff; border-radius:8px; overflow:hidden;">
                     
                     <!-- Header -->
                     <tr>
-                        <td align="center" style="padding:20px;">
+                        <td align="center" style="padding:20px; background-color:#F3F6FF">
                             <img src="https://hrms.tecstaq.com:3000/assets/images/Empflowhr_Logo.png" alt="Company Logo" width="180" />
                         </td>
                     </tr>
 
                     <!-- Content Box -->
-                    <tr style="background: linear-gradient(264.29deg, #00B8F1 -24.89%, #06A5E5 5.18%, #1870C5 83.72%, #1D61BC 111.84%); padding:20px;">
+                    <tr style="background-image: url('https://hrms.tecstaq.com:3000/assets/images/leave_request_background.svg');">
                         <td align="center" style="padding:30px;">
                             <h2 style="margin:0; color:#fff;">
                                 Leave request has been received !
@@ -310,7 +325,7 @@ const hrMessage = `
                    
                         <tr>
                             <td style="padding:40px;">
-                                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F0F9FF;border-radius:10px">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F6FF;border-radius:10px">
                                     <tr>
                                         <td align="center" width="70" style="padding:20px;">
                                              <img src="https://hrms.tecstaq.com:3000/assets/images/user_logo.png" alt="user Logo" width="50" />  
@@ -333,16 +348,16 @@ const hrMessage = `
                             <h3 style="color:#333; font-size: 16px; margin-bottom: 15px;">Leave Details</h3>
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 15px; line-height: 1.8;">
                                 <tr>
-                                    <td width="140" style="color:#333;">Dates</td>
-                                    <td style="color:#888; font-weight: 500;">${formattedStartDate} to ${formattedEndDate}</td>
+                                    <td width="140" style="color:#596780;">Dates</td>
+                                    <td style="color:#596780; font-weight: 500;">${formattedStartDate} to ${formattedEndDate}</td>
                                 </tr>
                                 <tr>
-                                    <td style="color:#333;">Leave type</td>
-                                    <td style="color:#888; font-weight: 500;">${leaveType}</td>
+                                    <td style="color:#596780;">Leave type</td>
+                                    <td style="color:#596780; font-weight: 500;">${leaveType}</td>
                                 </tr>
                                 <tr>
-                                    <td style="color:#333;">Total days</td>
-                                    <td style="color:#888; font-weight: 500;">${total_days} Days</td>
+                                    <td style="color:#596780;">Total days</td>
+                                    <td style="color:#596780; font-weight: 500;">${total_days} Days</td>
                                 </tr>
                             </table>
                         </td>
@@ -350,7 +365,7 @@ const hrMessage = `
                                
                     <tr>
                         <td style="padding:10px 40px 20px 40px;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F0F9FF;border-radius:10px">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F6FF;border-radius:10px">
                                 <tr>
                                     <td width="50" style="padding: 20px;">
                                         <img src="https://hrms.tecstaq.com:3000/assets/images/cot_icon.png"" alt="user Logo" width="50"; >
@@ -365,8 +380,18 @@ const hrMessage = `
                             </table>
                         </td>
                     </tr>
-                        <td align="center" style="font-size:12px;">
-                            <p>This is automated message,please do not reply to this email.</p>
+                    <tr>
+                        <td align="center" style="padding:20px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="border-top:1px solid #dcdcdc; font-size:0; line-height:0;">&nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="padding:10px 0; font-family:Arial, sans-serif; font-size:12px; color:#7a7a7a;">
+                                        This is automated message, please do not reply to this email.
+                                    </td>
+                                </tr>
+                            </table>
                         </td>
                     </tr>
 
@@ -382,33 +407,30 @@ const hrMessage = `
       
 
          // Prepare the email message options.
-        const employeeMailOptions  = {
+        const reportManagerMailOptions  = {
             from: "support@tecstaq.com", // Sender address from environment variables.
-            to: email_id,
-            bcc: "rohitlandage86@gmail.com",
+            to: email,
+            // bcc: "sushantsjamdade@gmail.com",
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
-            cc : reportManagerEmailValue.map(item => item.email_id),
+            // cc : reportManagerEmailValue.map(item => item.email_id),
             subject: `Leave Request created Successfully`,
-            html: employeeMessage,
+            html: reportManagerMessage,
         };
         const hrMailOptions  = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: hrResult.map(item => item.email_id),
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
-            cc : "rohitlandage86@gmail.com",
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };
-        return res.status(200).send(hrMessage);
-        // await transporter.sendMail(employeeMailOptions);
-        // await transporter.sendMail(hrMailOptions);
-        // return res.status(200).json({
-        //     status: 200,
-        //     message: "Leave Request created Successfully"
-        // })
+        // return res.status(200).send(reportManagerMessage);
+        await transporter.sendMail(reportManagerMailOptions);
+        await transporter.sendMail(hrMailOptions);
+        return res.status(200).json({
+            status: 200,
+            message: "Leave Request created Successfully"
+        })
     } catch (error) {
-        console.log(error);
-        
         if (connection) await connection.rollback()
         return error500(error, res);
     } finally {

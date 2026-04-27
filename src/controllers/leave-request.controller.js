@@ -285,7 +285,7 @@ const hrMessage = `
                     <!-- Header -->
                     <tr>
                         <td align="center" style="padding:20px;">
-                            <img src="http://localhost:3000/images/Empflowhr_Logo@2x.png" alt="Company Logo" width="180" />
+                            <img src="http://localhost:3000/assets/images/Empflowhr_Logo@2x.png" alt="Company Logo" width="180" />
                         </td>
                     </tr>
 
@@ -353,7 +353,7 @@ const hrMessage = `
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F0F9FF;border-radius:10px">
                                 <tr>
                                     <td width="50" style="padding: 20px;">
-                                        <img src="http://localhost:3000/assets/images/Group_365.png"" alt="user Logo" width="50"; >
+                                        <img src="http://localhost:3000/assets/images/cot_logo.png"" alt="user Logo" width="50"; >
                                     </td>
                                     <td>
                                         <div>

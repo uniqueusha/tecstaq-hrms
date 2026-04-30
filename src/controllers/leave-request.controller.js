@@ -23,13 +23,13 @@ const transporter = nodemailer.createTransport({
     port: 587,
     secure: false,
     auth: {
-        user: "hrms@tecstaq.com",
-        pass: "R@243408380075av",
+        user: "support@tecstaq.com",
+        pass: "HelpMe@1212#$",
     },
     tls: {
         rejectUnauthorized: false,
     },
-});
+ });
 const createLeaveRequest = async (req, res) => {
     const employee_id = req.body.employee_id ? req.body.employee_id : null;
     const leave_type_id = req.body.leave_type_id ? req.body.leave_type_id : null;
@@ -60,7 +60,6 @@ const createLeaveRequest = async (req, res) => {
 
     const connection = await pool.getConnection();
     try {
-        connection.beginTransaction();
         //is leave type
         let isLeaveTypeQuery = "SELECT * FROM leave_type_master WHERE leave_type_master_id = ?";
         let [isLeaveTypeResult] = await connection.query(isLeaveTypeQuery, [leave_type_id]);
@@ -69,11 +68,6 @@ const createLeaveRequest = async (req, res) => {
         let leave_type = isLeaveTypeResult[0];
         if (!leave_type) {
             return error422("Leave Type not found.", res)
-        }
-        let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id, reporting_manager_id FROM employee WHERE employee_id = '${employee_id}' `;
-        let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
-        if (isExistEmployeeResult[0].length == 0) {
-            return error422("Employee Not Found.", res)
         }
         if (parseFloat(leave_type.number_of_days) < parseFloat(total_days)) {
             return error422("Leave limit is over.", res);
@@ -107,7 +101,7 @@ const createLeaveRequest = async (req, res) => {
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, approver_id, "Pending", reason])
 
-
+        await connection.commit();
 
         let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
@@ -115,100 +109,323 @@ const createLeaveRequest = async (req, res) => {
         let email_id = nameResult[0].email;
         let employee_code = nameResult[0].employee_code;
         let reporting_manager_id = nameResult[0].reporting_manager_id;
-
-        let reportManagerEmailQuery = `SELECT * FROM users WHERE employee_id = ?`;
+        
+        let reportManagerEmailQuery = `SELECT * FROM employee WHERE employee_id = ?`;
         let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
-        let email = reportManagerEmailValue[0].email_id;
+        
+        let email = reportManagerEmailValue[0].email;
+        console.log(email);
+        
+        let name = reportManagerEmailValue[0].title+" "+reportManagerEmailValue[0].first_name+" "+reportManagerEmailValue[0].last_name;
+        
+        
+        // const employeeMessage  = `
+        // <!DOCTYPE html>
+        // <html lang="en">
+        // <head>
+        //   <meta charset="UTF-8">
+        //   <title>Welcome to HRMS</title>
+        // </head>
+        // <body style="font-family: Arial, Helvetica, sans-serif; font-size:14px; color:#333; line-height:1.6;">
 
-        const employeeMessage = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <title>Welcome to HRMS</title>
-        </head>
-        <body style="font-family: Arial, Helvetica, sans-serif; font-size:14px; color:#333; line-height:1.6;">
+        // <div>
+        // <h2 style="text-transform: capitalize;">Dear ${full_name},</h2>
+        // </p>A new leave request has been submitted and is pending for approval.</p>
+        // </p><strong>Employee Details:</strong></p>
+        // <ul>
+        // <li>Employee ID : ${employee_code}</li>
+        // <li>Leave Type : ${leaveType}</li>
+        // <li>Start Date: ${start_date}</li>
+        // <li>End Date: ${end_date}</li>
+        // <li>Total Days: ${total_days}</li>
+        // <li>Reason: ${reason}</li>
+        // <li>Status: Pending</li>
+        // </ul>
+        // <p>Kindly review the leave request and take the necessary action at your earliest convenience.</p>
+        // <p>Please log in to the system to approve or reject the request.</p>
+        // <p>Thank you.</p>
+        //   <p>Best regards,</p>
+        //   <p><strong>Tecstaq HRMS</strong></p>
+        // </div>
+        // </body>
+        // </html>`;
+       const formatDate = (date) => {
+    return new Date(date).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+};
 
-        <div>
-        <h2 style="text-transform: capitalize;">Dear ${full_name},</h2>
-        </p>A new leave request has been submitted and is pending for approval.</p>
-        </p><strong>Employee Details:</strong></p>
-        <ul>
-        <li>Employee ID : ${employee_code}</li>
-        <li>Leave Type : ${leaveType}</li>
-        <li>Start Date: ${start_date}</li>
-        <li>End Date: ${end_date}</li>
-        <li>Total Days: ${total_days}</li>
-        <li>Reason: ${reason}</li>
-        <li>Status: Pending</li>
-        </ul>
-        <p>Kindly review the leave request and take the necessary action at your earliest convenience.</p>
-        <p>Please log in to the system to approve or reject the request.</p>
-        <p>Thank you.</p>
-          <p>Best regards,</p>
-          <p><strong>Tecstaq HRMS</strong></p>
-        </div>
-        </body>
-        </html>`;
+const formattedStartDate = formatDate(start_date);
+const formattedEndDate = formatDate(end_date);
+        
 
+        const reportManagerMessage = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Request</title>
+</head>
+<body style="margin:0; padding:20; background-color:#f4f4f4; font-family: Arial, sans-serif; ">
+
+    <table align="center" width="70%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4; padding:20px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fff; border-radius:8px; overflow:hidden;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding:20px; background-color:#F3F6FF">
+                            <img src="https://hrms.tecstaq.com:3000/assets/images/Empflowhr_Logo.png" alt="Company Logo" width="180" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:20px;">
+                            <p style="margin-left:150px; color:#333;">
+                                Dear,
+                            <p>
+                            <p style="margin-left:180px; color:#333;">
+                                <strong>${name}</strong>
+                            <p>
+                        </td>
+                    </tr>
+
+                    <!-- Content Box -->
+                    <tr style="background-image: url('https://hrms.tecstaq.com:3000/assets/images/leave_request_background.svg');">
+                        <td align="center" style="padding:30px;">
+                            <h2 style="margin:0; color:#fff;">
+                                A New leave request has been submitted and is pending for approval !
+                            </h2>
+                        </td>
+                    </tr>
+                     <td style="padding: 20px 40px 30px 40px;">
+                            <h3 style="color:#333; font-size: 16px; margin-bottom: 15px;">Employee Details</h3>
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 15px; line-height: 1.8;">
+                                <tr>
+                                    <td width="140" style="color:#596780;">Employee Code</td>
+                                    <td style="color:#596780; font-weight: 500;"> ${employee_code} </td>
+                                </tr>
+                                <tr>
+                                    <td width="140" style="color:#596780;">Employee Name</td>
+                                    <td style="color:#596780; font-weight: 500;"> ${full_name} </td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Leave type</td>
+                                    <td style="color:#596780; font-weight: 500;">${leaveType}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Start Date</td>
+                                    <td style="color:#596780; font-weight: 500;">${formattedStartDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">End Date</td>
+                                    <td style="color:#596780; font-weight: 500;">${formattedEndDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Total Days</td>
+                                    <td style="color:#596780; font-weight: 500;"> Days</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Reason</td>
+                                    <td style="color:#596780; font-weight: 500;">${reason}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Status</td>
+                                    <td style="color:#596780; font-weight: 500;">Pending</td>
+                                </tr>
+                            </table>
+                        </td>
+                   
+                        <tr>
+                            <td style="padding:10px 40px;">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F6FF;border-radius:10px;color:#596780;">
+                                    <tr>
+                                        <td width="70" style="padding:20px;">
+                                            <p>kindly review the leave request and take the neccessary action at your earlist convenience.</p>
+                                            <p>Please log in to system to approve or reject the request.</P>
+                                            <p>Thank you.</p>
+                                        </td>
+        
+                                    </tr>   
+                                </table>
+                            </td>
+                        </tr>
+    
+                    <tr>
+                        <td align="center" style="padding:20px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="border-top:1px solid #dcdcdc; font-size:0; line-height:0;">&nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="padding:10px 0; font-family:Arial, sans-serif; font-size:12px; color:#7a7a7a;">
+                                        This is automated message, please do not reply to this email.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
+`;
+
+        
         let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
         let [hrResult] = await connection.query(hrQuery);
 
-        const hrMessage = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <title>Welcome to HRMS</title>
-          <style>
-              div{
-              font-family: Arial, sans-serif; 
-               margin: 0px;
-                padding: 0px;
-                color:black;
-              }
-          </style>
-        </head>
-        <body>
-        <div>
-        <h2 style="text-transform: capitalize;">Dear HR,</h2>
-        </p><strong>Employee Details:</strong></p>
-        <ul>
-        <li>Employee ID : ${employee_code}</li>
-        <li>Leave Type : ${leaveType}</li>
-        <li>Start Date: ${start_date}</li>
-        <li>End Date: ${end_date}</li>
-        <li>Total Days: ${total_days}</li>
-        <li>Reason: ${reason}</li>
-        </ul>
-        </p>A leave request has been submitted and is awaiting your approval.</p>
-        <p>Please review and take the necessary action.</p>
-        <p>Thank you.</p>
-        </div>
-        </body>
-        </html>`;
-        // Prepare the email message options.
-        const employeeMailOptions = {
-            from: "hrms@tecstaq.com", // Sender address from environment variables.
-            to: email_id,
+const hrMessage = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Request</title>
+</head>
+<body style="margin:0; padding:20; background-color:#f4f4f4; font-family: Arial, sans-serif; ">
+
+    <table align="center" width="70%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4; padding:20px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fff; border-radius:8px; overflow:hidden;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding:20px; background-color:#F3F6FF">
+                            <img src="https://hrms.tecstaq.com:3000/assets/images/Empflowhr_Logo.png" alt="Company Logo" width="180" />
+                        </td>
+                    </tr>
+
+                    <!-- Content Box -->
+                    <tr style="background-image: url('https://hrms.tecstaq.com:3000/assets/images/leave_request_background.svg');">
+                        <td align="center" style="padding:30px;">
+                            <h2 style="margin:0; color:#fff;">
+                                Leave request has been received !
+                            </h2>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <h3 align="left" style="margin:0; color:#333; padding:10px 0 10px 40px;">
+                                Hello,
+                            </h3>
+                            <p style="font-size:16px; color:#333; margin-left:80px; margin-top:0px;"> 
+                                Your leave request has been successfully submitted.
+                            </p>
+                        </td>
+                    </tr>
+                   
+                        <tr>
+                            <td style="padding:40px;">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F6FF;border-radius:10px">
+                                    <tr>
+                                        <td align="center" width="70" style="padding:20px;">
+                                             <img src="https://hrms.tecstaq.com:3000/assets/images/user_logo.png" alt="user Logo" width="50" />  
+                                        </td>
+                                        <td >
+                                            <div style="padding:0 0 10px 10px; border-left: 1px solid #D0E3FF">
+                                                <p style="font-size:14px;">Requested by</p>
+                                                <p style="color:#333"><strong>${full_name}</strong></p>
+                                            </div>
+                                        </td>
+                                        
+                                    </tr>   
+                                </table>
+                            </td>
+                        </tr>
+        
+                         
+                        <tr>
+                        <td style="padding: 10px 40px 30px 40px;">
+                            <h3 style="color:#333; font-size: 16px; margin-bottom: 15px;">Leave Details</h3>
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 15px; line-height: 1.8;">
+                                <tr>
+                                    <td width="140" style="color:#596780;">Dates</td>
+                                    <td style="color:#596780; font-weight: 500;">${formattedStartDate} to ${formattedEndDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Leave type</td>
+                                    <td style="color:#596780; font-weight: 500;">${leaveType}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#596780;">Total days</td>
+                                    <td style="color:#596780; font-weight: 500;">${total_days} Days</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                               
+                    <tr>
+                        <td style="padding:10px 40px 20px 40px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F6FF;border-radius:10px">
+                                <tr>
+                                    <td width="50" style="padding: 20px;">
+                                        <img src="https://hrms.tecstaq.com:3000/assets/images/cot_icon.png"" alt="user Logo" width="50"; >
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <p style="font-size:14px;color:#4169E1">Reason For Leave</p>
+                                            <p style="color:#333">${reason}</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="padding:20px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="border-top:1px solid #dcdcdc; font-size:0; line-height:0;">&nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="padding:10px 0; font-family:Arial, sans-serif; font-size:12px; color:#7a7a7a;">
+                                        This is automated message, please do not reply to this email.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
+`;
+
+      
+
+         // Prepare the email message options.
+        const reportManagerMailOptions  = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: email,
+            // bcc: "sushantsjamdade@gmail.com",
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
-            cc: reportManagerEmailValue.map(item => item.email_id),
-            bcc: ["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
+            // cc : reportManagerEmailValue.map(item => item.email_id),
             subject: `Leave Request created Successfully`,
-            html: employeeMessage,
+            html: reportManagerMessage,
         };
-        const hrMailOptions = {
-            from: "hrms@tecstaq.com", // Sender address from environment variables.
+        const hrMailOptions  = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
             to: hrResult.map(item => item.email_id),
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
-            // cc : technicianEmails,
-            bcc: ["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };
-        await transporter.sendMail(employeeMailOptions);
+        // return res.status(200).send(reportManagerMessage);
+        await transporter.sendMail(reportManagerMailOptions);
         await transporter.sendMail(hrMailOptions);
-        await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Leave Request created Successfully"
@@ -225,9 +442,9 @@ const getLeaveRequests = async (req, res) => {
     const { page, perPage, key, fromDate, toDate, company_id, shift_type_header_id, employee_id, approver_id, leave_type_id, departments_id, status } = req.query;
 
     if (status) {
-        if (status != "Pending" && status != "Approved" && status != "Rejected" && status != "Cancelled") {
-            return error422("Leave status is Invalid.", res);
-        }
+        if (status!="Pending"&&status!="Approved"&&status!="Rejected"&&status!="Cancelled") {
+        return error422("Leave status is Invalid.", res);
+    } 
     }
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
@@ -238,7 +455,7 @@ const getLeaveRequests = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
-        lt.leave_type_name, lt.leave_type_code, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
+        lt.leave_type_name, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
@@ -414,12 +631,7 @@ const updateLeaveRequest = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id, reporting_manager_id FROM employee WHERE employee_id = '${employee_id}' `;
-        let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
-        if (isExistEmployeeResult[0].length == 0) {
-            return error422("Employee Not Found.", res)
-        }
-        let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name, lt.leave_type_code FROM leave_request lq 
+        let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name FROM leave_request lq 
         LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE  lq.leave_request_id = ?`;
         const [result] = await connection.query(getQuery, [leave_request_id]);
@@ -477,7 +689,8 @@ const updateLeaveRequest = async (req, res) => {
         let leaveHistoryQuery = " INSERT INTO leave_history (leave_request_id, approver_id, action, remarks) VALUES (?,?,?,?)";
         let leaveHistory = await connection.query(leaveHistoryQuery, [leave_request_id, leaveRequest.approver_id, "Pending", reason])
 
-
+        // Commit the transaction
+        await connection.commit();
 
         let nameQuery = "SELECT CONCAT(title, ' ', first_name, ' ', last_name) AS full_name, email, employee_code, reporting_manager_id FROM employee WHERE employee_id = ?";
         let [nameResult] = await connection.query(nameQuery, [employee_id])
@@ -485,12 +698,12 @@ const updateLeaveRequest = async (req, res) => {
         let email_id = nameResult[0].email;
         let employee_code = nameResult[0].employee_code;
         let reporting_manager_id = nameResult[0].reporting_manager_id;
-
-        let reportManagerEmailQuery = `SELECT * FROM users WHERE employee_id = ?`;
+        
+        let reportManagerEmailQuery = `SELECT * FROM users WHERE user_id = ?`;
         let [reportManagerEmailValue] = await connection.query(reportManagerEmailQuery, [reporting_manager_id]);
         let email = reportManagerEmailValue[0].email_id;
 
-        const employeeMessage = `
+        const employeeMessage  = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -526,10 +739,10 @@ const updateLeaveRequest = async (req, res) => {
         </body>
         </html>`;
 
-        let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
+         let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
         let [hrResult] = await connection.query(hrQuery);
 
-        const hrMessage = `
+        const hrMessage  = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -547,43 +760,30 @@ const updateLeaveRequest = async (req, res) => {
         <body>
         <div>
         <h2 style="text-transform: capitalize;">Dear HR,</h2>
-        </p><strong>Employee Details:</strong></p>
-        <ul>
-        <li>Employee ID : ${employee_code}</li>
-        <li>Leave Type : ${leaveType}</li>
-        <li>Start Date: ${start_date}</li>
-        <li>End Date: ${end_date}</li>
-        <li>Total Days: ${total_days}</li>
-        <li>Reason: ${reason}</li>
-        </ul>
-        </p>A leave request has been submitted and is awaiting your approval.</p>
+        </p>A leave request from Employee ID ${employee_code} for ${start_date} to ${end_date} (${total_days} days) has been submitted and is awaiting your approval.</p>
         <p>Please review and take the necessary action.</p>
         <p>Thank you.</p>
         </div>
         </body>
         </html>`;
 
-        // Prepare the email message options.
-        const employeeMailOptions = {
+         // Prepare the email message options.
+        const employeeMailOptions  = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: email_id,
-            cc: reportManagerEmailValue.map(item => item.email_id),
-            bcc: ["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
+            cc : reportManagerEmailValue.map(item => item.email_id),
             subject: `Leave Request created Successfully`,
             html: employeeMessage,
         };
-        const hrMailOptions = {
+        const hrMailOptions  = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: hrResult.map(item => item.email_id),
-            bcc: ["rohitlandage86@gmail.com", "sushantsjamdade@gmail.com"],
             subject: `Leave Request created Successfully`,
             html: hrMessage,
         };
-
+        
         await transporter.sendMail(employeeMailOptions);
         await transporter.sendMail(hrMailOptions);
-        // Commit the transaction
-        await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Leave Request Updated successfully",
@@ -605,7 +805,6 @@ const deleteLeaveRequestFooter = async (req, res) => {
     }
     let connection = await pool.getConnection()
     try {
-        await connection.beginTransaction()
         //delete leave request footer 
         let deleteLeaveRequestFooterQuery = 'DELETE FROM leave_request_footer WHERE leave_request_footer_id = ?'
         await connection.query(deleteLeaveRequestFooterQuery, [leave_request_footer_id]);
@@ -634,8 +833,7 @@ const approveLeaveRequest = async (req, res) => {
 
     let connection = await pool.getConnection();
     try {
-        await connection.beginTransaction()
-        let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name, lt.leave_type_code FROM leave_request lq 
+        let getQuery = `SELECT lq.*, lt.number_of_days, lt.leave_type_name FROM leave_request lq 
        LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lq.leave_type_id
         WHERE  lq.leave_request_id = ?`;
         const [result] = await connection.query(getQuery, [leave_request_id]);
@@ -646,13 +844,6 @@ const approveLeaveRequest = async (req, res) => {
         if (status == leaveRequest.status) {
             return error422("This leave request is already " + status, res)
         }
-        let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id, reporting_manager_id FROM employee WHERE employee_id = '${leaveRequest.employee_id}' `;
-        let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
-        if (isExistEmployeeResult[0].length == 0) {
-            return error422("Employee Not Found.", res)
-        }
-        const employee_name = isExistEmployeeResult[0][0].employee_name;
-        const employee_code = isExistEmployeeResult[0][0].employee_code;
         let current_year = new Date().getFullYear();
         //is leave balance
         let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ? AND year = ?";
@@ -669,16 +860,7 @@ const approveLeaveRequest = async (req, res) => {
         let allocated_days = leaveRequest.number_of_days
         used_days = parseFloat(used_days) + parseFloat(leaveRequest.total_days);
         let remaining_days = allocated_days - used_days
-        if (status == 'Approved') {
-            //get all leave requested days
-            let getAllLeaveRequestedDaysQuery = `SELECT * FROM leave_request_footer WHERE leave_request_id = ${leave_request_id}`
-            let [allLeaveRequestedDays] = await connection.query(getAllLeaveRequestedDaysQuery)
-            for (let index = 0; index < allLeaveRequestedDays.length; index++) {
-                const element = allLeaveRequestedDays[index];
-                const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?)`;
-                await connection.query(insertAttendanceQuery, [employee_code, employee_name, element.leave_date, 'PL', 'NULL', 'NULL', 'leave-request']);
-
-            }
+        if (status == 'Approved') { 
             if (leaveBalance) {
                 let updateLeaveBalanceQuery = `UPDATE leave_balance 
             SET allocated_days = ?, used_days = ?, remaining_days = ? WHERE leave_balance_id = ?`
@@ -687,15 +869,7 @@ const approveLeaveRequest = async (req, res) => {
                 let insertLeaveBalanceQuery = "INSERT INTO leave_balance (employee_id, leave_type_id, allocated_days, used_days, remaining_days, year ) VALUES (?,?,?,?,?,?)";
                 await connection.query(insertLeaveBalanceQuery, [leaveRequest.employee_id, leaveRequest.leave_type_id, allocated_days, used_days, remaining_days, current_year])
             }
-        }
-        //leave request cancelled
-        if (status == 'Cancelled') {
-            const now = new Date();
-            const startDate = new Date(leaveRequest.start_date);
-            // Allow cancellation only for furture dates
-            if (startDate <= now) {
-                return error422("Leave requests can not be cancelled", res)
-            }
+
         }
         let updateLeaveRequestQuery = `UPDATE leave_request
         SET status = ?, approved_date = ? WHERE leave_request_id = ?`;
@@ -765,8 +939,8 @@ const getEmployeeLeaveTypes = async (req, res) => {
     }
 };
 //get leave balances
-const getLeaveBalances = async (req, res) => {
-    const { page, perPage, key, fromDate, toDate, employee_id, leave_type_id } = req.query;
+const getLeaveBalances = async (req, res )=>{
+     const { page, perPage, key, fromDate, toDate, employee_id, leave_type_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await pool.getConnection();
@@ -777,7 +951,7 @@ const getLeaveBalances = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lb.*, e.first_name, e.last_name,
-        lt.leave_type_name, lt.leave_type_code 
+        lt.leave_type_name 
         FROM leave_balance lb
         LEFT JOIN employee e ON e.employee_id = lb.employee_id
         LEFT JOIN leave_type_master lt ON lt.leave_type_master_id = lb.leave_type_id
@@ -851,12 +1025,12 @@ const getLeaveBalances = async (req, res) => {
 //download leave requests
 const getLeaveRequestsDownload = async (req, res) => {
 
-    let { key, fromDate, toDate, company_id, shift_type_header_id, employee_id, approver_id, leave_type_id, departments_id, status } = req.query;
+    let { key, fromDate, toDate, company_id,  shift_type_header_id, employee_id, approver_id, leave_type_id, departments_id, status } = req.query;
 
     if (status) {
-        if (status != "Pending" && status != "Approved" && status != "Rejected" && status != "Cancelled") {
-            return error422("Leave status is Invalid.", res);
-        }
+        if (status!="Pending"&&status!="Approved"&&status!="Rejected"&&status!="Cancelled") {
+        return error422("Leave status is Invalid.", res);
+    } 
     }
 
     let connection = await pool.getConnection();
@@ -864,7 +1038,7 @@ const getLeaveRequestsDownload = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
-        lt.leave_type_name, lt.leave_type_code, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
+        lt.leave_type_name, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
@@ -926,14 +1100,14 @@ const getLeaveRequestsDownload = async (req, res) => {
                 };
             }
             return {
-                "Sr No": index + 1,
-                "Name": `${item.first_name} ${item.last_name}`,
-                "Leave Type": item.leave_type_name,
-                "Start Date": item.start_date,
-                "End Date": item.end_date,
-                "Days": item.total_days,
-                "Status": item.status,
-            };
+            "Sr No": index + 1,
+            "Name": `${item.first_name} ${item.last_name}`,
+            "Leave Type": item.leave_type_name,
+            "Start Date": item.start_date,
+            "End Date": item.end_date,
+            "Days": item.total_days,
+            "Status": item.status,
+            };   
         });
 
         // Create a new workbook

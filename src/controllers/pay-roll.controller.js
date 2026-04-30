@@ -14,7 +14,7 @@ const error500 = (error, res) => {
     })
 }
 // pay roll initialize
-const payRollInitialize = async (req, res) => {
+const payRollInitialize1 = async (req, res) => {
     //run validation
     await Promise.all([
         body('pay_cycle').notEmpty().withMessage("Pay cycle is required").run(req),
@@ -159,16 +159,234 @@ const payRollInitialize = async (req, res) => {
                 totalDaysInPeriod: totalMonthDays,
                 presentDays: presentDays,
                 perDaySalary: perDayNet.toFixed(2), // Net per day
-                
+
                 // Original Potentials (Full Month)
                 potentialGross: totalEarnings.toFixed(2),
                 potentialNet: netSalary.toFixed(2),
-                
+
                 // Actual Payout (Based on Attendance)
                 actualEarnings: actualPayableGross.toFixed(2),
                 actualNetTakeHome: actualPayableNet.toFixed(2),
-                
+
                 breakdown: calculatedBreakdown,
+                attendanceDetails: getAttendanceResult[0]
+            };
+            payrollEmployeeData.push(payrollData)
+            // return error422(payrollData, res)
+        }
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Pay roll initialize successfully.",
+            data: payrollEmployeeData,
+            // total:getAttendanceResult[0].length
+        })
+    } catch (error) {
+        console.log(error);
+
+        await connection.rollback();
+        return error500(error, res)
+    } finally {
+        if (connection) await connection.release();
+    }
+}
+const payRollInitialize = async (req, res) => {
+    //run validation
+    await Promise.all([
+        body('pay_cycle').notEmpty().withMessage("Pay cycle is required").run(req),
+        body('pay_roll_month').notEmpty().withMessage("Pay roll month is required.").isInt().withMessage("Invalid pay roll month.").run(req),
+        body('pay_roll_year').notEmpty().withMessage("Pay roll year is required.").isInt().withMessage("Invalid pay roll year.").run(req),
+    ])
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return error422(errors.array()[0].msg, res)
+    }
+    const pay_cycle = req.body.pay_cycle ? req.body.pay_cycle.trim() : '';
+    const pay_roll_month = req.body.pay_roll_month ? req.body.pay_roll_month : null;
+    const pay_roll_year = req.body.pay_roll_year ? req.body.pay_roll_year : null
+    // Month in JS is 0-based
+    const startDate = new Date(pay_roll_year, pay_roll_month - 1, 2);
+    const endDate = new Date(pay_roll_year, pay_roll_month, 1); // last day of month
+
+    // Format for MySQL (YYYY-MM-DD)
+    const formatDate = (date) => date.toISOString().split('T')[0];
+
+    const fromDate = formatDate(startDate);
+    const toDate = formatDate(endDate);
+
+
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction()
+
+        //get employee salary mapping 
+        const getSalaryMappingQuery = `SELECT esm.* FROM employee_salary_mapping esm `
+        const getSalaryMappingResult = await connection.query(getSalaryMappingQuery)
+        if (getSalaryMappingResult[0].length == 0) {
+            return error422(" Salary Mapping Not Found", res)
+        }
+
+        let payrollEmployeeData = []
+        for (let index = 0; index < getSalaryMappingResult[0].length; index++) {
+            const element = getSalaryMappingResult[0][index];
+            const getEmployeeQuery = `SELECT * FROM employee WHERE employee_id = ?`
+            const getEmployeeResult = await connection.query(getEmployeeQuery, [element.employee_id])
+            if (getEmployeeResult[0].length == 0) {
+                return error422(element.employee_code + " Employee Not Found", res)
+            }
+            //get attendace
+            let getAttendanceQuery = `SELECT * FROM attendance_master WHERE (attendance_date BETWEEN ? AND ?) AND employee_code = ?`;//AND employee_code = 'E4'
+            let getAttendanceResult = await connection.query(getAttendanceQuery, [fromDate, toDate, getEmployeeResult[0][0].employee_code]);
+            // if (getAttendanceResult[0].length == 0) {
+            //     return error422(" Attendance Not Found", res)
+            // }
+
+            //salary mapping footer
+            let getSalaryMappingFooterQuery = `SELECT esmf.*, ssc.salary_component_id, ssc.percentage_of, ssc.value, ssc.min_limit, ssc.max_limit, ssc.calculation_order,
+            sc.salary_component_name, sc.component_type_id, sc.calculation_type_id, sc.is_statutory,
+            ct.component_type, cat.calculation_type FROM employee_salary_mapping_footer esmf
+            LEFT JOIN salary_structure_components ssc
+            ON ssc.salary_structure_component_id = esmf.salary_structure_component_id
+            LEFT JOIN salary_component sc
+            ON ssc.salary_component_id = sc.salary_component_id
+            LEFT JOIN component_type ct
+            ON ct.component_type_id = sc.component_type_id
+            LEFT JOIN calculation_type cat
+            ON cat.calculation_type_id = sc.calculation_type_id
+            WHERE esmf.employee_salary_id = ? ORDER BY ssc.calculation_order ASC`
+            let getSalaryMappingFooterResult = await connection.query(getSalaryMappingFooterQuery, [element.employee_salary_id]);
+            const ctcMonthly = element.ctc_amount / 12;
+            let basicSalary = 0;
+            let totalEarnings = 0;
+            let totalDeductions = 0;
+
+
+            //calculation breakdown
+            const components = getSalaryMappingFooterResult[0];
+            const calculatedBreakdown = components.map(comp => {
+                let amount = 0;
+                const value = parseFloat(comp.value);
+                const maxLimit = parseFloat(comp.max_limit);
+
+                // 1. Calculate Amount based on Calculation Type
+                if (comp.calculation_type === 'PERCENTAGE') {
+                    if (comp.percentage_of === 'CTC') {
+                        amount = (ctcMonthly * value) / 100;
+                    } else if (comp.percentage_of === 'BASIC') {
+                        amount = (basicSalary * value) / 100;
+                    }
+                } else if (comp.calculation_type === 'FIXED') {
+                    amount = value;
+                }
+
+
+                // 2. Apply Max Limit (e.g., for PF cap at 1800)
+                if (maxLimit > 0 && amount > maxLimit) {
+                    amount = maxLimit;
+                }
+
+                // 3. Store Basic Salary for subsequent percentage calculations (HRA/PF)
+                if (comp.salary_component_name === 'Basic Salary') {
+                    basicSalary = amount;
+                }
+
+                // 4. Update Totals
+                if (comp.component_type === 'EARNING') {
+                    totalEarnings += amount;
+                } else if (comp.component_type === 'DEDUCTION') {
+                    totalDeductions += amount;
+                }
+
+                return {
+                    name: comp.salary_component_name,
+                    type: comp.component_type,
+                    amount: amount.toFixed(2)
+                };
+            });
+            
+            const netSalary = totalEarnings - totalDeductions;
+            //testing 
+            // 1. Get total days in the month (based on fromDate/toDate)
+            const start = new Date(fromDate);
+            const end = new Date(toDate);
+            // const totalMonthDays = (end - start) / (1000 * 60 * 60 * 24) + 1;
+            const totalMonthDays = 22
+
+            // 2. Count Present Days from attendance details
+            // Assuming 'P' is Present. You can also handle 'HD' (Half Day) as 0.5
+            const presentDays = getAttendanceResult[0].filter(att => att.status === 'P').length;
+
+            // 3. Per Day Calculations (Based on Fixed CTC)
+            const perDayGross = totalEarnings / totalMonthDays;
+            const perDayNet = netSalary / totalMonthDays;
+            console.log(`${netSalary} / ${totalMonthDays}`,netSalary / totalMonthDays);
+            
+            // 4. Attendance-Adjusted (Prorated) Salary
+            const actualPayableGross = perDayGross * presentDays;
+            const actualPayableNet = perDayNet * presentDays;
+
+            // 5. add actual amount component 
+            const calculatedActualBreakdown = calculatedBreakdown.map(comp => {
+                const fullAmount = parseFloat(comp.amount);
+
+                // // per day component
+                // const perDay = fullAmount / totalMonthDays;
+
+                // // actual based on attendance
+                // const actualAmount = perDay * presentDays;
+                let actualAmount = 0;
+
+                // PF (do not prorate like normal)
+                if (comp.name === 'Provident Fund') {
+                    // PF = 12% of actual BASIC
+                    const basicComponent = calculatedBreakdown.find(c => c.name === 'Basic Salary');
+                    const basicFull = basicComponent ? parseFloat(basicComponent.amount) : 0;
+
+                    const basicActual = (basicFull / totalMonthDays) * presentDays;
+
+                    actualAmount = (basicActual * 12) / 100;
+
+                    // Apply cap (example 1800)
+                    // if (actualAmount < 1800) {
+                        actualAmount = 1800;
+                    // }
+                }
+
+                //PT (fixed – no prorate)
+                else if (comp.name === 'Professional Tax') {
+                    actualAmount = 200;
+                }
+                else {
+                    const perDay = fullAmount / totalMonthDays;
+                    actualAmount = perDay * presentDays;
+                }
+
+                return {
+                    name: comp.name,
+                    type: comp.type,
+                    amount: fullAmount.toFixed(2),          // full month
+                    actualAmount: actualAmount.toFixed(2)   // attendance based
+                };
+            });
+            // console.log(getAttendanceResult[0]);
+            // return error422({attendanceDetails:getAttendanceResult[0]},res)
+            // Update your payrollData object
+            let payrollData = {
+                monthlyCTC: ctcMonthly.toFixed(2),
+                totalDaysInPeriod: totalMonthDays,
+                presentDays: presentDays,
+                perDaySalary: perDayNet.toFixed(2), // Net per day
+
+                // Original Potentials (Full Month)
+                potentialGross: totalEarnings.toFixed(2),
+                potentialNet: netSalary.toFixed(2),
+
+                // Actual Payout (Based on Attendance)
+                actualEarnings: actualPayableGross.toFixed(2),
+                actualNetTakeHome: actualPayableNet.toFixed(2),
+
+                // breakdown: calculatedBreakdown,
+                breakdown: calculatedActualBreakdown,
                 attendanceDetails: getAttendanceResult[0]
             };
             payrollEmployeeData.push(payrollData)

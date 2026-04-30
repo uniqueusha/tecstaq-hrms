@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const payRollController = require('../controllers/pay-roll.controller')
-
-router.post('/initialize',payRollController.payRollInitialize)
-// //get employee salary component list
-// router.get('',payRollController.getEmployeeSalaryComponent)
+const { verifyToken } = require('../middleware/authMiddleware')
+router.post('/initialize',verifyToken, payRollController.prInitialize)
+//get pay roll batches 
+router.get('',payRollController.getPrBatches)
 // //Active employee salary component
 // router.get('/wma', payRollController.getEmployeeSalaryComponentWma);
-// // by id employee salary component
-// router.get('/:id', payRollController.getEmployeeSalaryComponentById);
+//get pay roll batch by id 
+router.get('/:id', payRollController.getPrBatchById);
 // // update employee salary component
 // router.put('/:id', payRollController.updateEmployeeSalaryComponent);
 // // change status employee salary component

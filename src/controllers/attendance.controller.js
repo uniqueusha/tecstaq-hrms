@@ -401,7 +401,7 @@ const getAttendanceUploadList = async (req, res) => {
 }
 //get get Attendance Upload Download...
 const getAttendanceUploadDownload = async (req, res) => {
-    const { fromDate, toDate, key, employee_id} = req.query;
+    const { fromDate, toDate, key, employee_id } = req.query;
     let connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -449,7 +449,7 @@ const getAttendanceUploadDownload = async (req, res) => {
             "Uploaded by": `${item.first_name} ${item.last_name}`,
             "Uploaded at": item.created_at,
             // "Status": item.status === 1 ? "activated" : "deactivated",
-            
+
         }));
 
         // Create a new workbook
@@ -842,7 +842,7 @@ const getAttendanceUploadManualList = async (req, res) => {
 }
 //get get Attendance Upload Manual Download...
 const getAttendanceUploadManualDownload = async (req, res) => {
-    const { fromDate, toDate, employee_id} = req.query;
+    const { fromDate, toDate, employee_id } = req.query;
     let connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -853,17 +853,17 @@ const getAttendanceUploadManualDownload = async (req, res) => {
         ON e.employee_id = a.created_by
         WHERE 1 `;
         if (key) {
-        const lowercaseKey = key.toLowerCase().trim();
-        if (lowercaseKey === "activated") {
-            getQuery += ` AND a.status = 1`;
-            countQuery += ` AND a.status = 1`;
-        } else if (lowercaseKey === "deactivated") {
-            getQuery += ` AND a.status = 0`;
-            countQuery += ` AND a.status = 0`;
-        } else {
-            getQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.month LIKE '%${lowercaseKey}%' || a.year LIKE '%${lowercaseKey}%')`;
-            countQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.month LIKE '%${lowercaseKey}%' || a.year LIKE '%${lowercaseKey}%')`;
-        }
+            const lowercaseKey = key.toLowerCase().trim();
+            if (lowercaseKey === "activated") {
+                getQuery += ` AND a.status = 1`;
+                countQuery += ` AND a.status = 1`;
+            } else if (lowercaseKey === "deactivated") {
+                getQuery += ` AND a.status = 0`;
+                countQuery += ` AND a.status = 0`;
+            } else {
+                getQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.month LIKE '%${lowercaseKey}%' || a.year LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(a.file_name) LIKE '%${lowercaseKey}%' || a.records LIKE '%${lowercaseKey}%' || a.month LIKE '%${lowercaseKey}%' || a.year LIKE '%${lowercaseKey}%')`;
+            }
         }
         // from date and to date
         if (fromDate && toDate) {
@@ -892,7 +892,7 @@ const getAttendanceUploadManualDownload = async (req, res) => {
             "Uploaded by": `${item.first_name} ${item.last_name}`,
             "Uploaded at": item.created_at,
             // "Status": item.status === 1 ? "activated" : "deactivated",
-            
+
         }));
 
         // Create a new workbook
@@ -1003,7 +1003,7 @@ const checkinStatus = async (req, res) => {
 };
 //get All Attendance  Download...
 const getAllAttendanceDownload = async (req, res) => {
-    const { fromDate, toDate, employee_code, employee_id, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id,key } = req.query;
+    const { fromDate, toDate, employee_code, employee_id, status, is_late_by, is_early_by, shift_type_header_id, work_week_pattern_id, key } = req.query;
     let connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -1022,17 +1022,17 @@ const getAllAttendanceDownload = async (req, res) => {
         ON wwp.work_week_pattern_id = eww.work_week_pattern_id
         WHERE 1 `;
         if (key) {
-        const lowercaseKey = key.toLowerCase().trim();
-        if (lowercaseKey === "activated") {
-            getQuery += ` AND a.status = 1`;
-            countQuery += ` AND a.status = 1`;
-        } else if (lowercaseKey === "deactivated") {
-            getQuery += ` AND a.status = 0`;
-            countQuery += ` AND a.status = 0`;
-        } else {
-            getQuery += ` AND (LOWER(a.employee_code) LIKE '%${lowercaseKey}%' || LOWER(a.employee_name) LIKE '%${lowercaseKey}%' || a.status LIKE '%${lowercaseKey}%' || a.in_time LIKE '%${lowercaseKey}%' || a.out_time LIKE '%${lowercaseKey}%' || a.duration LIKE '%${lowercaseKey}%')`;
-            countQuery += ` AND (LOWER(a.employee_code) LIKE '%${lowercaseKey}%' || LOWER(a.employee_name) LIKE '%${lowercaseKey}%' || a.status LIKE '%${lowercaseKey}%' || a.in_time LIKE '%${lowercaseKey}%' || a.out_time LIKE '%${lowercaseKey}%' || a.duration LIKE '%${lowercaseKey}%')`;
-        }
+            const lowercaseKey = key.toLowerCase().trim();
+            if (lowercaseKey === "activated") {
+                getQuery += ` AND a.status = 1`;
+                countQuery += ` AND a.status = 1`;
+            } else if (lowercaseKey === "deactivated") {
+                getQuery += ` AND a.status = 0`;
+                countQuery += ` AND a.status = 0`;
+            } else {
+                getQuery += ` AND (LOWER(a.employee_code) LIKE '%${lowercaseKey}%' || LOWER(a.employee_name) LIKE '%${lowercaseKey}%' || a.status LIKE '%${lowercaseKey}%' || a.in_time LIKE '%${lowercaseKey}%' || a.out_time LIKE '%${lowercaseKey}%' || a.duration LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(a.employee_code) LIKE '%${lowercaseKey}%' || LOWER(a.employee_name) LIKE '%${lowercaseKey}%' || a.status LIKE '%${lowercaseKey}%' || a.in_time LIKE '%${lowercaseKey}%' || a.out_time LIKE '%${lowercaseKey}%' || a.duration LIKE '%${lowercaseKey}%')`;
+            }
         }
         // from date and to date
         if (fromDate && toDate) {
@@ -1042,11 +1042,11 @@ const getAllAttendanceDownload = async (req, res) => {
         if (employee_code) {
             getQuery += ` AND a.employee_code = '${employee_code}'`;
         }
-        
+
         if (employee_id) {
             getQuery += ` AND e.employee_id = '${employee_id}'`;
         }
-       if (status) {
+        if (status) {
             getQuery += ` AND a.status = '${status}'`;
         }
         if (is_late_by == 'true') {
@@ -1065,7 +1065,7 @@ const getAllAttendanceDownload = async (req, res) => {
         getQuery += " ORDER BY a.attendance_date DESC";
 
         let result = await connection.query(getQuery);
-        let attendance= result[0];
+        let attendance = result[0];
         if (attendance.length === 0) {
             return error422("No data found.", res);
         }
@@ -1082,7 +1082,7 @@ const getAllAttendanceDownload = async (req, res) => {
             "Status": item.medium,
             "Working Mode": item.status
             // "Status": item.status === 1 ? "activated" : "deactivated",
-            
+
         }));
 
         // Create a new workbook
@@ -1119,7 +1119,7 @@ const getAllAttendanceDownload = async (req, res) => {
 };
 //get all monthly attendace...
 const getAllMonthlyAttendances = async (req, res) => {
-    const { page, perPage, key, employee_id, reporting_manager_id, month, year} = req.query;
+    const { page, perPage, key, employee_id, reporting_manager_id, month, year } = req.query;
     if (!month) {
         return error422("Month is required.", res)
     } else if (!year) {
@@ -1159,8 +1159,8 @@ const getAllMonthlyAttendances = async (req, res) => {
             getQuery += ` AND e.reporting_manager_id= '${reporting_manager_id}'`;
             countQuery += `  AND e.reporting_manager_id = '${reporting_manager_id}'`;
         }
-         getQuery += "  GROUP BY am.employee_name ORDER BY am.employee_name";
-         
+        getQuery += "  GROUP BY am.employee_name ORDER BY am.employee_name";
+
         // Apply pagination if both page and perPage are provided
         let total = 0;
         if (page && perPage) {
@@ -1200,7 +1200,7 @@ const getAllMonthlyAttendances = async (req, res) => {
 }
 //get All monthly Attendance  Download...
 const getAllMonthlyAttendancesDownload = async (req, res) => {
-    const { key, employee_id, month, year, reporting_manager_id} = req.query;
+    const { key, employee_id, month, year, reporting_manager_id } = req.query;
     if (!month) {
         return error422("Month is required.", res)
     } else if (!year) {
@@ -1228,10 +1228,10 @@ const getAllMonthlyAttendancesDownload = async (req, res) => {
             getQuery += ` AND e.reporting_manager_id= '${reporting_manager_id}'`;
         }
 
-         getQuery += "  GROUP BY am.employee_name ORDER BY am.employee_name";
+        getQuery += "  GROUP BY am.employee_name ORDER BY am.employee_name";
 
         let result = await connection.query(getQuery);
-        let attendance= result[0];
+        let attendance = result[0];
         if (attendance.length === 0) {
             return error422("No data found.", res);
         }
@@ -1278,7 +1278,90 @@ const getAllMonthlyAttendancesDownload = async (req, res) => {
         if (connection) connection.release();
     }
 };
+//manual add employee attendance
+const addManualAttendance = async (req, res) => {
+    let employee_code = req.body.employee_code ? req.body.employee_code : '';
+    let attendance_date = req.body.attendance_date ? req.body.attendance_date : '';
+    let in_time = req.body.in_time ? req.body.in_time : '';
+    let out_time = req.body.out_time ? req.body.out_time : '';
+    let status = req.body.status ? req.body.status : 'P';
 
+    if (!employee_code) {
+        return error422("Employee code is required.", res)
+    } else if (!attendance_date) {
+        return error422("Attendance date is required.", res)
+    } else if (!in_time) {
+        return error422("In time is required.", res);
+    } else if (!out_time) {
+        return error422("Out time is required.", res);
+    }
+    let isExistEmployeeQuery = `SELECT employee_code, CONCAT(first_name,' ',last_name) AS employee_name, employee_id FROM employee WHERE employee_code = '${employee_code}' `;
+    let isExistEmployeeResult = await pool.query(isExistEmployeeQuery);
+    if (isExistEmployeeResult[0].length == 0) {
+        return error422("Employee Not Found.", res)
+    }
+    const employee_name = isExistEmployeeResult[0][0].employee_name;
+
+
+    let connection
+    try {
+        connection = await pool.getConnection()
+        // Validate time order
+        const inMoment = moment(in_time, "HH:mm:ss");
+        const outMoment = moment(out_time, "HH:mm:ss");
+
+        if (outMoment.isSameOrBefore(inMoment)) {
+            return error422("Out time must be after in time.", res);
+        }
+
+        //Calculate duration
+        const durationMinutes = outMoment.diff(inMoment, "minutes");
+        const duration = moment.utc(durationMinutes * 60 * 1000).format("HH:mm:ss");
+
+        let isExistAttendanceQuery = `SELECT in_time FROM attendance_master WHERE employee_code = ? AND attendance_date = ?`;
+        let isExistAttendanceResult = await connection.query(isExistAttendanceQuery, [employee_code, attendance_date]);
+        if (isExistAttendanceResult[0].length > 0) {
+            const updateQuery = `UPDATE attendance_master SET status = ?, in_time = ?, out_time = ?, duration = ?, medium = ? WHERE employee_code = ? AND attendance_date = ?;`;
+            await connection.query(updateQuery, [status, in_time, out_time, duration, 'admin', employee_code, attendance_date]);
+        } else {
+            const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, duration, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)`;
+            await connection.query(insertAttendanceQuery, [employee_code, employee_name, attendance_date, 'P', in_time, out_time, duration, 'admin']);
+        }
+
+        await connection.commit()
+        return res.status(200).json({
+            status: 200,
+            message: "Attendance submitted successfully."
+        })
+    } catch (error) {
+        if (connection) await connection.rollback()
+        return error500(error, res)
+    } finally {
+        if (connection) await connection.release()
+    }
+}
+//get attedance by id
+const getAttendance = async (req, res) =>{
+    const attendance_id = parseInt(req.params.id);
+    let connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        let getQuery = `SELECT * FROM attendance_master WHERE attendance_id = ?`
+        let [result] = await connection.query(getQuery,[attendance_id])
+        const data = result[0]
+        await connection.commit();
+        return res.status(200).json({
+            status:200,
+            message:"Attendance retrived successfully",
+            data:data
+        })
+    } catch (error) {
+        await connection.rollback();
+        return error500(error, res);
+    } finally {
+        if(connection) await connection.release();
+    }
+}
 module.exports = {
     importAttendanceFromBase64,
     getEmployeeAttendanceByEmployeeCode,
@@ -1292,5 +1375,7 @@ module.exports = {
     getAttendanceUploadManualDownload,
     getAllAttendanceDownload,
     getAllMonthlyAttendances,
-    getAllMonthlyAttendancesDownload
+    getAllMonthlyAttendancesDownload,
+    addManualAttendance,
+    getAttendance
 };

@@ -620,7 +620,6 @@ const sendOtp = async (req, res) => {
       to: `${email_id}`, // Recipient's name and email address.
       //    replyTo: "rohitlandage86@gmail.com", // Sets the email address for recipient responses.
       //  bcc: "sushantsjamdade@gmail.com",
-      bcc: "ushamyadav777@gmail.com",
       subject: "Reset Your Tecstaq-hrms Password – OTP Inside", // Subject line.
       html: message,
     };
@@ -927,7 +926,6 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
       from: "support@tecstaq.com",
       to: email_id,
       // replyTo: "rohitlandage86@gmail.com",
-      bcc: "ushamyadav777@gmail.com",
       subject: "Your Task Registration OTP",
       html: message,
     };

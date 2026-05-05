@@ -58,7 +58,6 @@ const createPolicy = async (req, res)=>{
           'image/png'
         ];
 
-        
         const fileType = await import("file-type");
         const uploadFile = async (base64Str, prefix) => {
             if (!base64Str) return '';
@@ -108,8 +107,6 @@ const createPolicy = async (req, res)=>{
             message:"Policy created successfully."
         })
     } catch (error) {
-        console.log(error);
-        
         if (connection) connection.rollback();
         return error500(error, res);
     } finally{

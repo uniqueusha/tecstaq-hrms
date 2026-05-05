@@ -282,135 +282,43 @@ const formattedEndDate = formatDate(end_date);
         let hrQuery = `SELECT * FROM users WHERE role = "HR"`;
         let [hrResult] = await connection.query(hrQuery);
 
-const hrMessage = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leave Request</title>
-</head>
-<body style="margin:0; padding:20; background-color:#f4f4f4; font-family: Arial, sans-serif; ">
-
-    <table align="center" width="70%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4; padding:20px 0;">
-        <tr>
-            <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fff; border-radius:8px; overflow:hidden;">
-                    
-                    <!-- Header -->
-                    <tr>
-                        <td align="center" style="padding:20px; background-color:#F3F6FF">
-                            <img src="https://hrms.tecstaq.com:3000/assets/images/Empflowhr_Logo.png" alt="Company Logo" width="180" />
-                        </td>
-                    </tr>
-
-                    <!-- Content Box -->
-                    <tr style="background-image: url('https://hrms.tecstaq.com:3000/assets/images/leave_request_background.svg');">
-                        <td align="center" style="padding:30px;">
-                            <h2 style="margin:0; color:#fff;">
-                                Leave request has been received !
-                            </h2>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <h3 align="left" style="margin:0; color:#333; padding:10px 0 10px 40px;">
-                                Hello,
-                            </h3>
-                            <p style="font-size:16px; color:#333; margin-left:80px; margin-top:0px;"> 
-                                Your leave request has been successfully submitted.
-                            </p>
-                        </td>
-                    </tr>
-                   
-                        <tr>
-                            <td style="padding:40px;">
-                                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F6FF;border-radius:10px">
-                                    <tr>
-                                        <td align="center" width="70" style="padding:20px;">
-                                             <img src="https://hrms.tecstaq.com:3000/assets/images/user_logo.png" alt="user Logo" width="50" />  
-                                        </td>
-                                        <td >
-                                            <div style="padding:0 0 10px 10px; border-left: 1px solid #D0E3FF">
-                                                <p style="font-size:14px;">Requested by</p>
-                                                <p style="color:#333"><strong>${full_name}</strong></p>
-                                            </div>
-                                        </td>
-                                        
-                                    </tr>   
-                                </table>
-                            </td>
-                        </tr>
-        
-                         
-                        <tr>
-                        <td style="padding: 10px 40px 30px 40px;">
-                            <h3 style="color:#333; font-size: 16px; margin-bottom: 15px;">Leave Details</h3>
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 15px; line-height: 1.8;">
-                                <tr>
-                                    <td width="140" style="color:#596780;">Dates</td>
-                                    <td style="color:#596780; font-weight: 500;">${formattedStartDate} to ${formattedEndDate}</td>
-                                </tr>
-                                <tr>
-                                    <td style="color:#596780;">Leave type</td>
-                                    <td style="color:#596780; font-weight: 500;">${leaveType}</td>
-                                </tr>
-                                <tr>
-                                    <td style="color:#596780;">Total days</td>
-                                    <td style="color:#596780; font-weight: 500;">${total_days} Days</td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                               
-                    <tr>
-                        <td style="padding:10px 40px 20px 40px;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F6FF;border-radius:10px">
-                                <tr>
-                                    <td width="50" style="padding: 20px;">
-                                        <img src="https://hrms.tecstaq.com:3000/assets/images/cot_icon.png"" alt="user Logo" width="50"; >
-                                    </td>
-                                    <td>
-                                        <div>
-                                            <p style="font-size:14px;color:#4169E1">Reason For Leave</p>
-                                            <p style="color:#333">${reason}</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td align="center" style="padding:20px;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="border-top:1px solid #dcdcdc; font-size:0; line-height:0;">&nbsp;</td>
-                                </tr>
-                                <tr>
-                                    <td align="center" style="padding:10px 0; font-family:Arial, sans-serif; font-size:12px; color:#7a7a7a;">
-                                        This is automated message, please do not reply to this email.
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-
-                </table>
-            </td>
-        </tr>
-    </table>
-
-</body>
-</html>
-`;
-
-      
-
-         // Prepare the email message options.
-        const reportManagerMailOptions  = {
-            from: "support@tecstaq.com", // Sender address from environment variables.
-            to: email,
-            // bcc: "sushantsjamdade@gmail.com",
+        const hrMessage = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to HRMS</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+        <h2 style="text-transform: capitalize;">Dear HR,</h2>
+        </p><strong>Employee Details:</strong></p>
+        <ul>
+        <li>Employee ID : ${employee_code}</li>
+        <li>Leave Type : ${leaveType}</li>
+        <li>Start Date: ${start_date}</li>
+        <li>End Date: ${end_date}</li>
+        <li>Total Days: ${total_days}</li>
+        <li>Reason: ${reason}</li>
+        </ul>
+        </p>A leave request has been submitted and is awaiting your approval.</p>
+        <p>Please review and take the necessary action.</p>
+        <p>Thank you.</p>
+        </div>
+        </body>
+        </html>`;
+        // Prepare the email message options.
+        const employeeMailOptions = {
+            from: "hrms@tecstaq.com", // Sender address from environment variables.
+            to: email_id,
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
             // cc : reportManagerEmailValue.map(item => item.email_id),
             subject: `Leave Request created Successfully`,

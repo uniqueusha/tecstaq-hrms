@@ -8,7 +8,6 @@ const error422 = (message, res) => {
 };
 const error500 = (error, res) => {
     console.log(error);
-    
     return res.status(500).json({
         status: 500,
         message: "Internal Server Error",
@@ -18,55 +17,72 @@ const error500 = (error, res) => {
 const prInitialize = async (req, res) => {
     //run validation
     await Promise.all([
-        body("pay_cycle").notEmpty().withMessage("Pay cycle is required").run(req),
-        body("pay_roll_month")
-            .notEmpty()
-            .withMessage("Pay roll month is required.")
-            .isInt()
-            .withMessage("Invalid pay roll month.")
-            .run(req),
-        body("pay_roll_year")
-            .notEmpty()
-            .withMessage("Pay roll year is required.")
-            .isInt()
-            .withMessage("Invalid pay roll year.")
-            .run(req),
+        body('attendance_cycle').notEmpty().withMessage("Attendance cycle is required").isIn(['Half Month', 'Full Month']).withMessage("Invalid Attendance cycle value").run(req),
     ]);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return error422(errors.array()[0].msg, res);
     }
-    const pay_cycle = req.body.pay_cycle ? req.body.pay_cycle.trim() : "";
-    const pay_roll_month = req.body.pay_roll_month ? req.body.pay_roll_month : null;
-    const pay_roll_year = req.body.pay_roll_year ? req.body.pay_roll_year : null;
+    const attendance_cycle = req.body.attendance_cycle ? req.body.attendance_cycle.trim() : "";
+    const start_date = req.body.start_date ? req.body.start_date.trim() : "";
+    const end_date = req.body.end_date ? req.body.end_date.trim() : "";
+    let pay_roll_month = req.body.pay_roll_month ? req.body.pay_roll_month : null;
+    let pay_roll_year = req.body.pay_roll_year ? req.body.pay_roll_year : null;
     const remarks = req.body.remarks ? req.body.remarks : null;
     const employee_id = req.user.employee_id;
-    // Month in JS is 0-based
+    // Month in JS 
     const startDate = new Date(pay_roll_year, pay_roll_month - 1, 2);
     const endDate = new Date(pay_roll_year, pay_roll_month, 1); // last day of month
 
-    // Format for MySQL (YYYY-MM-DD)
+    // Format 
     const formatDate = (date) => date.toISOString().split("T")[0];
 
-    const fromDate = formatDate(startDate);
-    const toDate = formatDate(endDate);
+    let fromDate = formatDate(startDate);
+    let toDate = formatDate(endDate);
+
+    if (attendance_cycle === 'Half Month') {
+        if (!start_date || !end_date) {
+            return error422("Both 'From' and 'To' dates are required for Half Month cycle.", res);
+        }
+
+        const from = new Date(start_date);
+        const to = new Date(end_date);
+
+        // Validate valid dates
+        if (isNaN(from) || isNaN(to)) {
+            return error422("Invalid date format.", res);
+        }
+
+        //Same month and year validation
+        if (from.getMonth() !== to.getMonth() || from.getFullYear() !== to.getFullYear()) {
+            return error422("Start date and end date must be in the same month.", res);
+        }
+
+        if (from > to) {
+            return error422("'From' date cannot be greater than 'To' date.", res);
+        }
+
+        fromDate = start_date;
+        toDate = end_date;
+        pay_roll_month = from.getMonth()+1;
+        pay_roll_year = from.getFullYear()
+    }
 
     let connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
         //get employee salary mapping
-        const getSalaryMappingQuery = `SELECT esm.* FROM employee_salary_mapping esm `;
-        const getSalaryMappingResult = await connection.query(
-            getSalaryMappingQuery,
-        );
+        const getSalaryMappingQuery = `SELECT esm.* FROM employee_salary_mapping esm WHERE pay_cycle = ?`;
+        const getSalaryMappingResult = await connection.query(getSalaryMappingQuery, [attendance_cycle]);
+
         if (getSalaryMappingResult[0].length == 0) {
             return error422(" Salary Mapping Not Found", res);
         }
         const now = new Date();
         //insert into pr batch
-        let prBatchQuery = `INSERT INTO pr_batches(total_employees, pr_month, pr_year, pr_status, initialized_by, initialized_at, remarks, created_by)VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-        let [prBatchResult] = await connection.query(prBatchQuery, [getSalaryMappingResult[0].length, pay_roll_month, pay_roll_year, 'Draft', employee_id, now, remarks, employee_id]);
+        let prBatchQuery = `INSERT INTO pr_batches(attendance_cycle, total_employees, pr_month, pr_year,start_date, end_date, pr_status, initialized_by, initialized_at, remarks, created_by)VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        let [prBatchResult] = await connection.query(prBatchQuery, [attendance_cycle, getSalaryMappingResult[0].length, pay_roll_month, pay_roll_year, fromDate, toDate, 'Draft', employee_id, now, remarks, employee_id]);
         let pr_batch_id = prBatchResult.insertId
 
         let payrollEmployeeData = [];
@@ -112,7 +128,7 @@ const prInitialize = async (req, res) => {
             ON ct.component_type_id = sc.component_type_id
             LEFT JOIN calculation_type cat
             ON cat.calculation_type_id = sc.calculation_type_id
-            WHERE esmf.employee_salary_id = ? ORDER BY ssc.calculation_order ASC`;
+            WHERE esmf.  = ? ORDER BY ssc.calculation_order ASC`;
             let getSalaryMappingFooterResult = await connection.query(
                 getSalaryMappingFooterQuery,
                 [element.employee_salary_id],
@@ -222,7 +238,7 @@ const prInitialize = async (req, res) => {
                     (pr_employee_salary_component_id, salary_component_id, component_type_id, calculation_type_id, expected_amount, actual_amount) 
                     VALUES (?, ?, ?, ?, ?, ?)
                 `;
-                await connection.query(insertQuery, [pr_employee_salary_component_id,comp.salary_component_id,comp.component_type_id,comp.calculation_type_id,fullAmount.toFixed(2),actualAmount.toFixed(2)]);
+                await connection.query(insertQuery, [pr_employee_salary_component_id, comp.salary_component_id, comp.component_type_id, comp.calculation_type_id, fullAmount.toFixed(2), actualAmount.toFixed(2)]);
                 calculatedActualBreakdown.push({
                     name: comp.name,
                     type: comp.type,
@@ -267,10 +283,10 @@ const prInitialize = async (req, res) => {
     }
 };
 //get pay roll batch list
-const getPrBatches= async (req, res) => {
+const getPrBatches = async (req, res) => {
     let { page, perPage, key, status } = req.query;
     if (status) {
-        if (status != "Draft" && status != "Approved" && status != "Finalized" && status !="Paid") {
+        if (status != "Draft" && status != "Approved" && status != "Finalized" && status != "Paid") {
             return error422("Pay roll batch status is Invalid.", res);
         }
     }
@@ -367,15 +383,35 @@ const getPrBatchById = async (req, res) => {
         LEFT JOIN employee fe
         ON fe.employee_id = pr.finalized_by
         WHERE pr.pr_batch_id = ? `;
-        const [result] = await connection.query( getQuery,[prBatchId]);
+        const [result] = await connection.query(getQuery, [prBatchId]);
         if ([result].length == 0) {
             return error422("Pay Roll Batch Not Found.", res);
         }
         let prBatch = result[0];
         //get pr employee salary components
-        let getPrEmployeeSalaryComponentQuery = `SELECT * FROM pr_employee_salary_components WHERE pr_batch_id = ?`;
-        let [prEmployeeSalaryComponentResult] = await connection.query(getPrEmployeeSalaryComponentQuery,[prBatchId])
-        prBatch['employeeDetails'] = prEmployeeSalaryComponentResult[0];
+        let getPrEmployeeSalaryComponentQuery = `SELECT esc.*, e.first_name, e.last_name, ebd.payment_mode, ebd.account_number,ebd.bank_name,ebd.ifsc_code,ebd.branch_name,ef.family_member_name,ef.relationship,ef.family_dob,ef.is_dependent,ef.is_nominee,ef.family_mobile_number,empc.previous_company_name, empc.previous_start_date,empc.previous_end_date,empc.last_drawn_salary,empc.previous_designation,empc.hr_email,empc.hr_mobile,
+        ep.probation_start_date,ep.probation_end_date,es.shift_type_header_id, sth.shift_type_name, es.shift_start_date,es.shift_end_date,eww.work_week_pattern_id,eww. work_week_start_date,eww.work_week_end_date, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name, ee.last_name AS reporting_manager_last_name,
+        dp.department_name, et.employment_type, hc.calendar_name, wwp.pattern_name, c.name AS company_name, d.designation, ee.first_name AS reporting_manager_first_name,ee.last_name AS reporting_manager_last_name  
+        FROM pr_employee_salary_components esc
+        LEFT JOIN employee e
+        ON e.employee_id = esc.employee_id
+        LEFT JOIN company c ON c.company_id = e.company_id 
+        LEFT JOIN designation d ON d.designation_id = e.designation_id
+        LEFT JOIN departments dp ON dp.departments_id = e.departments_id
+        LEFT JOIN employee_bank_details ebd ON ebd.employee_id = e.employee_id
+        LEFT JOIN employee_family ef ON ef.employee_id = e.employee_id
+        LEFT JOIN employee_previous_company empc ON empc.employee_id = e.employee_id
+        LEFT JOIN employee_probation ep ON ep.employee_id = e.employee_id
+        LEFT JOIN employee_shift es ON es.employee_id = e.employee_id
+        LEFT JOIN shift_type_header sth ON sth.shift_type_header_id = es.shift_type_header_id
+        LEFT JOIN employee_work_week eww ON eww.employee_id = e.employee_id
+        LEFT JOIN employment_type et ON et.employment_type_id = e.employment_type_id
+        LEFT JOIN employee ee ON ee.employee_id = e.reporting_manager_id
+        LEFT JOIN holiday_calendar hc ON hc.holiday_calendar_id = e.holiday_calendar_id
+        LEFT JOIN work_week_pattern wwp ON wwp.work_week_pattern_id = eww.work_week_pattern_id
+        WHERE esc.pr_batch_id = ?`;
+        let [prEmployeeSalaryComponentResult] = await connection.query(getPrEmployeeSalaryComponentQuery, [prBatchId])
+        prBatch['employeeDetails'] = prEmployeeSalaryComponentResult;
 
         for (let i = 0; i < prEmployeeSalaryComponentResult.length; i++) {
             const element = prEmployeeSalaryComponentResult[i];
@@ -389,8 +425,8 @@ const getPrBatchById = async (req, res) => {
             LEFT JOIN calculation_type clt
             ON clt.calculation_type_id = sd.calculation_type_id
             WHERE sd.pr_employee_salary_component_id = ?`;
-            let [salaryComponentResult]  = await connection.query(getSalaryComponentQuery, [pr_employee_salary_component_id])
-            prBatch['employeeDetails']['salaryDetails'] = salaryComponentResult
+            let [salaryComponentResult] = await connection.query(getSalaryComponentQuery, [pr_employee_salary_component_id])
+            prBatch['employeeDetails'][i]['salaryDetails'] = salaryComponentResult
         }
         return res.status(200).json({
             status: 200,

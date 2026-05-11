@@ -5,18 +5,17 @@ const fs = require("fs");
 const nodemailer = require("nodemailer");
 const { body, param, validationResult } = require("express-validator");
 const path = require("path");
-
 const transporter = nodemailer.createTransport({
-  host: "smtp-mail.outlook.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: "support@tecstaq.com",
-    pass: "HelpMe@1212#$",
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
+    host: process.env.HOST,
+    port: 587,
+    secure: false,
+    auth: {
+        user: process.env.USER,
+        pass: process.env.PASSWORD,
+    },
+    tls: {
+        rejectUnauthorized: false,
+    },
 });
 //function to obtain a database connection
 const getConnection = async () => {
@@ -170,7 +169,7 @@ We wish you a successful and rewarding journey with our organization.
 
     // Prepare the email message options.
     const mailOptions = {
-      from: "support@tecstaq.com", // Sender address from environment variables.
+      from: process.env.USER, // Sender address from environment variables.
       to: `${email_id}`, // Recipient's name and email address."sushantsjamdade@gmail.com",
       // bcc: ["sushantsjamdade@gmail.com"],
       subject: "Welcome to HRMS – Your HRMS Login Details", // Subject line.
@@ -540,7 +539,7 @@ const onChangePassword = async (req, res) => {
   }
 };
 
-//send otp
+//send otp(for change password)
 const sendOtp = async (req, res) => {
   await Promise.all([
     body("email_id")
@@ -616,7 +615,7 @@ const sendOtp = async (req, res) => {
 
     // Prepare the email message options.
     const mailOptions = {
-      from: "support@tecstaq.com", // Sender address from environment variables.
+      from: process.env.USER, // Sender address from environment variables.
       to: `${email_id}`, // Recipient's name and email address.
       //    replyTo: "rohitlandage86@gmail.com", // Sets the email address for recipient responses.
       //  bcc: "sushantsjamdade@gmail.com",
@@ -852,7 +851,7 @@ const forgotPassword = async (req, res) => {
     if (connection) connection.release();
   }
 };
-
+//?
 const sendOtpIfEmailIdNotExists = async (req, res) => {
   //run validation
   await Promise.all([
@@ -923,7 +922,7 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
 
     // Email options
     const mailOptions = {
-      from: "support@tecstaq.com",
+      from: "hrms@tecstaq.com",
       to: email_id,
       // replyTo: "rohitlandage86@gmail.com",
       subject: "Your Task Registration OTP",

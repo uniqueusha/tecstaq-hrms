@@ -1,5 +1,20 @@
+const { log } = require('console');
 const pool = require('../../db');
+const nodemailer = require('nodemailer')
 const { body, param, validationResult } = require('express-validator');
+require('dotenv').config();
+const transporter = nodemailer.createTransport({
+    host: process.env.HOST,
+    port: 587,
+    secure: false,
+    auth: {
+        user: process.env.USER,
+        pass: process.env.PASSWORD,
+    },
+    tls: {
+        rejectUnauthorized: false,
+    },
+});
 const error422 = (message, res) => {
   return res.status(422).json({
     status: 422,
@@ -213,6 +228,125 @@ const autoCheckOut = async (req, res) => {
     if (connection) connection.release();
   }
 };
+//birth send email
+const empEmail =async (req, res) => {
+    const newDate = new Date();
+const todayDate = newDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    // attempt to obtain a database connection
+    let connection = await pool.getConnection();
+
+    try{
+       
+        let getQuery = `SELECT * FROM employee WHERE DATE_FORMAT(dob, '%d/%m') = DATE_FORMAT(?, '%d/%m')`;
+        let [result] = await connection.query(getQuery,[todayDate]);
+        let first_name = result[0].first_name;
+
+        let full_name = result[0].title +" "+ result[0].first_name +" "+ result[0].last_name;
+        const empMessage = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+        <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Request</title>
+</head>
+<body style="margin:0; padding:20; background-color:#f4f4f4; font-family: Arial, sans-serif; ">
+
+    <table align="center" width="70%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4; padding:20px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fff; border-radius:8px; overflow:hidden;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding:20px; background-color:#F3F6FF">
+                            <img src="https://hrms.tecstaq.com:3000/assets/images/Empflowhr_Logo.png" alt="Company Logo" width="180" />
+                        </td>
+                    </tr>
+      
+                    <!-- Content Box -->
+                    <tr width="200" height="100" style="background-image: url('http://localhost:3000/assets/images/cake.png'); 
+           background-size: cover; 
+           background-position: center; 
+           background-repeat: no-repeat;">
+                        <td style="padding:30px;">
+                            <h2 style="margin:0; color:#fff;">
+                             Happy Birthday ${first_name}</h2>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="padding: 20px 40px 0;">
+                            <h3>Dear ${full_name}, <h3>
+                        </td>
+                    </tr>
+                   
+                        <tr>
+                            <td style="padding:10px 40px;">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F6FF;border-radius:10px;color:#596780;">
+                                    <tr>
+                                        <td width="70" style="padding:20px;">
+                                            <p>May your birthday and every day be filled with the warmth of sunshine, the happiness of smiles, the sounds of laughter, the feeling of love and the sharing of good cheer.</p>
+                                            <p>Have a wonderful, happy, healthy birthday now and forever.<strong>Happy Birthday!</strong></P>
+                                            <p>Thank you.</p>
+                                            <p>Regards<br>
+                                            TECSTAQ</p>
+                                        </td>
+                                    </tr>   
+                                </table>
+                            </td>
+                        </tr>
+    
+                    <tr>
+                        <td align="center" style="padding:20px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="border-top:1px solid #dcdcdc; font-size:0; line-height:0;">&nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="padding:10px 0; font-family:Arial, sans-serif; font-size:12px; color:#7a7a7a;">
+                                        This is automated message, please do not reply to this email.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
+`;
+
+
+        const empMailOptions  = {
+            from: process.env.USER, // Sender address from environment variables.
+            to: result.map(item => item.email_id),
+            // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
+            subject: `Leave Request created Successfully`,
+            html: empMessage,
+        };
+        return res.status(200).send(empMessage);
+        // await transporter.sendMail(empMailOptions);
+        // return res.status(200).json({
+        //     status: 200,
+        //     message: "Leave Request created Successfully"
+        // })
+    } catch (error ) {
+      console.log(error);
+      
+        await connection.rollback();
+        return error500(error, res);
+    } finally {
+        if (connection) await connection.release()
+    }
+
+}
 module.exports = {
-  autoCheckOut
+  autoCheckOut,
+  empEmail
 };

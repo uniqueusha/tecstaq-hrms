@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require("nodemailer");
 const xlsx = require("xlsx");
+require('dotenv').config();
 const error422 = (message, res) => {
     return res.status(422).json({
         status: 422,
@@ -17,18 +18,13 @@ const error500 = (error, res) => {
         error: error
     })
 }
-const environment = {
-    HOST: "smtp-mail.outlook.com",
-    USER: "hrms@tecstaq.com",
-    PASSWORD: "R@243408380075av",
-}
 const transporter = nodemailer.createTransport({
-    host: environment.HOST,
+    host: process.env.HOST,
     port: 587,
     secure: false,
     auth: {
-        user: environment.USER,
-        pass: environment.PASSWORD,
+        user: process.env.USER,
+        pass: process.env.PASSWORD,
     },
     tls: {
         rejectUnauthorized: false,
@@ -148,7 +144,7 @@ const createLeaveRequest = async (req, res) => {
         let [hrResult] = await connection.query(hrQuery);
         // Prepare the employee email message options.
         const employeeMailOptions = {
-            from: environment.USER,
+            from: process.env.USER,
             to: employeeDetails.email,
             subject: `Leave request has been successfully submitted`,
             cc: "rohitlandage86@gmail.com",
@@ -156,14 +152,14 @@ const createLeaveRequest = async (req, res) => {
         };
         // Prepare the RM email message options.
         const reportManagerMailOptions = {
-            from: environment.USER,
+            from: process.env.USER,
             to: employeeDetails.reporting_manager_email_id,
             subject: `A New leave request has been submitted and is pending for approval`,
             cc: "rohitlandage86@gmail.com",
             html: reportManagerMessage,
         };
         const hrMailOptions = {
-            from: environment.USER,
+            from: process.env.USER,
             to: hrResult.map(item => item.email_id),
             subject: `A New leave request has been submitted and is pending for approval`,
             cc: "rohitlandage86@gmail.com",
@@ -478,7 +474,7 @@ const updateLeaveRequest = async (req, res) => {
 
         // Prepare the employee email message options.
         const employeeMailOptions = {
-            from: environment.USER,
+            from: process.env.USER,
             to: employeeDetails.email,
             subject: `Leave request has been updated`,
             cc: "rohitlandage86@gmail.com",
@@ -486,14 +482,14 @@ const updateLeaveRequest = async (req, res) => {
         };
         // Prepare the RM email message options.
         const reportManagerMailOptions = {
-            from: environment.USER,
+            from: process.env.USER,
             to: employeeDetails.reporting_manager_email_id,
             subject: `The leave request has been modified and is awaiting approval.`,
             cc: "rohitlandage86@gmail.com",
             html: reportManagerMessage,
         };
         const hrMailOptions = {
-            from: environment.USER,
+            from: process.env.USER,
             to: hrResult.map(item => item.email_id),
             subject: `The leave request has been modified and is awaiting approval.`,
             cc: "rohitlandage86@gmail.com",
@@ -639,7 +635,7 @@ const approveLeaveRequest = async (req, res) => {
         let [hrResult] = await connection.query(hrQuery);
         // Prepare the employee email message options.
         const employeeMailOptions = {
-            from: environment.USER,
+            from: process.env.USER,
             to: leaveRequest.email,
             subject: `Leave request has been '${status}' `,
             cc: "rohitlandage86@gmail.com",
@@ -647,14 +643,14 @@ const approveLeaveRequest = async (req, res) => {
         };
         // Prepare the RM email message options.
         const reportManagerMailOptions = {
-            from: environment.USER,
+            from: process.env.USER,
             to: leaveRequest.reporting_manager_id,
             subject: `Employee leave request has been '${status}' `,
             cc: "rohitlandage86@gmail.com",
             html: leaveEmailTemplateReportingManagerMessage,
         };
         const hrMailOptions = {
-            from: environment.USER,
+            from: process.env.USER,
             to: hrResult.map(item => item.email_id),
             subject: `Employee leave request has been '${status}' `,
             cc: "rohitlandage86@gmail.com",

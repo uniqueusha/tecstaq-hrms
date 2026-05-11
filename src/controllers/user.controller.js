@@ -5,19 +5,13 @@ const fs = require("fs");
 const nodemailer = require("nodemailer");
 const { body, param, validationResult } = require("express-validator");
 const path = require("path");
-
-const environment = {
-    HOST: "smtp-mail.outlook.com",
-    USER: "hrms@tecstaq.com",
-    PASSWORD: "R@243408380075av",
-}
 const transporter = nodemailer.createTransport({
-    host: environment.HOST,
+    host: process.env.HOST,
     port: 587,
     secure: false,
     auth: {
-        user: environment.USER,
-        pass: environment.PASSWORD,
+        user: process.env.USER,
+        pass: process.env.PASSWORD,
     },
     tls: {
         rejectUnauthorized: false,
@@ -175,7 +169,7 @@ We wish you a successful and rewarding journey with our organization.
 
     // Prepare the email message options.
     const mailOptions = {
-      from: "hrms@tecstaq.com", // Sender address from environment variables.
+      from: process.env.USER, // Sender address from environment variables.
       to: `${email_id}`, // Recipient's name and email address."sushantsjamdade@gmail.com",
       // bcc: ["sushantsjamdade@gmail.com"],
       subject: "Welcome to HRMS – Your HRMS Login Details", // Subject line.
@@ -621,7 +615,7 @@ const sendOtp = async (req, res) => {
 
     // Prepare the email message options.
     const mailOptions = {
-      from: "hrms@tecstaq.com", // Sender address from environment variables.
+      from: process.env.USER, // Sender address from environment variables.
       to: `${email_id}`, // Recipient's name and email address.
       //    replyTo: "rohitlandage86@gmail.com", // Sets the email address for recipient responses.
       //  bcc: "sushantsjamdade@gmail.com",

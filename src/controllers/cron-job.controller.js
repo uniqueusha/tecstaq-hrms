@@ -1,18 +1,15 @@
 const { log } = require('console');
 const pool = require('../../db');
+const nodemailer = require('nodemailer')
 const { body, param, validationResult } = require('express-validator');
-const environment = {
-    HOST: "smtp-mail.outlook.com",
-    USER: "hrms@tecstaq.com",
-    PASSWORD: "R@243408380075av",
-}
+require('dotenv').config();
 const transporter = nodemailer.createTransport({
-    host: environment.HOST,
+    host: process.env.HOST,
     port: 587,
     secure: false,
     auth: {
-        user: environment.USER,
-        pass: environment.PASSWORD,
+        user: process.env.USER,
+        pass: process.env.PASSWORD,
     },
     tls: {
         rejectUnauthorized: false,
@@ -327,7 +324,7 @@ const todayDate = newDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
 
         const empMailOptions  = {
-            from: "hrms@tecstaq.com", // Sender address from environment variables.
+            from: process.env.USER, // Sender address from environment variables.
             to: result.map(item => item.email_id),
             // to: [created_email_id, email_id, customer_email_id].filter(Boolean), 
             subject: `Leave Request created Successfully`,

@@ -197,7 +197,7 @@ const getLeaveRequests = async (req, res) => {
         await connection.beginTransaction();
 
         let getQuery = `SELECT lq.*, e.first_name, e.last_name, em.first_name AS approver_first_name , em.last_name AS approver_last_name,
-        lt.leave_type_name, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
+        lt.leave_type_name, lt.leave_type_code, e.departments_id, e.company_id, es.shift_type_header_id, c.name AS company_name, d.department_name, sth.shift_type_name
         FROM leave_request lq
         LEFT JOIN employee e ON e.employee_id = lq.employee_id
         LEFT JOIN employee em ON em.employee_id = lq.approver_id
@@ -582,6 +582,15 @@ const approveLeaveRequest = async (req, res) => {
         used_days = parseFloat(used_days) + parseFloat(leaveRequest.total_days);
         let remaining_days = allocated_days - used_days
         if (status == 'Approved') {
+            //get all leave requested days
+            let getAllLeaveRequestedDaysQuery = `SELECT * FROM leave_request_footer WHERE leave_request_id = ${leave_request_id}`
+            let [allLeaveRequestedDays] = await connection.query(getAllLeaveRequestedDaysQuery)
+            for (let index = 0; index < allLeaveRequestedDays.length; index++) {
+                const element = allLeaveRequestedDays[index];
+                const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?)`;
+                await connection.query(insertAttendanceQuery, [employee_code, employee_name, element.leave_date, 'PL', 'NULL', 'NULL', 'leave-request']);
+
+            }
             if (leaveBalance) {
                 let updateLeaveBalanceQuery = `UPDATE leave_balance 
                 SET allocated_days = ?, used_days = ?, remaining_days = ? WHERE leave_balance_id = ?`
@@ -591,6 +600,18 @@ const approveLeaveRequest = async (req, res) => {
                 await connection.query(insertLeaveBalanceQuery, [leaveRequest.employee_id, leaveRequest.leave_type_id, allocated_days, used_days, remaining_days, current_year])
             }
             
+        }
+        //leave request cancelled
+        if (status === 'Cancelled') {
+            const now = new Date();
+            const startDate = new Date(leaveRequest.start_date);
+            // Remove time part (set to midnight)
+            now.setHours(0, 0, 0, 0);
+            startDate.setHours(0, 0, 0, 0);
+            // Allow cancellation only for future dates (not past)
+            if (startDate < now) {
+                return error422("Leave requests cannot be cancelled for past dates.", res);
+            }
         }
         let updateLeaveRequestQuery = `UPDATE leave_request
         SET status = ?, approved_date = ? WHERE leave_request_id = ?`;

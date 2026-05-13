@@ -8,7 +8,7 @@ const error422 = (message, res) => {
     return res.status(422).json({
         status: 422,
         message: message
-    })  
+    })
 }
 const error500 = (error, res) => {
     console.log(error);
@@ -63,10 +63,15 @@ const createLeaveRequest = async (req, res) => {
     try {
         await connection.beginTransaction()
         //is employee
-        let employeeQuery = `SELECT CONCAT(e.title, ' ', e.first_name, ' ', e.last_name) AS full_name, e.email, e.employee_code, ee.email AS reporting_manager_email_id  
+        let employeeQuery = `SELECT CONCAT(e.title, ' ', e.first_name, ' ', e.last_name) AS full_name, e.email, e.employee_code, ee.email AS reporting_manager_email_id,
+        st.shift_type_name, st.start_time  
         FROM employee e 
         LEFT JOIN employee ee
         ON ee.employee_id = e.reporting_manager_id
+        LEFT JOIN employee_shift es
+        ON es.employee_id = e.employee_id
+        LEFT JOIN shift_type_header st
+        ON st.shift_type_header_id = es.shift_type_header_id
         WHERE e.employee_id = ?`;
         let [employeeResult] = await connection.query(employeeQuery, [employee_id])
         if (employeeResult.length == 0) {
@@ -93,6 +98,29 @@ const createLeaveRequest = async (req, res) => {
                 return error422("Your leave limit is over.", res);
             }
         }
+                const now = new Date();
+        // Shift start time
+        const [shiftHour, shiftMinute, shiftSecond] = employeeDetails.start_time.split(":").map(Number);
+        // Today date string
+        const todayStr = now.toISOString().split("T")[0];
+        // Difference in days
+        const today = new Date(todayStr);
+        const leaveDate = new Date(start_date);
+        const diffDays = (leaveDate - today) / (1000 * 60 * 60 * 24);
+        // Today's shift start time
+        const todayShiftStart = new Date(now);
+        todayShiftStart.setHours(shiftHour, shiftMinute, shiftSecond, 0);
+        if (diffDays < 0) { //Past date not allowed
+            return error422("Past date leave is not allowed.", res);
+        } else if (diffDays === 0) { // Same-day leave not allowed
+            return error422("Same-day leave is not allowed.", res);
+        } else if (diffDays === 1 && now > todayShiftStart) { // Allowed only before shift start
+            return error422("Leave request must be applied at least 24 hours in advance.", res);
+        } else if (total_days >= 3 && total_days <= 15 && diffDays < 7 ) { // then apply before 7 days
+            return error422("For leave requests between 3 and 15 days, apply at least 7 days in advance.",res);
+        }
+
+        return error422(employeeDetails, res)
         //insert into leave request
         let leaveRequestQuery = " INSERT INTO leave_request (employee_id, leave_type_id, start_date, end_date, total_days, reason, approver_id) VALUES (?,?,?,?,?,?,?)";
         let leaveRequest = await connection.query(leaveRequestQuery, [employee_id, leave_type_id, start_date, end_date, total_days, reason, approver_id])
@@ -563,8 +591,8 @@ const approveLeaveRequest = async (req, res) => {
             return error422('Leave Request Not Found', res)
         }
         if (status == leaveRequest.status) {
-                return error422("This leave request is already " + status, res)
-            }
+            return error422("This leave request is already " + status, res)
+        }
         let current_year = new Date().getFullYear();
         //is leave balance
         let isLeaveBalanceQuery = "SELECT * FROM leave_balance WHERE leave_type_id = ? AND employee_id = ? AND year = ?";
@@ -599,7 +627,7 @@ const approveLeaveRequest = async (req, res) => {
                 let insertLeaveBalanceQuery = "INSERT INTO leave_balance (employee_id, leave_type_id, allocated_days, used_days, remaining_days, year ) VALUES (?,?,?,?,?,?)";
                 await connection.query(insertLeaveBalanceQuery, [leaveRequest.employee_id, leaveRequest.leave_type_id, allocated_days, used_days, remaining_days, current_year])
             }
-            
+
         }
         //leave request cancelled
         if (status === 'Cancelled') {
@@ -631,8 +659,8 @@ const approveLeaveRequest = async (req, res) => {
             });
         };
         //action by 
-        let getActionByQuery ="SELECT CONCAT(first_name,' ',last_name,' (',role,')') AS full_name FROM users WHERE employee_id = ?";
-        let [getActionByResult] = await connection.query(getActionByQuery,[employee_id]);
+        let getActionByQuery = "SELECT CONCAT(first_name,' ',last_name,' (',role,')') AS full_name FROM users WHERE employee_id = ?";
+        let [getActionByResult] = await connection.query(getActionByQuery, [employee_id]);
 
         const formattedStartDate = formatDate(leaveRequest.start_date);
         const formattedEndDate = formatDate(leaveRequest.end_date);

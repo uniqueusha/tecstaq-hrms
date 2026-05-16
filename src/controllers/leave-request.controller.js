@@ -64,7 +64,7 @@ const createLeaveRequest = async (req, res) => {
         await connection.beginTransaction()
         //is employee
         let employeeQuery = `SELECT CONCAT(e.title, ' ', e.first_name, ' ', e.last_name) AS full_name, e.email, e.employee_code, ee.email AS reporting_manager_email_id,
-        st.shift_type_name, st.start_time  
+        st.shift_type_name, st.start_time, et.employment_type 
         FROM employee e 
         LEFT JOIN employee ee
         ON ee.employee_id = e.reporting_manager_id
@@ -72,6 +72,8 @@ const createLeaveRequest = async (req, res) => {
         ON es.employee_id = e.employee_id
         LEFT JOIN shift_type_header st
         ON st.shift_type_header_id = es.shift_type_header_id
+        LEFT JOIN employment_type et
+        ON et.employment_type_id = e.employment_type_id
         WHERE e.employee_id = ?`;
         let [employeeResult] = await connection.query(employeeQuery, [employee_id])
         if (employeeResult.length == 0) {
@@ -86,7 +88,7 @@ const createLeaveRequest = async (req, res) => {
         }
         let leave_type = isLeaveTypeResult[0];
         if (parseFloat(leave_type.number_of_days) < parseFloat(total_days)) {
-            return error422("Leave limit is over.", res);
+            return error422(`${leave_type.leave_type_name} limit is over.`, res);
         }
         let current_year = new Date().getFullYear();
         //is leave balance
@@ -95,10 +97,28 @@ const createLeaveRequest = async (req, res) => {
         let leaveBalance = isLeaveBalanceResult[0];
         if (leaveBalance) {
             if (parseFloat(leaveBalance.remaining_days) < parseFloat(total_days)) {
-                return error422("Your leave limit is over.", res);
+                return error422(`Your ${leave_type.leave_type_name} limit is over.`, res);
             }
         }
-                const now = new Date();
+        //get total working days
+        let getWorkingDaysQuery = `SELECT status FROM attendance_master WHERE status = 'P' AND employee_code = ${employeeDetails.employee_code}`
+        let [getWorkingDaysResult] = await connection.query(getWorkingDaysQuery);
+        // Get current month leave count
+        const currentMonth = new Date(start_date).getMonth() + 1;
+        const currentYear = new Date(start_date).getFullYear();
+
+        let getMonthlyLeaveQuery = `
+            SELECT COUNT(*) AS total_leave 
+            FROM leave_request_footer lf 
+            LEFT JOIN leave_request l 
+            ON lf.leave_request_id = l.leave_request_id 
+            WHERE l.employee_id = ? AND l.status IN ('Pending', 'Approved') AND MONTH(lf.leave_date) = ? AND YEAR(lf.leave_date) = ?;
+        `;
+        let [monthlyLeaveResult] = await connection.query(getMonthlyLeaveQuery, [employee_id, currentMonth, currentYear]);
+
+
+
+        const now = new Date();
         // Shift start time
         const [shiftHour, shiftMinute, shiftSecond] = employeeDetails.start_time.split(":").map(Number);
         // Today date string
@@ -110,17 +130,33 @@ const createLeaveRequest = async (req, res) => {
         // Today's shift start time
         const todayShiftStart = new Date(now);
         todayShiftStart.setHours(shiftHour, shiftMinute, shiftSecond, 0);
+        if (!employeeDetails.employment_type) return error422("Sorry, Your employment type not set", res);
         if (diffDays < 0) { //Past date not allowed
             return error422("Past date leave is not allowed.", res);
-        } else if (diffDays === 0) { // Same-day leave not allowed
-            return error422("Same-day leave is not allowed.", res);
-        } else if (diffDays === 1 && now > todayShiftStart) { // Allowed only before shift start
-            return error422("Leave request must be applied at least 24 hours in advance.", res);
-        } else if (total_days >= 3 && total_days <= 15 && diffDays < 7 ) { // then apply before 7 days
-            return error422("For leave requests between 3 and 15 days, apply at least 7 days in advance.",res);
         }
+        if (leave_type.leave_type_code == 'CL') {
+            if (employeeDetails.employment_type.toLowerCase().trim() != 'permanent') return error422(`Sorry, you are not eligible to apply for ${leave_type.leave_type_name}.`, res);
+            if (getWorkingDaysResult.length < 2) return error422("Sorry, you are eligible to apply for this leave only after completing a minimum of 280 working days." + getWorkingDaysResult.length, res);
+            if (diffDays === 0) { // Same-day leave not allowed
+                return error422("Same-day leave is not allowed.", res);
+            } else if (diffDays === 1 && now > todayShiftStart) { // Allowed only before shift start
+                return error422("Leave request must be applied at least 24 hours in advance.", res);
+            } else if (total_days >= 3 && diffDays < 7) { // then apply before 7 days
+                return error422("For leave requests greater than 3 days, apply at least 7 days in advance.", res);
+            } else if (total_days < 3) {
+                if (monthlyLeaveResult[0].total_leave + total_days > 3) {
+                    return error422(`You can apply for a maximum of 3 leave requests in a month.`, res)
+                }
+            }
+        }
+        if (leave_type.leave_type_code == 'SL') {
+            if (employeeDetails.employment_type.toLowerCase().trim() != 'permanent') return error422(`Sorry, you are not eligible to apply for ${leave_type.leave_type_name}.`, res);
+        }
+        if (leave_type.leave_type_code == 'ML') {
+            if (getWorkingDaysResult.length < 80) return error422("Sorry, you are eligible to apply for this leave only after completing a minimum of 80 working days." + getWorkingDaysResult.length, res);
+        }
+        // return error422(employeeDetails, res)
 
-        return error422(employeeDetails, res)
         //insert into leave request
         let leaveRequestQuery = " INSERT INTO leave_request (employee_id, leave_type_id, start_date, end_date, total_days, reason, approver_id) VALUES (?,?,?,?,?,?,?)";
         let leaveRequest = await connection.query(leaveRequestQuery, [employee_id, leave_type_id, start_date, end_date, total_days, reason, approver_id])
@@ -615,8 +651,9 @@ const approveLeaveRequest = async (req, res) => {
             let [allLeaveRequestedDays] = await connection.query(getAllLeaveRequestedDaysQuery)
             for (let index = 0; index < allLeaveRequestedDays.length; index++) {
                 const element = allLeaveRequestedDays[index];
+                let leave_status = element.type == 'Full-day' ? 'PL' : 'H';
                 const insertAttendanceQuery = `INSERT INTO attendance_master ( employee_code, employee_name, attendance_date, status, in_time, out_time, medium) VALUES ( ?, ?, ?, ?, ?, ?, ?)`;
-                await connection.query(insertAttendanceQuery, [employee_code, employee_name, element.leave_date, 'PL', 'NULL', 'NULL', 'leave-request']);
+                await connection.query(insertAttendanceQuery, [employee_code, employee_name, element.leave_date, leave_status, 'NULL', 'NULL', 'leave-request']);
 
             }
             if (leaveBalance) {
@@ -705,9 +742,9 @@ const approveLeaveRequest = async (req, res) => {
             cc: "rohitlandage86@gmail.com",
             html: leaveEmailTemplateHrMessage,
         };
-        await transporter.sendMail(employeeMailOptions);
-        await transporter.sendMail(reportManagerMailOptions);
-        await transporter.sendMail(hrMailOptions);
+        // await transporter.sendMail(employeeMailOptions);
+        // await transporter.sendMail(reportManagerMailOptions);
+        // await transporter.sendMail(hrMailOptions);
         return res.status(200).json({
             status: 200,
             message: `Leave Request '${status}' successfully`,
@@ -725,10 +762,12 @@ const getEmployeeLeaveTypes = async (req, res) => {
     if (!employee_id) {
         return error422("Employee id is required.", res);
     }
+    //get employee details 
+    let getEmployeeQuery = `SELECT company_id FROM employee WHERE employee_id = ${employee_id}`;
+    let [employeeResult] = await pool.query(getEmployeeQuery)
 
-    let connection;
+    let connection = await pool.getConnection();
     try {
-        connection = await pool.getConnection();
         await connection.beginTransaction();
 
         const getLeaveTypeQuery = `
@@ -737,8 +776,8 @@ const getEmployeeLeaveTypes = async (req, res) => {
       FROM leave_type_master ltm
       LEFT JOIN leave_request lr 
           ON ltm.leave_type_master_id = lr.leave_type_id
-          AND lr.employee_id = ?
-      GROUP BY 
+          AND lr.employee_id = ? WHERE 1 AND ltm.company_id = ${employeeResult[0].company_id}
+          GROUP BY 
           ltm.leave_type_master_id, 
           ltm.policy_id, 
           ltm.company_id, 
@@ -749,7 +788,6 @@ const getEmployeeLeaveTypes = async (req, res) => {
           ltm.status
       ORDER BY ltm.leave_type_name;
     `;
-
         const [leaveTypeResult] = await connection.query(getLeaveTypeQuery, [employee_id]);
         await connection.commit();
 

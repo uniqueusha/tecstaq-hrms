@@ -128,7 +128,7 @@ const prInitialize = async (req, res) => {
             ON ct.component_type_id = sc.component_type_id
             LEFT JOIN calculation_type cat
             ON cat.calculation_type_id = sc.calculation_type_id
-            WHERE esmf.  = ? ORDER BY ssc.calculation_order ASC`;
+            WHERE esmf.employee_salary_id  = ? ORDER BY ssc.calculation_order ASC`;
             let getSalaryMappingFooterResult = await connection.query(
                 getSalaryMappingFooterQuery,
                 [element.employee_salary_id],
@@ -206,10 +206,13 @@ const prInitialize = async (req, res) => {
             const totalMonthDays = getWorkingDays(start, end, working_days);
 
             // 2. Count Present Days from attendance details
-            // Assuming 'P' is Present. You can also handle 'HD' (Half Day) as 0.5
-            const presentDays = getAttendanceResult[0].filter(
-                (att) => att.status === "P" || att.status === "PL"
-            ).length;
+            let presentDays = getAttendanceResult[0].reduce((total, att) => {
+                // Full presentd
+                if (att.status === "P" || att.status === "PL") return total + 1;
+                // Half day
+                if (att.status === "H") return total + 0.5;
+                return total;
+            }, 0);
             // 3. Per Day Calculations (Based on Fixed CTC)
             const perDayGross = totalEarnings / totalMonthDays;
             // actual earning
@@ -267,8 +270,8 @@ const prInitialize = async (req, res) => {
             };
             payrollEmployeeData.push(payrollData);
         }
-        // await connection.rollback();
-        await connection.commit();
+        await connection.rollback();
+        // await connection.commit();
         return res.status(200).json({
             status: 200,
             message: "Pay roll initialize successfully.",
